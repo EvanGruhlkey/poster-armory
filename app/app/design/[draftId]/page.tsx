@@ -138,29 +138,51 @@ export default function CustomizePosterPage() {
         throw new Error(msg);
       }
 
-      const { jobId } = await res.json();
-      toast.success("Preview generation started!");
+      const { jobId, cached, status: cachedStatus } = await res.json();
 
-      pollRef.current = setInterval(async () => {
+      // Cached + already done → fetch the existing signed URL once and skip
+      // polling so the user sees the preview instantly without a 3s gap.
+      if (cached && cachedStatus === "done") {
+        const r = await fetch(`/api/jobs/${jobId}`);
+        if (r.ok) {
+          const data = await r.json();
+          setPreviewUrl(data.downloadUrls?.preview || null);
+        }
+        setPreviewLoading(false);
+        toast.success("Showing your existing preview for this design.");
+        return;
+      }
+
+      toast.success(
+        cached
+          ? "An earlier preview for this design is still rendering — picking it up."
+          : "Preview generation started!"
+      );
+
+      // Fire one immediate poll so cached-pending and brand-new jobs both
+      // resolve as fast as the worker finishes, instead of always waiting 3s.
+      const pollOnce = async () => {
         try {
           const r = await fetch(`/api/jobs/${jobId}`);
           if (!r.ok) return;
-          const status = await r.json();
-          if (status.status === "done") {
+          const data = await r.json();
+          if (data.status === "done") {
             if (pollRef.current) clearInterval(pollRef.current);
             pollRef.current = null;
-            setPreviewUrl(status.downloadUrls?.preview || null);
+            setPreviewUrl(data.downloadUrls?.preview || null);
             setPreviewLoading(false);
-          } else if (status.status === "failed") {
+          } else if (data.status === "failed") {
             if (pollRef.current) clearInterval(pollRef.current);
             pollRef.current = null;
-            toast.error(status.error || "Preview generation failed");
+            toast.error(data.error || "Preview generation failed");
             setPreviewLoading(false);
           }
         } catch {
           // network blip, keep polling
         }
-      }, 3000);
+      };
+      pollOnce();
+      pollRef.current = setInterval(pollOnce, 3000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       toast.error(msg);
@@ -199,8 +221,16 @@ export default function CustomizePosterPage() {
         throw new Error(err.error || "Failed to create job");
       }
 
-      const { jobId } = await res.json();
-      toast.success("Poster generation started! Redirecting to download page...");
+      const { jobId, cached, status: cachedStatus } = await res.json();
+
+      if (cached && cachedStatus === "done") {
+        toast.success("Already generated — opening your download page.");
+      } else if (cached) {
+        toast.success("Picking up your in-flight render.");
+      } else {
+        toast.success("Poster generation started! Redirecting to download page...");
+      }
+
       const params = new URLSearchParams();
       if (previewUrl) params.set("preview", previewUrl);
       params.set("bg", currentStyle.bgColor);

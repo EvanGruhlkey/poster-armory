@@ -37,39 +37,69 @@ export async function POST(request: Request) {
     const configHash = computeConfigHash(config);
     const admin = createAdminClient();
 
-    // Dedup: only return cached output for THIS user's prior completed job.
-    // Cross-user dedup is a quota-bypass: anyone could resubmit a popular
-    // config_hash and skip the quota counter, since this returns before the
-    // quota check. Restrict to the calling user and only short-circuit when a
-    // poster row already exists for them (so the user truly "already paid"
-    // for this output and we're just rehydrating their library entry).
-    if (!is_preview) {
+    // Dedup: never re-render or re-charge a user for the same config. Match
+    // only the calling user (cross-user reuse would bypass quota), the same
+    // is_preview kind (preview and download produce different files), and
+    // pick the most recent job in any non-failed state.
+    //
+    //  - status='done' on the matching job → return its jobId; the worker
+    //    already rendered the assets and we just rehydrate the library row
+    //    if it's missing (e.g. user deleted from library and is redownloading).
+    //  - status='queued' or 'running' → an earlier click is still in flight;
+    //    return the same jobId so the client polls the existing job rather
+    //    than creating a second one (rage-click double-charge protection).
+    {
       const { data: existing } = await admin
         .from("poster_jobs")
-        .select("id, output")
+        .select("id, status, output")
         .eq("user_id", user.id)
         .eq("config_hash", configHash)
-        .eq("status", "done")
-        .eq("is_preview", false)
+        .eq("is_preview", is_preview)
+        .in("status", ["queued", "running", "done"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (existing?.output) {
-        const { data: existingPoster } = await admin
-          .from("posters")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("job_id", existing.id)
-          .limit(1)
-          .maybeSingle();
+      if (existing) {
+        if (existing.status === "done") {
+          // Ensure the library record exists for downloads. Previews don't
+          // get a posters row by design — the library only tracks downloads.
+          if (!is_preview && existing.output) {
+            const { data: existingPoster } = await admin
+              .from("posters")
+              .select("id")
+              .eq("user_id", user.id)
+              .eq("job_id", existing.id)
+              .limit(1)
+              .maybeSingle();
 
-        if (existingPoster) {
+            if (!existingPoster) {
+              await admin.from("posters").insert({
+                user_id: user.id,
+                job_id: existing.id,
+                title: config.title || config.city,
+                subtitle: config.subtitle || null,
+                location_text: `${config.city}, ${config.country}`,
+                config,
+                config_hash: configHash,
+                storage_paths: existing.output,
+              });
+            }
+          }
+
           return NextResponse.json({
             jobId: existing.id,
             cached: true,
+            status: "done",
           });
         }
+
+        // Job is still queued/running — frontend will poll the same jobId.
+        return NextResponse.json({
+          jobId: existing.id,
+          cached: true,
+          status: "pending",
+        });
       }
     }
 
