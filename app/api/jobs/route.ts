@@ -37,33 +37,39 @@ export async function POST(request: Request) {
     const configHash = computeConfigHash(config);
     const admin = createAdminClient();
 
-    // Check for existing completed job with same config hash (dedup)
+    // Dedup: only return cached output for THIS user's prior completed job.
+    // Cross-user dedup is a quota-bypass: anyone could resubmit a popular
+    // config_hash and skip the quota counter, since this returns before the
+    // quota check. Restrict to the calling user and only short-circuit when a
+    // poster row already exists for them (so the user truly "already paid"
+    // for this output and we're just rehydrating their library entry).
     if (!is_preview) {
       const { data: existing } = await admin
         .from("poster_jobs")
         .select("id, output")
+        .eq("user_id", user.id)
         .eq("config_hash", configHash)
         .eq("status", "done")
         .eq("is_preview", false)
+        .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (existing?.output) {
-        await admin.from("posters").insert({
-          user_id: user.id,
-          job_id: existing.id,
-          title: config.title || config.city,
-          subtitle: config.subtitle || null,
-          location_text: `${config.city}, ${config.country}`,
-          config,
-          config_hash: configHash,
-          storage_paths: existing.output,
-        });
+        const { data: existingPoster } = await admin
+          .from("posters")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("job_id", existing.id)
+          .limit(1)
+          .maybeSingle();
 
-        return NextResponse.json({
-          jobId: existing.id,
-          cached: true,
-        });
+        if (existingPoster) {
+          return NextResponse.json({
+            jobId: existing.id,
+            cached: true,
+          });
+        }
       }
     }
 
