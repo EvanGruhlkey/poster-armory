@@ -32,6 +32,26 @@ import {
   type PlanTier,
 } from "@/lib/plan-config";
 
+const PREVIEW_STAGES = [
+  { threshold: 0, label: "Waiting for available worker..." },
+  { threshold: 10, label: "Job picked up, initializing..." },
+  { threshold: 25, label: "Fetching map data from OpenStreetMap..." },
+  { threshold: 45, label: "Processing roads and features..." },
+  { threshold: 65, label: "Rendering map layers..." },
+  { threshold: 80, label: "Applying theme and styling..." },
+  { threshold: 92, label: "Uploading preview..." },
+];
+
+function getPreviewStageLabel(progress: number): string {
+  let label = PREVIEW_STAGES[0].label;
+  for (const stage of PREVIEW_STAGES) {
+    if (progress >= stage.threshold) label = stage.label;
+  }
+  return label;
+}
+
+type PreviewJobStatus = "queued" | "running" | null;
+
 export default function CustomizePosterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,13 +85,59 @@ export default function CustomizePosterPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewProgress, setPreviewProgress] = useState(0);
+  const [previewJobStatus, setPreviewJobStatus] =
+    useState<PreviewJobStatus>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const previewStartTime = useRef<number | null>(null);
+  const previewAnimFrame = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (previewAnimFrame.current)
+        cancelAnimationFrame(previewAnimFrame.current);
     };
   }, []);
+
+  // Smooth progress bar driven by elapsed time. Mirrors the download page:
+  // 0–10% during queued, then asymptotically approaches ~95% during running
+  // so the bar keeps moving without ever pretending to be done. Tuned for
+  // preview (~30s typical) since it only renders one small PNG, unlike the
+  // full download path which also produces a PDF and optional SVG.
+  useEffect(() => {
+    if (!previewJobStatus) {
+      if (previewAnimFrame.current) {
+        cancelAnimationFrame(previewAnimFrame.current);
+        previewAnimFrame.current = null;
+      }
+      return;
+    }
+
+    const tick = () => {
+      if (previewStartTime.current === null) return;
+      const elapsed = (Date.now() - previewStartTime.current) / 1000;
+      const target =
+        previewJobStatus === "queued"
+          ? Math.min(10, elapsed * 2)
+          : 10 + 85 * (1 - Math.exp(-elapsed / 30));
+
+      setPreviewProgress((prev) => {
+        if (prev >= 100) return 100;
+        return Math.max(prev, Math.round(target));
+      });
+
+      previewAnimFrame.current = requestAnimationFrame(tick);
+    };
+
+    previewAnimFrame.current = requestAnimationFrame(tick);
+    return () => {
+      if (previewAnimFrame.current) {
+        cancelAnimationFrame(previewAnimFrame.current);
+        previewAnimFrame.current = null;
+      }
+    };
+  }, [previewJobStatus]);
 
   useEffect(() => {
     async function loadPlan() {
@@ -106,6 +172,9 @@ export default function CustomizePosterPage() {
     }
     if (pollRef.current) clearInterval(pollRef.current);
     setPreviewLoading(true);
+    setPreviewProgress(0);
+    setPreviewJobStatus("queued");
+    previewStartTime.current = Date.now();
     try {
       const submitConfig = {
         ...config,
@@ -126,6 +195,7 @@ export default function CustomizePosterPage() {
             duration: 8000,
           });
           setPreviewLoading(false);
+          setPreviewJobStatus(null);
           return;
         }
         const msg = err.error || "Failed to create preview job";
@@ -149,6 +219,8 @@ export default function CustomizePosterPage() {
           setPreviewUrl(data.downloadUrls?.preview || null);
         }
         setPreviewLoading(false);
+        setPreviewJobStatus(null);
+        setPreviewProgress(100);
         toast.success("Showing your existing preview for this design.");
         return;
       }
@@ -171,11 +243,17 @@ export default function CustomizePosterPage() {
             pollRef.current = null;
             setPreviewUrl(data.downloadUrls?.preview || null);
             setPreviewLoading(false);
+            setPreviewJobStatus(null);
+            setPreviewProgress(100);
           } else if (data.status === "failed") {
             if (pollRef.current) clearInterval(pollRef.current);
             pollRef.current = null;
             toast.error(data.error || "Preview generation failed");
             setPreviewLoading(false);
+            setPreviewJobStatus(null);
+            setPreviewProgress(0);
+          } else if (data.status === "running" || data.status === "queued") {
+            setPreviewJobStatus(data.status);
           }
         } catch {
           // network blip, keep polling
@@ -187,6 +265,8 @@ export default function CustomizePosterPage() {
       const msg = err instanceof Error ? err.message : "Unknown error";
       toast.error(msg);
       setPreviewLoading(false);
+      setPreviewJobStatus(null);
+      setPreviewProgress(0);
     }
   }
 
@@ -498,17 +578,40 @@ export default function CustomizePosterPage() {
                   textColor={currentStyle.textColor}
                 />
               ) : previewLoading ? (
-                <div className="text-center">
+                <div className="w-full max-w-xs px-8 text-center">
                   <Loader2
-                    className="mx-auto h-10 w-10 animate-spin"
+                    className="mx-auto h-8 w-8 animate-spin"
                     style={{ color: currentStyle.textColor }}
                   />
                   <p
-                    className="mt-2 text-sm"
+                    className="mt-3 text-sm font-medium"
                     style={{ color: currentStyle.textColor }}
                   >
-                    Generating preview...
+                    Generating preview
                   </p>
+                  <div
+                    className="mt-4 h-2 w-full overflow-hidden rounded-full"
+                    style={{
+                      backgroundColor: `${currentStyle.textColor}20`,
+                    }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all duration-700 ease-out"
+                      style={{
+                        width: `${previewProgress}%`,
+                        backgroundColor: currentStyle.textColor,
+                      }}
+                    />
+                  </div>
+                  <div
+                    className="mt-2 flex items-center justify-between text-xs"
+                    style={{ color: `${currentStyle.textColor}b3` }}
+                  >
+                    <span className="truncate pr-2 text-left">
+                      {getPreviewStageLabel(previewProgress)}
+                    </span>
+                    <span className="tabular-nums">{previewProgress}%</span>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center p-8 w-full h-full">
