@@ -543,6 +543,24 @@ export default function CustomizePosterPage() {
             </Button>
           </div>
 
+          {planTier === "free" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
+              <p className="text-xs text-amber-900">
+                You're on the free plan — previews only. Upgrade to download
+                print-ready files.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-1 h-7 text-amber-900 hover:bg-amber-100 hover:text-amber-900"
+                onClick={() => router.push("/app/billing")}
+              >
+                <Crown className="mr-1 h-3 w-3" />
+                See plans
+              </Button>
+            </div>
+          )}
+
           {planTier === "none" && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
               <p className="text-sm font-medium text-amber-900">

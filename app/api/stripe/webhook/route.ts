@@ -60,12 +60,15 @@ export async function POST(request: Request) {
 
         if (alreadyFulfilled) break;
 
-        // Cancel old Stripe subscriptions and deactivate DB records
+        // Cancel old PAID Stripe subscriptions and deactivate their DB rows.
+        // The user's free sub is intentionally left active so it can serve
+        // as a permanent fallback when the new paid plan eventually ends.
         const { data: oldSubs } = await admin
           .from("subscriptions")
-          .select("stripe_sub_id")
+          .select("stripe_sub_id, plan_slug")
           .eq("user_id", userId)
-          .eq("status", "active");
+          .eq("status", "active")
+          .neq("plan_slug", "free");
 
         if (oldSubs) {
           for (const old of oldSubs) {
@@ -83,7 +86,8 @@ export async function POST(request: Request) {
           .from("subscriptions")
           .update({ status: "cancelled" })
           .eq("user_id", userId)
-          .eq("status", "active");
+          .eq("status", "active")
+          .neq("plan_slug", "free");
 
         if (session.mode === "payment") {
           const expiresAt = new Date();

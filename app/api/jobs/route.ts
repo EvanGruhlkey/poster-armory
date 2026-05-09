@@ -173,9 +173,17 @@ export async function POST(request: Request) {
 
     if (rpcError) {
       if (rpcError.message?.includes("QUOTA_EXCEEDED")) {
-        const msg =
+        // For users on a 0-quota plan (e.g. free tier downloads) "limit
+        // reached" reads as if they used something up. Tell them the truth:
+        // the feature isn't included.
+        let msg =
           rpcError.message.split("QUOTA_EXCEEDED:")[1] ||
           "Quota exceeded. Upgrade for more.";
+        if (quota === 0) {
+          msg = is_preview
+            ? "Designs aren't included in your plan. Upgrade to create designs."
+            : "Downloads aren't included in your plan. Upgrade to download.";
+        }
         return NextResponse.json({ error: msg }, { status: 403 });
       }
 
@@ -237,9 +245,14 @@ async function inlineCreateJob(
       .gte("created_at", periodStartIso);
 
     if ((count || 0) >= quota) {
-      const msg = isPreview
+      let msg = isPreview
         ? "Monthly design limit reached. Upgrade for more."
         : "Monthly download limit reached. Upgrade for more.";
+      if (quota === 0) {
+        msg = isPreview
+          ? "Designs aren't included in your plan. Upgrade to create designs."
+          : "Downloads aren't included in your plan. Upgrade to download.";
+      }
       return NextResponse.json({ error: msg }, { status: 403 });
     }
   }

@@ -94,7 +94,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Do I need a subscription?",
-    a: "You can browse the app, but generating and downloading posters requires an active plan. Pick the tier that matches how many designs and downloads you want each month.",
+    a: "No. Every account starts on the free plan, which includes 5 design previews per month so you can try the full experience. Upgrade to a paid plan whenever you want to download print-ready files.",
   },
   {
     q: "Can I use any location?",
@@ -133,6 +133,8 @@ export default function LandingPage() {
             </h1>
             <p className="text-lg text-muted-foreground">
               Create beautiful map posters in minutes.
+              <br />
+              Free to try — 5 designs every month, no credit card.
             </p>
             <ul className="space-y-2">
               {[
@@ -150,7 +152,7 @@ export default function LandingPage() {
               ))}
             </ul>
             <Button asChild size="lg" className="mt-4">
-              <Link href="/app">Create Your Poster</Link>
+              <Link href="/app">Start Free</Link>
             </Button>
           </div>
 
@@ -312,10 +314,10 @@ export default function LandingPage() {
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
           <h2 className="mb-4 text-3xl font-bold">Ready to get started?</h2>
           <p className="mb-8 text-muted-foreground">
-            Create your first map poster in minutes. No design skills needed.
+            Sign up for free and create your first map poster in minutes.
           </p>
           <Button asChild size="lg">
-            <Link href="/app">Create Your Poster</Link>
+            <Link href="/app">Start Free</Link>
           </Button>
         </div>
       </section>

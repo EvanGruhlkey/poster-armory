@@ -27,7 +27,7 @@ export async function POST() {
 
     const { data: sub } = await admin
       .from("subscriptions")
-      .select("id, stripe_sub_id, current_period_end")
+      .select("id, stripe_sub_id, current_period_end, plan_slug")
       .eq("user_id", user.id)
       .eq("status", "active")
       .order("created_at", { ascending: false })
@@ -38,6 +38,15 @@ export async function POST() {
       return NextResponse.json(
         { error: "No active subscription to cancel" },
         { status: 404 }
+      );
+    }
+
+    // The free plan is the permanent fallback every user keeps. Cancelling
+    // it would leave them with no plan at all, so refuse the request.
+    if (sub.plan_slug === "free") {
+      return NextResponse.json(
+        { error: "You're on the free plan — nothing to cancel." },
+        { status: 400 }
       );
     }
 

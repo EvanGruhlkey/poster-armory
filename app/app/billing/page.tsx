@@ -95,7 +95,13 @@ export default function BillingPage() {
         if (res.ok) {
           const subData = await res.json();
           setData(subData);
-          if (!subData.active) {
+          // Auto-expand the paid plans for users who haven't paid yet —
+          // both "no plan at all" and "on the free plan" — so the upgrade
+          // path is one scroll away instead of one click away.
+          if (
+            !subData.active ||
+            subData.subscription?.plan_slug === "free"
+          ) {
             setShowPlans(true);
           }
         }
@@ -192,26 +198,14 @@ export default function BillingPage() {
               <div className="flex items-start gap-3">
                 <BarChart3 className="mt-0.5 h-5 w-5 text-muted-foreground" />
                 <div className="space-y-2">
-                  {data?.downloadQuota ? (
+                  {data?.designQuota === null && data?.downloadQuota === null ? (
+                    <div>
+                      <p className="text-sm font-medium">Usage</p>
+                      <p className="text-sm text-muted-foreground">Unlimited</p>
+                    </div>
+                  ) : (
                     <>
-                      <div>
-                        <p className="text-sm font-medium">Downloads</p>
-                        <p className="text-sm text-muted-foreground">
-                          {data.downloadUsage || 0} / {data.downloadQuota} this month
-                        </p>
-                        <div className="mt-1 h-2 w-32 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full bg-green-600 transition-all"
-                            style={{
-                              width: `${Math.min(
-                                ((data.downloadUsage || 0) / data.downloadQuota) * 100,
-                                100
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {data.designQuota && (
+                      {typeof data?.designQuota === "number" && (
                         <div>
                           <p className="text-sm font-medium">Designs</p>
                           <p className="text-sm text-muted-foreground">
@@ -221,21 +215,50 @@ export default function BillingPage() {
                             <div
                               className="h-full rounded-full bg-blue-600 transition-all"
                               style={{
+                                width: `${
+                                  data.designQuota === 0
+                                    ? 0
+                                    : Math.min(
+                                        ((data.designUsage || 0) /
+                                          data.designQuota) *
+                                          100,
+                                        100
+                                      )
+                                }%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {data?.downloadQuota === 0 ? (
+                        <div>
+                          <p className="text-sm font-medium">Downloads</p>
+                          <p className="text-sm text-muted-foreground">
+                            Not included on this plan
+                          </p>
+                        </div>
+                      ) : typeof data?.downloadQuota === "number" ? (
+                        <div>
+                          <p className="text-sm font-medium">Downloads</p>
+                          <p className="text-sm text-muted-foreground">
+                            {data.downloadUsage || 0} / {data.downloadQuota} this month
+                          </p>
+                          <div className="mt-1 h-2 w-32 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-green-600 transition-all"
+                              style={{
                                 width: `${Math.min(
-                                  ((data.designUsage || 0) / data.designQuota) * 100,
+                                  ((data.downloadUsage || 0) /
+                                    data.downloadQuota) *
+                                    100,
                                   100
                                 )}%`,
                               }}
                             />
                           </div>
                         </div>
-                      )}
+                      ) : null}
                     </>
-                  ) : (
-                    <div>
-                      <p className="text-sm font-medium">Usage</p>
-                      <p className="text-sm text-muted-foreground">Unlimited</p>
-                    </div>
                   )}
                 </div>
               </div>
@@ -255,7 +278,7 @@ export default function BillingPage() {
                   className={`ml-1 h-4 w-4 transition-transform ${showPlans ? "rotate-180" : ""}`}
                 />
               </Button>
-              {!data?.cancelAtPeriodEnd && (
+              {!data?.cancelAtPeriodEnd && sub?.plan_slug !== "free" && (
                 <Button
                   variant="ghost"
                   className="text-destructive hover:text-destructive"

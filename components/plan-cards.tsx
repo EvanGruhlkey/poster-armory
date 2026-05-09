@@ -21,6 +21,23 @@ interface Feature {
 
 const PLANS = [
   {
+    slug: "free",
+    name: "Free",
+    price: "$0",
+    period: "/month",
+    tagline: "Try it before you buy.",
+    features: [
+      { text: "5 poster designs (previews) per month", included: true },
+      { text: "High-resolution downloads", included: false },
+      { text: "Standard themes only", included: true },
+      { text: "One print size", included: true },
+      { text: "Zoom & rotation controls", included: false },
+      { text: "Poster library", included: false },
+    ] as Feature[],
+    highlight: false,
+    color: "gray",
+  },
+  {
     slug: "basic",
     name: "Basic",
     price: "$5",
@@ -83,6 +100,18 @@ export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
 
   async function handleCheckout(planSlug: string) {
+    // Free is auto-granted on signup, so the "checkout" button just routes
+    // to the signup form (or no-ops if they're already logged in, since
+    // every signed-in user already has a free sub from the trigger).
+    if (planSlug === "free") {
+      if (!isLoggedIn) {
+        router.push("/login?redirect=/app");
+      } else {
+        router.push("/app");
+      }
+      return;
+    }
+
     if (!isLoggedIn) {
       router.push(`/login?redirect=/app/billing&plan=${planSlug}`);
       return;
@@ -113,10 +142,16 @@ export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
   }
 
   return (
-    <div className="grid gap-8 md:grid-cols-3">
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
       {PLANS.map((plan) => {
         const isCurrent = currentPlanSlug === plan.slug;
         const isLoading = loadingSlug === plan.slug;
+        const isFreePlan = plan.slug === "free";
+        // For paid users browsing pricing, the free card represents the
+        // permanent fallback they already have. Don't offer it as an
+        // actionable "switch" target.
+        const isFreeAlreadyIncluded =
+          isFreePlan && isLoggedIn && currentPlanSlug && currentPlanSlug !== "free";
 
         return (
           <Card
@@ -171,6 +206,10 @@ export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
                 <Button variant="outline" className="w-full" disabled>
                   Current Plan
                 </Button>
+              ) : isFreeAlreadyIncluded ? (
+                <Button variant="outline" className="w-full" disabled>
+                  Included with every account
+                </Button>
               ) : (
                 <Button
                   className="w-full"
@@ -181,7 +220,13 @@ export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
-                  {currentPlanSlug ? "Switch Plan" : "Get Started"}
+                  {isFreePlan
+                    ? isLoggedIn
+                      ? "Start Creating"
+                      : "Sign Up Free"
+                    : currentPlanSlug
+                      ? "Switch Plan"
+                      : "Get Started"}
                 </Button>
               )}
             </CardFooter>

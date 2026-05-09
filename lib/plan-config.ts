@@ -1,4 +1,4 @@
-export type PlanTier = "basic" | "pro" | "pro_plus" | "none";
+export type PlanTier = "free" | "basic" | "pro" | "pro_plus" | "none";
 
 export type DownloadFormat = "png" | "pdf" | "svg";
 
@@ -21,6 +21,16 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, PlanEntitlements> = {
     multipleSizes: false,
     posterLibrary: false,
     designsPerMonth: 0,
+    downloadsPerMonth: 0,
+    formats: [],
+  },
+  free: {
+    allThemes: false,
+    zoomControls: false,
+    rotationControls: false,
+    multipleSizes: false,
+    posterLibrary: false,
+    designsPerMonth: 5,
     downloadsPerMonth: 0,
     formats: [],
   },
@@ -66,7 +76,12 @@ export const PREMIUM_THEMES = [
 export const DEFAULT_SIZE = { label: '18"x24"', width: 9, height: 12, key: "png_18x24" };
 
 export function getPlanTier(planSlug: string | null | undefined): PlanTier {
-  if (planSlug === "basic" || planSlug === "pro" || planSlug === "pro_plus") {
+  if (
+    planSlug === "free" ||
+    planSlug === "basic" ||
+    planSlug === "pro" ||
+    planSlug === "pro_plus"
+  ) {
     return planSlug;
   }
   return "none";

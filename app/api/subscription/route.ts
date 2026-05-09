@@ -157,8 +157,8 @@ export async function GET() {
       cancelAtPeriodEnd,
       designUsage,
       downloadUsage,
-      designQuota: plan?.monthly_quota || null,
-      downloadQuota: plan?.monthly_download_quota || null,
+      designQuota: plan?.monthly_quota ?? null,
+      downloadQuota: plan?.monthly_download_quota ?? null,
     });
   } catch (err) {
     console.error("GET /api/subscription error:", err);
