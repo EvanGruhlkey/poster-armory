@@ -390,19 +390,23 @@ async function processJob(jobId: string): Promise<void> {
   }
 }
 
-async function pollForJobs() {
+async function pollForJobs(): Promise<boolean> {
   // Atomic claim: uses FOR UPDATE SKIP LOCKED so multiple worker
-  // instances never grab the same job.
+  // instances never grab the same job. Returns true when a job was
+  // claimed so the caller can skip the idle backoff and drain the queue.
   const { data: jobId, error } = await supabase.rpc("claim_next_job");
 
   if (error) {
     console.error("Claim error:", error.message);
-    return;
+    return false;
   }
 
   if (jobId) {
     await processJob(jobId);
+    return true;
   }
+
+  return false;
 }
 
 async function shutdown(signal: string) {
@@ -439,20 +443,28 @@ async function main() {
   ensureTmpDir();
 
   let pollCount = 0;
+  let claimedAJob = false;
 
   while (!shuttingDown) {
     try {
-      await pollForJobs();
+      claimedAJob = await pollForJobs();
 
-      // Periodically recover stuck jobs
       pollCount++;
-      if (pollCount % STUCK_JOB_CHECK_INTERVAL === 0) {
+      if (pollCount >= STUCK_JOB_CHECK_INTERVAL) {
         await recoverStuckJobs();
+        pollCount = 0;
       }
     } catch (err) {
       console.error("Worker loop error:", err);
+      claimedAJob = false;
     }
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+
+    // Drain the queue: if we just processed a job, loop again immediately.
+    // Only sleep when the queue was empty so users with N pending jobs don't
+    // wait POLL_INTERVAL_MS × N extra seconds.
+    if (!claimedAJob && !shuttingDown) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    }
   }
 }
 
