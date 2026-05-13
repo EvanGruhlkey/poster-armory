@@ -295,10 +295,10 @@ export default function TermsPage() {
               <p className="mt-3">
                 If you have questions about these Terms, please contact us at{" "}
                 <a
-                  href="mailto:support@posterarmory.com"
+                  href="mailto:posterarmory@gmail.com"
                   className="underline hover:text-foreground"
                 >
-                  support@posterarmory.com
+                  posterarmory@gmail.com
                 </a>
                 .
               </p>

@@ -250,10 +250,10 @@ export default function PrivacyPage() {
               <p className="mt-2">
                 To exercise any of these rights, contact us at{" "}
                 <a
-                  href="mailto:support@posterarmory.com"
+                  href="mailto:posterarmory@gmail.com"
                   className="underline hover:text-foreground"
                 >
-                  support@posterarmory.com
+                  posterarmory@gmail.com
                 </a>
                 . We will respond to your request within 30 days.
               </p>
@@ -315,10 +315,10 @@ export default function PrivacyPage() {
               </p>
               <p className="mt-2">
                 <a
-                  href="mailto:support@posterarmory.com"
+                  href="mailto:posterarmory@gmail.com"
                   className="underline hover:text-foreground"
                 >
-                  support@posterarmory.com
+                  posterarmory@gmail.com
                 </a>
               </p>
             </section>
