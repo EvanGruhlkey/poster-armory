@@ -17,7 +17,7 @@ export function ProtectedImage({
   alt,
   className,
   containerClassName,
-  watermark = true,
+  watermark = false,
   bgColor,
   textColor,
 }: ProtectedImageProps) {
