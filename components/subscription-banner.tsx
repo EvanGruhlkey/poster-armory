@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { CreditCard, X } from "lucide-react";
+import { X } from "lucide-react";
 
 export function SubscriptionBanner() {
   const pathname = usePathname();
@@ -38,21 +38,18 @@ export function SubscriptionBanner() {
 
   return (
     <div className="border-b bg-amber-50">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
-          <CreditCard className="h-5 w-5 shrink-0 text-amber-600" />
-          <p className="text-sm text-amber-900">
-            <strong>No active plan.</strong> Choose a plan to start generating
-            map posters.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button asChild size="sm">
-            <Link href="/app/billing">Choose a Plan</Link>
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
+        <p className="text-xs text-amber-900 sm:text-sm">
+          <strong>No plan yet.</strong> Choose one to start creating.
+        </p>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button asChild size="sm" className="h-8 text-xs sm:text-sm">
+            <Link href="/app/billing">View Plans</Link>
           </Button>
           <button
             onClick={() => setDismissed(true)}
             className="rounded p-1 text-amber-600 hover:bg-amber-100"
+            aria-label="Dismiss"
           >
             <X className="h-4 w-4" />
           </button>

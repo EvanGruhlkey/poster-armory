@@ -24,6 +24,7 @@
     --input: 210 15% 88%;
     --ring: 210 40% 22%;
     --radius: 0.5rem;
+    --hero-map: 210 40% 22%;
   }
 }
 
@@ -32,7 +33,53 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-x-hidden;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@keyframes hero-map-grid-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 64px 32px;
+  }
+}
+
+@keyframes hero-map-grid-drift-reverse {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -24px -12px;
+  }
+}
+
+.hero-map-grid {
+  opacity: 0.22;
+  background-image:
+    linear-gradient(hsl(var(--hero-map) / 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--hero-map) / 0.5) 1px, transparent 1px);
+  background-size: 64px 64px;
+  animation: hero-map-grid-drift 12s linear infinite;
+}
+
+.hero-map-grid-fine {
+  opacity: 0.14;
+  background-image:
+    linear-gradient(hsl(var(--hero-map) / 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--hero-map) / 0.4) 1px, transparent 1px);
+  background-size: 16px 16px;
+  animation: hero-map-grid-drift-reverse 8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-map-grid,
+  .hero-map-grid-fine {
+    animation: none;
   }
 }
 

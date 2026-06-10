@@ -213,7 +213,7 @@ function DownloadPageInner() {
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
-      <div className="mx-auto max-w-2xl flex-1 px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-2xl flex-1 px-4 py-6 sm:px-6 sm:py-12">
         <button
           onClick={() => router.back()}
           className="mb-6 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
@@ -227,7 +227,8 @@ function DownloadPageInner() {
             <ProtectedImage
               src={(job?.downloadUrls as Record<string, string>)?.preview || cachedPreview!}
               alt="Poster preview"
-              className="max-h-[400px] w-auto rounded-lg border shadow-md"
+              className="max-h-[min(400px,60vh)] w-full max-w-sm rounded-lg border shadow-md sm:w-auto"
+              containerClassName="w-full max-w-sm"
               bgColor={bgColor}
               textColor={textColor}
             />

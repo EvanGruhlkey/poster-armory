@@ -45,7 +45,7 @@ export async function POST() {
     // it would leave them with no plan at all, so refuse the request.
     if (sub.plan_slug === "free") {
       return NextResponse.json(
-        { error: "You're on the free plan — nothing to cancel." },
+        { error: "You're on the free plan. Nothing to cancel." },
         { status: 400 }
       );
     }

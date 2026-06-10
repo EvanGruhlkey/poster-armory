@@ -149,8 +149,8 @@ export default function CancelSubscriptionPage() {
           </div>
           <CardDescription className="text-amber-900/80">
             {isRecurring
-              ? "Recurring plan — cancel stops future charges; your current period stays active."
-              : "This access isn't tied to a recurring Stripe subscription — cancelling may end access immediately."}
+              ? "Recurring plan: cancel stops future charges; your current period stays active."
+              : "This access isn't tied to a recurring Stripe subscription. Cancelling may end access immediately."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

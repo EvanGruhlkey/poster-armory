@@ -109,15 +109,15 @@ export default async function LibraryPage({
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">My Library</h1>
-          <p className="mt-1 text-muted-foreground">
-            {totalPosters} poster{totalPosters !== 1 ? "s" : ""} created
+          <h1 className="text-2xl font-bold sm:text-3xl">Library</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {totalPosters} poster{totalPosters !== 1 ? "s" : ""}
           </p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/app">
             <Plus className="mr-2 h-4 w-4" />
             New Poster
@@ -126,9 +126,11 @@ export default async function LibraryPage({
       </div>
 
       {activeJobs.length > 0 && (
-        <div className="mb-8">
-          <h2 className="mb-4 text-lg font-semibold">In Progress</h2>
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="mb-3 text-sm font-semibold text-muted-foreground sm:mb-4 sm:text-base sm:text-foreground">
+            In progress
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
             {activeJobs.map((job) => (
               <PosterCard key={job.id} job={job} />
             ))}
@@ -138,7 +140,7 @@ export default async function LibraryPage({
 
       {postersWithPreviews.length > 0 ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
             {postersWithPreviews.map((poster) => (
               <PosterCard key={poster.id} poster={poster} />
             ))}

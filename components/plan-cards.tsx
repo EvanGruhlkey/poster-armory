@@ -66,7 +66,7 @@ const PLANS = [
       { text: "All themes unlocked", included: true },
       { text: "Multiple print sizes", included: true },
       { text: "Zoom, rotation & fine positioning", included: true },
-      { text: "Poster library — save your designs", included: true },
+      { text: "Poster library: save your designs", included: true },
     ] as Feature[],
     highlight: true,
     color: "blue",
@@ -83,7 +83,7 @@ const PLANS = [
       { text: "All themes unlocked", included: true },
       { text: "Multiple print sizes", included: true },
       { text: "Zoom, rotation & fine positioning", included: true },
-      { text: "Poster library — save your designs", included: true },
+      { text: "Poster library: save your designs", included: true },
     ] as Feature[],
     highlight: false,
     color: "purple",
@@ -142,7 +142,7 @@ export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
   }
 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
       {PLANS.map((plan) => {
         const isCurrent = currentPlanSlug === plan.slug;
         const isLoading = loadingSlug === plan.slug;
@@ -187,14 +187,14 @@ export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
                 {plan.features.map((feature, i) => (
                   <li
                     key={i}
-                    className={`flex items-center gap-2 text-sm ${
+                    className={`flex items-start gap-3 text-sm ${
                       feature.included ? "" : "text-muted-foreground"
                     }`}
                   >
                     {feature.included ? (
-                      <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
+                      <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     ) : (
-                      <XCircle className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                      <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50" />
                     )}
                     {feature.text}
                   </li>

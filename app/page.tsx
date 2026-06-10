@@ -4,42 +4,29 @@ import Link from "next/link";
 import Image from "next/image";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { HeroMapAnimation } from "@/components/hero-map-animation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, MapPin, Palette, Download, ChevronDown } from "lucide-react";
+import { MapPin, Palette, Download, ChevronDown } from "lucide-react";
 
 const GH_RAW =
   "https://raw.githubusercontent.com/EvanGruhlkey/poster-forge/main/posters";
 
-const HERO_POSTER = {
-  src: `${GH_RAW}/barcelona_warm_beige_20260118_140048.png`,
-  alt: "Barcelona warm beige poster",
-  caption: "Our First Home",
-  sub: "New York, New York",
-};
-
-const EXAMPLE_POSTERS = [
+const GALLERY = [
   {
     src: `${GH_RAW}/marrakech_terracotta_20260118_143253.png`,
-    title: "Where We Met",
     city: "Marrakech",
     theme: "Terracotta",
   },
   {
     src: `${GH_RAW}/venice_blueprint_20260118_140505.png`,
-    title: "Our First Home",
     city: "Venice",
     theme: "Blueprint",
   },
   {
     src: `${GH_RAW}/dubai_midnight_blue_20260118_140807.png`,
-    title: "NIGHT",
     city: "Dubai",
     theme: "Midnight Blue",
   },
-];
-
-const GALLERY = [
   {
     src: `${GH_RAW}/tokyo_japanese_ink_20260118_142446.png`,
     city: "Tokyo",
@@ -64,21 +51,18 @@ const GALLERY = [
 
 const STEPS = [
   {
-    num: 1,
-    title: "Pick a Location",
-    desc: "Search for any city, address, or drop a pin on coordinates.",
+    title: "Pick a location",
+    desc: "Search any city or address worldwide.",
     icon: MapPin,
   },
   {
-    num: 2,
-    title: "Customize Your Design",
-    desc: "Choose a theme, adjust the map radius, and add your own text.",
+    title: "Customize",
+    desc: "Choose a theme and add your text.",
     icon: Palette,
   },
   {
-    num: 3,
-    title: "Download & Print",
-    desc: "Get high-res PDF and PNG files ready for any frame size.",
+    title: "Download",
+    desc: "Get print-ready PDF and PNG files.",
     icon: Download,
   },
 ];
@@ -120,189 +104,134 @@ export default function LandingPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-          <div className="space-y-6">
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-              Transform Your Memories
-              <br />
-              into{" "}
-              <span className="text-primary underline decoration-primary/30 underline-offset-4">
-                Custom Map Art
-              </span>
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              Create beautiful map posters in minutes.
-              <br />
-              Free to try — 5 designs every month, no credit card.
-            </p>
-            <ul className="space-y-2">
-              {[
-                "Personalize any location",
-                "Choose from stylish themes",
-                "Instantly download print ready files",
-              ].map((item) => (
-                <li
-                  key={item}
-                  className="flex items-center gap-2 text-sm text-muted-foreground"
-                >
-                  <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <Button asChild size="lg" className="mt-4">
+      <section className="relative overflow-hidden">
+        <HeroMapAnimation />
+
+        {/* Light vignette: map visible at edges, copy readable in center */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/50" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_45%_at_50%_48%,hsl(var(--background)/0.92)_0%,hsl(var(--background)/0.55)_45%,transparent_72%)]" />
+
+        <div className="relative z-10 mx-auto flex min-h-[min(88vh,760px)] max-w-3xl flex-col items-center justify-center px-4 py-16 text-center sm:px-6 sm:py-20">
+          <p className="mb-4 rounded-full border bg-background/80 px-4 py-1.5 text-xs font-medium tracking-wide text-muted-foreground backdrop-blur-sm sm:text-sm">
+            Free to try, 5 designs every month
+          </p>
+          <h1 className="text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
+            Turn any place into
+            <br />
+            <span className="text-primary">custom map art</span>
+          </h1>
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:mt-6 sm:text-lg">
+            Pick a city, choose from 17 themes, and download a print-ready poster in minutes.
+          </p>
+          <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-3 sm:mt-10">
+            <Button asChild size="lg" className="h-12 w-full px-8 text-base shadow-lg sm:w-auto">
               <Link href="/app">Start Free</Link>
             </Button>
-          </div>
-
-          {/* Hero poster preview — real generated poster */}
-          <div className="relative mx-auto w-full max-w-sm">
-            <div className="overflow-hidden rounded-lg border shadow-2xl">
-              <Image
-                src={HERO_POSTER.src}
-                alt={HERO_POSTER.alt}
-                width={600}
-                height={800}
-                className="h-auto w-full"
-                priority
-              />
-            </div>
+            <p className="text-sm text-muted-foreground">No credit card required</p>
           </div>
         </div>
       </section>
 
-      {/* How It Works — Example posters */}
-      <section className="border-t bg-muted/30 py-16">
+      {/* How it works */}
+      <section className="border-t bg-muted/30 py-10 sm:py-14">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="mb-10 text-center text-3xl font-bold">
-            How It Works
+          <h2 className="mb-8 text-center text-2xl font-bold sm:text-3xl">
+            Three steps
           </h2>
-
-          {/* Three showcase posters */}
-          <div className="mb-16 grid gap-6 sm:grid-cols-3">
-            {EXAMPLE_POSTERS.map((poster) => (
+          <div className="grid gap-4 sm:grid-cols-3 sm:gap-6">
+            {STEPS.map((step) => (
               <div
-                key={poster.title}
-                className="group overflow-hidden rounded-lg border shadow-sm transition-shadow hover:shadow-md"
+                key={step.title}
+                className="rounded-xl border bg-card p-5 text-center shadow-sm"
               >
-                <div className="relative aspect-[3/4] overflow-hidden">
-                  <Image
-                    src={poster.src}
-                    alt={`${poster.city} ${poster.theme} poster`}
-                    fill
-                    className="object-cover transition-transform group-hover:scale-[1.02]"
-                    sizes="(max-width: 640px) 100vw, 33vw"
-                  />
+                <div className="mx-auto mb-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 sm:h-12 sm:w-12">
+                  <step.icon className="h-5 w-5 shrink-0 text-primary sm:h-6 sm:w-6" />
                 </div>
-                <div className="bg-background p-3 text-center">
-                  <p className="text-sm font-semibold">{poster.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {poster.city} &middot; {poster.theme}
-                  </p>
-                </div>
+                <h3 className="mb-1 font-semibold">{step.title}</h3>
+                <p className="text-sm text-muted-foreground">{step.desc}</p>
               </div>
             ))}
           </div>
+        </div>
+      </section>
 
-          {/* Numbered steps */}
-          <div className="grid gap-8 sm:grid-cols-3">
-            {STEPS.map((step) => (
-              <Card key={step.num} className="text-center">
-                <CardContent className="pt-6">
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border-2 border-primary text-lg font-bold text-primary">
-                    {step.num}
-                  </div>
-                  <h3 className="mb-2 font-semibold">{step.title}</h3>
-                  <p className="text-sm text-muted-foreground">{step.desc}</p>
-                </CardContent>
-              </Card>
+      {/* Gallery */}
+      <section className="border-t py-10 sm:py-14">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <h2 className="mb-2 text-center text-2xl font-bold sm:text-3xl">
+            Example posters
+          </h2>
+          <p className="mb-8 text-center text-sm text-muted-foreground sm:text-base">
+            17 themes. Any city.
+          </p>
+
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
+            {GALLERY.map((poster) => (
+              <div
+                key={poster.city}
+                className="w-[42vw] shrink-0 snap-start overflow-hidden rounded-lg border sm:w-auto"
+              >
+                <div className="relative aspect-[3/4]">
+                  <Image
+                    src={poster.src}
+                    alt={`${poster.city} ${poster.theme} map poster`}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 640px) 42vw, (max-width: 1024px) 33vw, 25vw"
+                  />
+                </div>
+                <div className="p-2 text-center">
+                  <p className="text-sm font-medium">{poster.city}</p>
+                  <p className="text-xs text-muted-foreground">{poster.theme}</p>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Demo video */}
-      <section className="border-t py-16">
+      <section className="border-t bg-muted/30 py-10 sm:py-14">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="mb-3 text-center text-3xl font-bold">See it in action</h2>
-          <p className="mx-auto mb-10 max-w-2xl text-center text-muted-foreground">
-            Watch how easy it is to go from a place you love to a print-ready map poster.
-          </p>
-          <div className="relative mx-auto aspect-video w-full max-w-4xl overflow-hidden rounded-2xl border bg-black shadow-2xl ring-1 ring-border">
+          <h2 className="mb-6 text-center text-2xl font-bold sm:text-3xl">
+            See it in action
+          </h2>
+          <div className="relative mx-auto aspect-video w-full max-w-3xl overflow-hidden rounded-xl border bg-black shadow-lg">
             <video
-              className="absolute inset-0 block h-full w-full object-cover object-center outline-none"
+              className="absolute inset-0 block h-full w-full object-cover"
               controls
               playsInline
               preload="metadata"
-              aria-label="Poster Armory demo: creating a map poster"
+              aria-label="Poster Armory demo"
             >
               <source src="/demo.mp4" type="video/mp4" />
-              Your browser does not support the video tag.
             </video>
           </div>
         </div>
       </section>
 
-      {/* Gallery — More examples */}
-      <section className="border-t bg-muted/30 py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="mb-3 text-center text-3xl font-bold">
-            Stunning Results, Every City
-          </h2>
-          <p className="mb-10 text-center text-muted-foreground">
-            17 hand-crafted themes. Thousands of cities. Infinite possibilities.
-          </p>
-
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-            {GALLERY.map((poster) => (
-              <div
-                key={poster.city}
-                className="group overflow-hidden rounded-lg border transition-shadow hover:shadow-md"
-              >
-                <div className="relative aspect-[3/4] overflow-hidden">
-                  <Image
-                    src={poster.src}
-                    alt={`${poster.city} ${poster.theme} map poster`}
-                    fill
-                    className="object-cover transition-transform group-hover:scale-[1.02]"
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                  />
-                </div>
-                <div className="bg-background p-2 text-center">
-                  <p className="text-sm font-medium">{poster.city}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {poster.theme}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* FAQ */}
-      <section className="border-t py-16">
+      <section className="border-t py-10 sm:py-14">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          <h2 className="mb-3 text-center text-3xl font-bold">Frequently asked questions</h2>
-          <p className="mb-10 text-center text-muted-foreground">
+          <h2 className="mb-3 text-center text-2xl font-bold sm:text-3xl">
+            Frequently asked questions
+          </h2>
+          <p className="mb-8 text-center text-sm text-muted-foreground sm:text-base">
             Quick answers about creating and printing your map art.
           </p>
           <div className="space-y-2">
             {FAQ_ITEMS.map((item) => (
               <details
                 key={item.q}
-                className="group rounded-xl border bg-card text-card-foreground shadow-sm transition-shadow open:shadow-md"
+                className="group rounded-lg border bg-card"
               >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left font-medium marker:content-none [&::-webkit-details-marker]:hidden">
-                  {item.q}
-                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 text-left text-sm font-medium sm:px-5 sm:text-base [&::-webkit-details-marker]:hidden">
+                  <span className="min-w-0 pr-2">{item.q}</span>
+                  <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="border-t px-5 pb-4 pt-0">
-                  <p className="pt-3 text-sm leading-relaxed text-muted-foreground">
-                    {item.a}
-                  </p>
-                </div>
+                <p className="border-t px-4 py-3 text-sm leading-relaxed text-muted-foreground sm:px-5">
+                  {item.a}
+                </p>
               </details>
             ))}
           </div>
@@ -310,13 +239,13 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="border-t bg-muted/30 py-16">
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-          <h2 className="mb-4 text-3xl font-bold">Ready to get started?</h2>
-          <p className="mb-8 text-muted-foreground">
-            Sign up for free and create your first map poster in minutes.
+      <section className="border-t bg-muted/30 py-10 sm:py-14">
+        <div className="mx-auto max-w-xl px-4 text-center sm:px-6">
+          <h2 className="mb-3 text-2xl font-bold sm:text-3xl">Ready to create?</h2>
+          <p className="mb-6 text-sm text-muted-foreground sm:text-base">
+            Free to start. No credit card.
           </p>
-          <Button asChild size="lg">
+          <Button asChild size="lg" className="w-full sm:w-auto">
             <Link href="/app">Start Free</Link>
           </Button>
         </div>

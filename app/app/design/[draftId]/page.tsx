@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import {
   Card,
@@ -13,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Download, Eye, MapPin, Lock, Crown } from "lucide-react";
 import { toast } from "sonner";
@@ -227,7 +225,7 @@ export default function CustomizePosterPage() {
 
       toast.success(
         cached
-          ? "An earlier preview for this design is still rendering — picking it up."
+          ? "An earlier preview for this design is still rendering. Picking it up."
           : "Preview generation started!"
       );
 
@@ -304,7 +302,7 @@ export default function CustomizePosterPage() {
       const { jobId, cached, status: cachedStatus } = await res.json();
 
       if (cached && cachedStatus === "done") {
-        toast.success("Already generated — opening your download page.");
+        toast.success("Already generated. Opening your download page.");
       } else if (cached) {
         toast.success("Picking up your in-flight render.");
       } else {
@@ -346,32 +344,122 @@ export default function CustomizePosterPage() {
     );
   }
 
+  const previewPanel = (
+    <Card className="overflow-hidden">
+      <div
+        className="aspect-[3/4] flex items-center justify-center"
+        style={{ backgroundColor: currentStyle.bgColor }}
+      >
+        {previewUrl ? (
+          <ProtectedImage
+            src={previewUrl}
+            alt="Poster preview"
+            className="h-full w-full object-cover"
+            containerClassName="h-full w-full"
+            bgColor={currentStyle.bgColor}
+            textColor={currentStyle.textColor}
+          />
+        ) : previewLoading ? (
+          <div className="w-full max-w-xs px-6 text-center sm:px-8">
+            <Loader2
+              className="mx-auto h-8 w-8 animate-spin"
+              style={{ color: currentStyle.textColor }}
+            />
+            <p
+              className="mt-3 text-sm font-medium"
+              style={{ color: currentStyle.textColor }}
+            >
+              Generating preview
+            </p>
+            <div
+              className="mt-4 h-2 w-full overflow-hidden rounded-full"
+              style={{ backgroundColor: `${currentStyle.textColor}20` }}
+            >
+              <div
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${previewProgress}%`,
+                  backgroundColor: currentStyle.textColor,
+                }}
+              />
+            </div>
+            <div
+              className="mt-2 flex items-center justify-between text-xs"
+              style={{ color: `${currentStyle.textColor}b3` }}
+            >
+              <span className="truncate pr-2 text-left">
+                {getPreviewStageLabel(previewProgress)}
+              </span>
+              <span className="tabular-nums">{previewProgress}%</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex h-full w-full flex-col items-center p-6 sm:p-8">
+            <div
+              className="flex flex-1 w-full items-center justify-center rounded"
+              style={{ backgroundColor: `${currentStyle.textColor}10` }}
+            >
+              <MapPin
+                className="h-12 w-12 sm:h-16 sm:w-16"
+                style={{ color: `${currentStyle.textColor}30` }}
+              />
+            </div>
+            <div className="mt-4 space-y-1 text-center">
+              <p
+                className="text-sm font-bold tracking-[0.12em] sm:text-base sm:tracking-[0.15em]"
+                style={{ color: currentStyle.textColor }}
+              >
+                {config.title
+                  ? config.title.toUpperCase().split("").join(" ")
+                  : "YOUR CITY"}
+              </p>
+              {config.subtitle && (
+                <p className="text-xs" style={{ color: currentStyle.textColor }}>
+                  {config.subtitle}
+                </p>
+              )}
+              <p
+                className="text-[10px] opacity-60"
+                style={{ color: currentStyle.textColor }}
+              >
+                {lat.toFixed(4)}&deg; {lat >= 0 ? "N" : "S"},{" "}
+                {Math.abs(lon).toFixed(4)}&deg; {lon >= 0 ? "E" : "W"}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold">Customize Your Poster</h1>
-        <p className="mt-2 text-muted-foreground">
-          Personalize your map design.
+    <div className="mx-auto max-w-6xl px-4 py-5 pb-32 sm:px-6 sm:py-8 sm:pb-8 lg:px-8">
+      <div className="mb-5 sm:mb-8">
+        <h1 className="text-xl font-bold sm:text-2xl lg:text-3xl">
+          Customize poster
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {city}
+          {country ? `, ${country}` : ""}
         </p>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
+      <div className="grid gap-5 lg:grid-cols-[1fr_340px] lg:gap-8 xl:grid-cols-[1fr_380px]">
         {/* Controls */}
-        <div className="space-y-6">
-          {/* Style */}
+        <div className="order-2 space-y-4 lg:order-1">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center justify-between">
-                Style
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold sm:text-base">
+                Theme
                 {!entitlements.allThemes && (
-                  <span className="text-xs font-normal text-muted-foreground">
-                    More themes with Pro
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    Pro unlocks all
                   </span>
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+            <CardContent className="space-y-5">
+              <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3 md:grid-cols-5">
                 {Object.entries(STYLE_PRESETS).map(([id, preset]) => {
                   const isStandard = STANDARD_THEMES.includes(id);
                   const isLocked = !entitlements.allThemes && !isStandard;
@@ -389,7 +477,7 @@ export default function CustomizePosterPage() {
                         updateConfig({ style_id: id });
                         setPreviewUrl(null);
                       }}
-                      className={`relative rounded-lg border-2 p-3 text-center transition-all ${
+                      className={`relative rounded-md border-2 p-2.5 text-center transition-all sm:rounded-lg sm:p-3 ${
                         config.style_id === id
                           ? "border-primary ring-2 ring-primary/20"
                           : isLocked
@@ -398,30 +486,27 @@ export default function CustomizePosterPage() {
                       }`}
                     >
                       {isLocked && (
-                        <Lock className="absolute right-1 top-1 h-3 w-3 text-muted-foreground" />
+                        <Lock className="absolute right-1 top-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       )}
                       <div
-                        className="mx-auto mb-2 h-8 w-8 rounded"
+                        className="mx-auto mb-1.5 h-7 w-7 shrink-0 rounded sm:mb-2 sm:h-9 sm:w-9"
                         style={{ backgroundColor: preset.bgColor }}
                       />
-                      <span className="text-xs font-medium">{preset.name}</span>
+                      <span className="text-[10px] font-medium leading-tight sm:text-xs">
+                        {preset.name}
+                      </span>
                     </button>
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Map Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Map Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Zoom / radius */}
+              <Separator />
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Radius: {(config.distance / 1000).toFixed(0)} km</Label>
+                  <Label className="text-sm">
+                    Map radius: {(config.distance / 1000).toFixed(0)} km
+                  </Label>
                   {!entitlements.zoomControls && <UpgradeBadge />}
                 </div>
                 {entitlements.zoomControls ? (
@@ -433,89 +518,74 @@ export default function CustomizePosterPage() {
                     step={1000}
                   />
                 ) : (
-                  <div className="relative">
+                  <div>
                     <Slider value={[10000]} min={2000} max={30000} step={1000} disabled />
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Fixed at 10 km on Basic. Upgrade for zoom control.
+                      Fixed at 10 km on Basic.
                     </p>
                   </div>
                 )}
               </div>
 
-            </CardContent>
-          </Card>
+              <Separator />
 
-          {/* Print Size */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center justify-between">
-                Print Size
-                {!entitlements.multipleSizes && <UpgradeBadge />}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {entitlements.multipleSizes ? (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
-                  {POSTER_SIZES.map((size) => (
-                    <button
-                      key={size.key}
-                      onClick={() => setSelectedSize(size)}
-                      className={`rounded-lg border-2 p-2 text-center text-sm transition-all ${
-                        selectedSize.key === size.key
-                          ? "border-primary ring-2 ring-primary/20"
-                          : "border-transparent hover:border-muted-foreground/20"
-                      }`}
-                    >
-                      {size.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-lg border bg-muted/50 p-3">
-                  <p className="text-sm font-medium">{DEFAULT_SIZE.label}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Upgrade to Pro for all 5 print sizes.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Text Options */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Text Options</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  placeholder="Paris"
-                  value={config.title}
-                  onChange={(e) => updateConfig({ title: e.target.value })}
-                />
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Print size</Label>
+                  {!entitlements.multipleSizes && <UpgradeBadge />}
+                </div>
+                {entitlements.multipleSizes ? (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {POSTER_SIZES.map((size) => (
+                      <button
+                        key={size.key}
+                        onClick={() => setSelectedSize(size)}
+                        className={`rounded-md border-2 px-2 py-1.5 text-center text-xs transition-all sm:text-sm ${
+                          selectedSize.key === size.key
+                            ? "border-primary ring-2 ring-primary/20"
+                            : "border-transparent hover:border-muted-foreground/20"
+                        }`}
+                      >
+                        {size.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{DEFAULT_SIZE.label}</p>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="subtitle">Subtitle</Label>
-                <Input
-                  id="subtitle"
-                  placeholder="Where We Met"
-                  value={config.subtitle}
-                  onChange={(e) => updateConfig({ subtitle: e.target.value })}
-                />
-              </div>
-              <div className="rounded-lg border bg-muted/50 p-3 text-sm text-muted-foreground">
-                {lat >= 0 ? lat.toFixed(4) : Math.abs(lat).toFixed(4)}&deg;{" "}
-                {lat >= 0 ? "N" : "S"},{" "}
-                {Math.abs(lon).toFixed(4)}&deg;{" "}
-                {lon >= 0 ? "E" : "W"}
+
+              <Separator />
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="title" className="text-sm">
+                    Title
+                  </Label>
+                  <Input
+                    id="title"
+                    placeholder="Paris"
+                    value={config.title}
+                    onChange={(e) => updateConfig({ title: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="subtitle" className="text-sm">
+                    Subtitle
+                  </Label>
+                  <Input
+                    id="subtitle"
+                    placeholder="Where We Met"
+                    value={config.subtitle}
+                    onChange={(e) => updateConfig({ subtitle: e.target.value })}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Actions */}
-          <div className="flex gap-3">
+          {/* Desktop actions */}
+          <div className="hidden gap-3 sm:flex">
             <Button
               variant="outline"
               onClick={handleGeneratePreview}
@@ -523,11 +593,11 @@ export default function CustomizePosterPage() {
               className="flex-1"
             >
               {previewLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
               ) : (
-                <Eye className="mr-2 h-4 w-4" />
+                <Eye className="mr-2 h-5 w-5 shrink-0" />
               )}
-              Generate Preview
+              Preview
             </Button>
             <Button
               onClick={handleDownloadPoster}
@@ -535,37 +605,30 @@ export default function CustomizePosterPage() {
               className="flex-1"
             >
               {generateLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
               ) : (
-                <Download className="mr-2 h-4 w-4" />
+                <Download className="mr-2 h-5 w-5 shrink-0" />
               )}
-              Download Poster
+              Download
             </Button>
           </div>
 
           {planTier === "free" && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
-              <p className="text-xs text-amber-900">
-                You're on the free plan — previews only. Upgrade to download
-                print-ready files.
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-1 h-7 text-amber-900 hover:bg-amber-100 hover:text-amber-900"
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
+              Free plan: previews only.{" "}
+              <button
+                type="button"
+                className="font-medium underline"
                 onClick={() => router.push("/app/billing")}
               >
-                <Crown className="mr-1 h-3 w-3" />
-                See plans
-              </Button>
-            </div>
+                Upgrade to download
+              </button>
+            </p>
           )}
 
           {planTier === "none" && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
-              <p className="text-sm font-medium text-amber-900">
-                You need a plan to generate posters.
-              </p>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
+              <p className="text-sm text-amber-900">Choose a plan to get started.</p>
               <Button
                 variant="outline"
                 size="sm"
@@ -573,119 +636,44 @@ export default function CustomizePosterPage() {
                 onClick={() => router.push("/app/billing")}
               >
                 <Crown className="mr-2 h-4 w-4" />
-                Choose a Plan
+                View Plans
               </Button>
             </div>
           )}
         </div>
 
-        {/* Preview panel */}
-        <div className="lg:sticky lg:top-24">
-          <Card className="overflow-hidden">
-            <div
-              className="aspect-[3/4] flex items-center justify-center"
-              style={{ backgroundColor: currentStyle.bgColor }}
-            >
-              {previewUrl ? (
-                <ProtectedImage
-                  src={previewUrl}
-                  alt="Poster preview"
-                  className="h-full w-full object-cover"
-                  containerClassName="h-full w-full"
-                  bgColor={currentStyle.bgColor}
-                  textColor={currentStyle.textColor}
-                />
-              ) : previewLoading ? (
-                <div className="w-full max-w-xs px-8 text-center">
-                  <Loader2
-                    className="mx-auto h-8 w-8 animate-spin"
-                    style={{ color: currentStyle.textColor }}
-                  />
-                  <p
-                    className="mt-3 text-sm font-medium"
-                    style={{ color: currentStyle.textColor }}
-                  >
-                    Generating preview
-                  </p>
-                  <div
-                    className="mt-4 h-2 w-full overflow-hidden rounded-full"
-                    style={{
-                      backgroundColor: `${currentStyle.textColor}20`,
-                    }}
-                  >
-                    <div
-                      className="h-full rounded-full transition-all duration-700 ease-out"
-                      style={{
-                        width: `${previewProgress}%`,
-                        backgroundColor: currentStyle.textColor,
-                      }}
-                    />
-                  </div>
-                  <div
-                    className="mt-2 flex items-center justify-between text-xs"
-                    style={{ color: `${currentStyle.textColor}b3` }}
-                  >
-                    <span className="truncate pr-2 text-left">
-                      {getPreviewStageLabel(previewProgress)}
-                    </span>
-                    <span className="tabular-nums">{previewProgress}%</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center p-8 w-full h-full">
-                  <div
-                    className="flex-1 w-full rounded flex items-center justify-center"
-                    style={{
-                      backgroundColor: `${currentStyle.textColor}10`,
-                    }}
-                  >
-                    <MapPin
-                      className="h-16 w-16"
-                      style={{ color: `${currentStyle.textColor}30` }}
-                    />
-                  </div>
-                  <div className="mt-4 text-center space-y-1">
-                    <div
-                      className="h-px w-12 mx-auto"
-                      style={{
-                        backgroundColor: `${currentStyle.textColor}40`,
-                      }}
-                    />
-                    <p
-                      className="text-base font-bold tracking-[0.15em]"
-                      style={{ color: currentStyle.textColor }}
-                    >
-                      {config.title
-                        ? config.title.toUpperCase().split("").join(" ")
-                        : "YOUR CITY"}
-                    </p>
-                    {config.subtitle && (
-                      <p
-                        className="text-xs"
-                        style={{ color: currentStyle.textColor }}
-                      >
-                        {config.subtitle}
-                      </p>
-                    )}
-                    <p
-                      className="text-[10px] opacity-60"
-                      style={{ color: currentStyle.textColor }}
-                    >
-                      {lat.toFixed(4)}&deg; {lat >= 0 ? "N" : "S"},{" "}
-                      {Math.abs(lon).toFixed(4)}&deg; {lon >= 0 ? "E" : "W"}
-                    </p>
-                    <p
-                      className="text-[10px] opacity-40 mt-1"
-                      style={{ color: currentStyle.textColor }}
-                    >
-                      {selectedSize.label}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
+        {/* Preview — above controls on mobile, right column on desktop */}
+        <div className="order-1 mx-auto w-full max-w-sm lg:sticky lg:top-20 lg:order-2 lg:max-w-none">
+          {previewPanel}
         </div>
+      </div>
+
+      {/* Mobile sticky actions */}
+      <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2.5 border-t bg-background/95 p-3 backdrop-blur sm:hidden">
+        <Button
+          variant="outline"
+          onClick={handleGeneratePreview}
+          disabled={previewLoading || planTier === "none"}
+          className="h-11 min-w-11 flex-1 shrink-0 px-3"
+        >
+          {previewLoading ? (
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+          ) : (
+            <Eye className="h-5 w-5 shrink-0" />
+          )}
+        </Button>
+        <Button
+          onClick={handleDownloadPoster}
+          disabled={generateLoading || planTier === "none"}
+          className="h-11 min-w-0 flex-[2] gap-2"
+        >
+          {generateLoading ? (
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+          ) : (
+            <Download className="h-5 w-5 shrink-0" />
+          )}
+          Download
+        </Button>
       </div>
     </div>
   );

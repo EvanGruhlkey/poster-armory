@@ -42,12 +42,12 @@ export default function PricingPage() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      <main className="flex-1 py-16">
+      <main className="flex-1 py-10 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-12 text-center">
-            <h1 className="text-4xl font-bold">Pricing Plans</h1>
-            <p className="mt-3 text-lg text-muted-foreground">
-              Choose the plan that&apos;s right for you.
+          <div className="mb-8 text-center sm:mb-12">
+            <h1 className="text-2xl font-bold sm:text-4xl">Pricing</h1>
+            <p className="mt-2 text-sm text-muted-foreground sm:mt-3 sm:text-lg">
+              Start free. Upgrade when you&apos;re ready to download.
             </p>
           </div>
 

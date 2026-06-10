@@ -50,7 +50,7 @@ export default function PrivacyPage() {
                 <li>
                   <strong>Payment information:</strong> When you subscribe, payment details
                   (credit card number, billing address) are collected and processed directly
-                  by Stripe. We do not store your full payment details on our servers — we
+                  by Stripe. We do not store your full payment details on our servers. We
                   only receive a Stripe customer ID and subscription status.
                 </li>
                 <li>

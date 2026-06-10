@@ -5,13 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, ChevronRight, Loader2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,7 +39,7 @@ export default function PickLocationPage() {
 
   async function handleFindLocation() {
     if (!city && !locationText && !lat && !lon) {
-      toast.error("Please enter a city name or location.");
+      toast.error("Enter a city or place name.");
       return;
     }
     setLoading(true);
@@ -104,7 +98,7 @@ export default function PickLocationPage() {
 
   async function handleNext() {
     if (!lat || !lon) {
-      toast.error("Please find a location first.");
+      toast.error("Find a location first.");
       return;
     }
 
@@ -152,126 +146,137 @@ export default function PickLocationPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold">Pick Your Location</h1>
-        <p className="mt-2 text-muted-foreground">
-          Enter the city or address you want to map.
+    <div className="mx-auto max-w-lg px-4 py-6 pb-28 sm:px-6 sm:py-10 sm:pb-10">
+      <div className="mb-6 text-center sm:mb-8">
+        <h1 className="text-2xl font-bold sm:text-3xl">Where should we map?</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Search for a city, address, or landmark.
         </p>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Location
-          </CardTitle>
-          <CardDescription>
-            Search by city name or paste coordinates
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                placeholder="Paris"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
-              <Input
-                id="country"
-                placeholder="France"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-              />
-            </div>
-          </div>
-
+        <CardContent className="space-y-4 pt-6">
           <div className="space-y-2">
-            <Label htmlFor="location">Or search by address / place name</Label>
+            <Label htmlFor="location">Place</Label>
             <Input
               id="location"
-              placeholder="e.g. Eiffel Tower, Paris"
+              placeholder="Paris, France or Eiffel Tower"
               value={locationText}
               onChange={(e) => setLocationText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleFindLocation()}
             />
           </div>
 
           <Button
             onClick={handleFindLocation}
             disabled={loading}
-            className="w-full sm:w-auto"
+            className="w-full"
           >
             {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
             ) : (
-              <MapPin className="mr-2 h-4 w-4" />
+              <MapPin className="mr-2 h-5 w-5 shrink-0" />
             )}
             Find Location
           </Button>
 
-          {/* Advanced: manual lat/lon */}
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`}
-            />
-            Advanced: Enter coordinates manually
-          </button>
-
-          {showAdvanced && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="lat">Latitude</Label>
-                <Input
-                  id="lat"
-                  placeholder="48.8566"
-                  value={lat}
-                  onChange={(e) => {
-                    setLat(e.target.value);
-                    if (e.target.value && lon) setFound(true);
-                  }}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lon">Longitude</Label>
-                <Input
-                  id="lon"
-                  placeholder="2.3522"
-                  value={lon}
-                  onChange={(e) => {
-                    setLon(e.target.value);
-                    if (lat && e.target.value) setFound(true);
-                  }}
-                />
-              </div>
+          {found && lat && lon && (
+            <div className="rounded-lg bg-muted/60 px-3 py-2.5 text-sm">
+              <p className="font-medium">
+                {city || "Location"}
+                {country && <span className="text-muted-foreground">, {country}</span>}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {lat}, {lon}
+              </p>
             </div>
           )}
 
-          {found && lat && lon && (
-            <div className="rounded-lg border bg-muted/50 p-3 text-sm">
-              <span className="font-medium">{city || "Location"}</span>
-              {country && <span className="text-muted-foreground">, {country}</span>}
-              <span className="ml-2 text-muted-foreground">
-                ({lat}, {lon})
-              </span>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <ChevronDown
+              className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? "rotate-180" : ""}`}
+            />
+            Manual entry
+          </button>
+
+          {showAdvanced && (
+            <div className="space-y-3 border-t pt-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="city" className="text-xs">
+                    City
+                  </Label>
+                  <Input
+                    id="city"
+                    placeholder="Paris"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="country" className="text-xs">
+                    Country
+                  </Label>
+                  <Input
+                    id="country"
+                    placeholder="France"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="lat" className="text-xs">
+                    Latitude
+                  </Label>
+                  <Input
+                    id="lat"
+                    placeholder="48.8566"
+                    value={lat}
+                    onChange={(e) => {
+                      setLat(e.target.value);
+                      if (e.target.value && lon) setFound(true);
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lon" className="text-xs">
+                    Longitude
+                  </Label>
+                  <Input
+                    id="lon"
+                    placeholder="2.3522"
+                    value={lon}
+                    onChange={(e) => {
+                      setLon(e.target.value);
+                      if (lat && e.target.value) setFound(true);
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      <div className="mt-6 flex justify-end">
+      {/* Desktop CTA */}
+      <div className="mt-6 hidden sm:flex sm:justify-end">
         <Button onClick={handleNext} disabled={!found} size="lg">
-          Next: Customize Design
-          <ChevronRight className="ml-2 h-4 w-4" />
+          Customize Design
+          <ChevronRight className="ml-2 h-5 w-5 shrink-0" />
+        </Button>
+      </div>
+
+      {/* Mobile sticky CTA */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 p-4 backdrop-blur sm:hidden">
+        <Button onClick={handleNext} disabled={!found} size="lg" className="h-12 w-full gap-2">
+          Customize Design
+          <ChevronRight className="h-5 w-5 shrink-0" />
         </Button>
       </div>
     </div>

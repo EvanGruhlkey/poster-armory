@@ -29,7 +29,7 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Poster Armory — Custom Map Art Posters",
+        alt: "Poster Armory: Custom Map Art Posters",
       },
     ],
   },
@@ -51,7 +51,7 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen bg-background font-sans antialiased">
         {children}
-        <Toaster position="bottom-right" richColors />
+        <Toaster position="bottom-center" richColors />
       </body>
     </html>
   );
