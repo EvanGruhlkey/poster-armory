@@ -47,6 +47,7 @@ interface SubscriptionData {
   downloadUsage?: number;
   designQuota?: number | null;
   downloadQuota?: number | null;
+  downloadCredits?: number;
 }
 
 export default function BillingPage() {
@@ -198,68 +199,60 @@ export default function BillingPage() {
               <div className="flex items-start gap-3">
                 <BarChart3 className="mt-0.5 h-5 w-5 text-muted-foreground" />
                 <div className="space-y-2">
-                  {data?.designQuota === null && data?.downloadQuota === null ? (
+                  <div>
+                    <p className="text-sm font-medium">Designs</p>
+                    <p className="text-sm text-muted-foreground">
+                      {data?.designQuota === null
+                        ? "Unlimited previews"
+                        : `${data?.designUsage || 0} / ${data?.designQuota} this month`}
+                    </p>
+                  </div>
+
+                  {data?.downloadQuota === null ? (
                     <div>
-                      <p className="text-sm font-medium">Usage</p>
-                      <p className="text-sm text-muted-foreground">Unlimited</p>
+                      <p className="text-sm font-medium">Downloads</p>
+                      <p className="text-sm text-muted-foreground">
+                        Unlimited
+                      </p>
                     </div>
-                  ) : (
-                    <>
-                      {typeof data?.designQuota === "number" && (
-                        <div>
-                          <p className="text-sm font-medium">Designs</p>
-                          <p className="text-sm text-muted-foreground">
-                            {data.designUsage || 0} / {data.designQuota} this month
-                          </p>
-                          <div className="mt-1 h-2 w-32 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-blue-600 transition-all"
-                              style={{
-                                width: `${
-                                  data.designQuota === 0
-                                    ? 0
-                                    : Math.min(
-                                        ((data.designUsage || 0) /
-                                          data.designQuota) *
-                                          100,
-                                        100
-                                      )
-                                }%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {data?.downloadQuota === 0 ? (
-                        <div>
-                          <p className="text-sm font-medium">Downloads</p>
-                          <p className="text-sm text-muted-foreground">
-                            Not included on this plan
-                          </p>
-                        </div>
-                      ) : typeof data?.downloadQuota === "number" ? (
-                        <div>
-                          <p className="text-sm font-medium">Downloads</p>
-                          <p className="text-sm text-muted-foreground">
-                            {data.downloadUsage || 0} / {data.downloadQuota} this month
-                          </p>
-                          <div className="mt-1 h-2 w-32 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-green-600 transition-all"
-                              style={{
-                                width: `${Math.min(
-                                  ((data.downloadUsage || 0) /
-                                    data.downloadQuota) *
-                                    100,
-                                  100
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ) : null}
-                    </>
-                  )}
+                  ) : data?.downloadQuota === 0 ? (
+                    <div>
+                      <p className="text-sm font-medium">Downloads</p>
+                      <p className="text-sm text-muted-foreground">
+                        Not included on this plan
+                      </p>
+                    </div>
+                  ) : typeof data?.downloadQuota === "number" ? (
+                    <div>
+                      <p className="text-sm font-medium">Downloads</p>
+                      <p className="text-sm text-muted-foreground">
+                        {data.downloadUsage || 0} / {data.downloadQuota} this month
+                      </p>
+                      <div className="mt-1 h-2 w-32 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-green-600 transition-all"
+                          style={{
+                            width: `${Math.min(
+                              ((data.downloadUsage || 0) /
+                                data.downloadQuota) *
+                                100,
+                              100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {typeof data?.downloadCredits === "number" &&
+                    data.downloadCredits > 0 && (
+                      <div>
+                        <p className="text-sm font-medium">Single-download credits</p>
+                        <p className="text-sm text-muted-foreground">
+                          {data.downloadCredits} available
+                        </p>
+                      </div>
+                    )}
                 </div>
               </div>
             </div>

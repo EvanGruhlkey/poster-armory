@@ -6,6 +6,7 @@ import { createJobSchema } from "@/lib/validations";
 import { computeConfigHash } from "@/lib/config-hash";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { resolveQuotaPeriodStartIso } from "@/lib/subscription-period";
+import { getClientIp, getGuestUserId } from "@/lib/guest-user";
 
 export async function POST(request: Request) {
   try {
@@ -13,16 +14,6 @@ export async function POST(request: Request) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const limited = applyRateLimit(user.id, "jobs", {
-      windowMs: 60_000,
-      max: 15,
-    });
-    if (limited) return limited;
 
     const body = await request.json();
     const parsed = createJobSchema.safeParse(body);
@@ -34,6 +25,58 @@ export async function POST(request: Request) {
     }
 
     const { config, is_preview } = parsed.data;
+
+    // Unauthenticated callers: previews only. We attribute the job to a
+    // shared "guest" auth.users row (migration 012) so the existing
+    // pipeline (poster_jobs FK, worker, storage paths) stays unchanged.
+    // Downloads always require sign-up.
+    let effectiveUserId: string;
+    let isGuest = false;
+
+    if (!user) {
+      if (!is_preview) {
+        return NextResponse.json(
+          { error: "Sign up to download a high-resolution copy of this poster." },
+          { status: 401 }
+        );
+      }
+      const guestId = await getGuestUserId();
+      if (!guestId) {
+        return NextResponse.json(
+          { error: "Guest preview is temporarily unavailable. Please sign in." },
+          { status: 503 }
+        );
+      }
+      effectiveUserId = guestId;
+      isGuest = true;
+
+      // IP-scoped limiter for unauthenticated callers. Higher window so
+      // a single visitor isn't blocked mid-design, but tight enough to
+      // make crawler abuse expensive.
+      const ip = getClientIp(request);
+      const limited = applyRateLimit(ip, "jobs-guest", {
+        windowMs: 60_000,
+        max: 10,
+      });
+      if (limited) return limited;
+    } else {
+      // Same defense as before for any Supabase anonymous sessions —
+      // they may not buy downloads even if anon sign-in is enabled.
+      if (!is_preview && user.is_anonymous) {
+        return NextResponse.json(
+          { error: "Sign up to download a high-resolution copy of this poster." },
+          { status: 401 }
+        );
+      }
+      effectiveUserId = user.id;
+
+      const limited = applyRateLimit(user.id, "jobs", {
+        windowMs: 60_000,
+        max: 15,
+      });
+      if (limited) return limited;
+    }
+
     const configHash = computeConfigHash(config);
     const admin = createAdminClient();
 
@@ -52,7 +95,7 @@ export async function POST(request: Request) {
       const { data: existing } = await admin
         .from("poster_jobs")
         .select("id, status, output")
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .eq("config_hash", configHash)
         .eq("is_preview", is_preview)
         .in("status", ["queued", "running", "done"])
@@ -64,18 +107,18 @@ export async function POST(request: Request) {
         if (existing.status === "done") {
           // Ensure the library record exists for downloads. Previews don't
           // get a posters row by design — the library only tracks downloads.
-          if (!is_preview && existing.output) {
+          if (!isGuest && !is_preview && existing.output) {
             const { data: existingPoster } = await admin
               .from("posters")
               .select("id")
-              .eq("user_id", user.id)
+              .eq("user_id", effectiveUserId)
               .eq("job_id", existing.id)
               .limit(1)
               .maybeSingle();
 
             if (!existingPoster) {
               await admin.from("posters").insert({
-                user_id: user.id,
+                user_id: effectiveUserId,
                 job_id: existing.id,
                 title: config.title || config.city,
                 subtitle: config.subtitle || null,
@@ -103,13 +146,40 @@ export async function POST(request: Request) {
       }
     }
 
+    // Guests share one free-plan subscription (provisioned in migration
+    // 012). Skip the per-user sub fetch / quota RPC for them — previews
+    // are always allowed and they can never reach the download path
+    // because we gated that above.
+    if (isGuest) {
+      const { data: guestJob, error: guestErr } = await admin
+        .from("poster_jobs")
+        .insert({
+          user_id: effectiveUserId,
+          status: "queued",
+          input: config,
+          config_hash: configHash,
+          is_preview: true,
+        })
+        .select("id")
+        .single();
+
+      if (guestErr || !guestJob) {
+        console.error("guest preview insert failed:", guestErr);
+        return NextResponse.json(
+          { error: "Failed to start preview" },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json({ jobId: guestJob.id });
+    }
+
     // Check subscription (must be active AND not expired)
     const { data: sub } = await admin
       .from("subscriptions")
       .select(
         "id, plan_slug, status, current_period_end, current_period_start, stripe_sub_id, created_at"
       )
-      .eq("user_id", user.id)
+      .eq("user_id", effectiveUserId)
       .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -130,7 +200,7 @@ export async function POST(request: Request) {
       await admin
         .from("subscriptions")
         .update({ status: "expired" })
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .eq("status", "active")
         .lte("current_period_end", new Date().toISOString());
 
@@ -140,29 +210,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // Determine quota (null = unlimited for pro_plus)
-    let quota: number | null = null;
+    // Pricing v2: NULL in the plans row means unlimited. The legacy
+    // pro_plus carve-out is gone because both pro and pro_plus already
+    // resolve to NULL after migration 010.
+    const { data: plan } = await admin
+      .from("plans")
+      .select("monthly_quota, monthly_download_quota")
+      .eq("slug", sub.plan_slug)
+      .single();
 
-    if (sub.plan_slug !== "pro_plus") {
-      const { data: plan } = await admin
-        .from("plans")
-        .select("monthly_quota, monthly_download_quota")
-        .eq("slug", sub.plan_slug)
-        .single();
-
-      quota = is_preview
-        ? (plan?.monthly_quota ?? null)
-        : (plan?.monthly_download_quota ?? null);
-    }
+    const quota: number | null = is_preview
+      ? (plan?.monthly_quota ?? null)
+      : (plan?.monthly_download_quota ?? null);
 
     const periodStartIso = await resolveQuotaPeriodStartIso(admin, stripe, sub);
 
-    // Try atomic RPC first; fall back to inline check if PostgREST can't resolve it
-    // (e.g. migration not applied yet — deploy `005_billing_period_quota` before relying on RPC).
+    // Atomically: enforce quota and, for downloads only, fall back to one
+    // unused download_credit if the plan's quota is exhausted. See
+    // migration 010_pricing_v2.sql for the function body.
     const { data: jobId, error: rpcError } = await admin.rpc(
-      "create_job_with_quota_check",
+      "create_job_with_quota_or_credit",
       {
-        p_user_id: user.id,
+        p_user_id: effectiveUserId,
         p_input: config,
         p_config_hash: configHash,
         p_is_preview: is_preview,
@@ -173,32 +242,30 @@ export async function POST(request: Request) {
 
     if (rpcError) {
       if (rpcError.message?.includes("QUOTA_EXCEEDED")) {
-        // For users on a 0-quota plan (e.g. free tier downloads) "limit
-        // reached" reads as if they used something up. Tell them the truth:
-        // the feature isn't included.
         let msg =
           rpcError.message.split("QUOTA_EXCEEDED:")[1] ||
           "Quota exceeded. Upgrade for more.";
-        if (quota === 0) {
-          msg = is_preview
-            ? "Designs aren't included in your plan. Upgrade to create designs."
-            : "Downloads aren't included in your plan. Upgrade to download.";
+        if (!is_preview && quota === 0) {
+          msg =
+            "Downloads aren't included in your plan. Buy a single download ($9) or upgrade for monthly downloads.";
+        } else if (!is_preview) {
+          msg =
+            "You've used all of this month's downloads. Buy a single download ($9) or upgrade to Pro for unlimited.";
         }
         return NextResponse.json({ error: msg }, { status: 403 });
       }
 
-      // RPC doesn't exist yet -- fall back to inline quota check
       if (
         rpcError.message?.includes("could not find") ||
         rpcError.code === "PGRST202"
       ) {
         console.warn(
-          "create_job_with_quota_check RPC not found, using inline fallback"
+          "create_job_with_quota_or_credit RPC not found, using inline fallback"
         );
         return await inlineCreateJob(
           admin,
           supabase,
-          user.id,
+          effectiveUserId,
           config,
           configHash,
           is_preview,
@@ -207,7 +274,7 @@ export async function POST(request: Request) {
         );
       }
 
-      console.error("create_job_with_quota_check error:", rpcError);
+      console.error("create_job_with_quota_or_credit error:", rpcError);
       return NextResponse.json(
         { error: "Failed to create job" },
         { status: 500 }
@@ -224,7 +291,14 @@ export async function POST(request: Request) {
   }
 }
 
-/** Fallback when `create_job_with_quota_check` isn't available in the database. */
+/**
+ * Fallback when `create_job_with_quota_or_credit` isn't available in the
+ * database (e.g. migration 010 not yet applied). Performs the same
+ * quota-then-credit check as the RPC but without an advisory lock, so
+ * concurrent calls may briefly over-spend. The atomic RPC is the
+ * production path; this is only here so a missing migration is loud-by-log
+ * rather than silently 500ing.
+ */
 async function inlineCreateJob(
   admin: ReturnType<typeof createAdminClient>,
   supabase: ReturnType<typeof createClient>,
@@ -235,6 +309,8 @@ async function inlineCreateJob(
   quota: number | null,
   periodStartIso: string
 ) {
+  let creditId: string | null = null;
+
   if (quota !== null) {
     const { count } = await admin
       .from("poster_jobs")
@@ -245,15 +321,31 @@ async function inlineCreateJob(
       .gte("created_at", periodStartIso);
 
     if ((count || 0) >= quota) {
-      let msg = isPreview
-        ? "Monthly design limit reached. Upgrade for more."
-        : "Monthly download limit reached. Upgrade for more.";
-      if (quota === 0) {
-        msg = isPreview
-          ? "Designs aren't included in your plan. Upgrade to create designs."
-          : "Downloads aren't included in your plan. Upgrade to download.";
+      if (isPreview) {
+        return NextResponse.json(
+          { error: "Monthly design limit reached. Upgrade for more." },
+          { status: 403 }
+        );
       }
-      return NextResponse.json({ error: msg }, { status: 403 });
+
+      const { data: credit } = await admin
+        .from("download_credits")
+        .update({ used: true, used_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .eq("used", false)
+        .select("id")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!credit) {
+        const msg =
+          quota === 0
+            ? "Downloads aren't included in your plan. Buy a single download ($9) or upgrade for monthly downloads."
+            : "You've used all of this month's downloads. Buy a single download ($9) or upgrade to Pro for unlimited.";
+        return NextResponse.json({ error: msg }, { status: 403 });
+      }
+      creditId = credit.id;
     }
   }
 
@@ -270,10 +362,24 @@ async function inlineCreateJob(
     .single();
 
   if (error) {
+    // Best-effort refund of the credit we just consumed.
+    if (creditId) {
+      await admin
+        .from("download_credits")
+        .update({ used: false, used_at: null })
+        .eq("id", creditId);
+    }
     return NextResponse.json(
       { error: "Failed to create job" },
       { status: 500 }
     );
+  }
+
+  if (creditId) {
+    await admin
+      .from("download_credits")
+      .update({ used_job_id: job.id })
+      .eq("id", creditId);
   }
 
   return NextResponse.json({ jobId: job.id });

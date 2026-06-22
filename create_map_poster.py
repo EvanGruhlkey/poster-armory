@@ -10,10 +10,12 @@ high-quality poster-ready images with roads, water features, and parks.
 import argparse
 import asyncio
 import json
+import math
 import os
 import pickle
 import sys
 import time
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -27,10 +29,29 @@ from geopy.geocoders import Nominatim
 from lat_lon_parser import parse
 from matplotlib.font_manager import FontProperties
 from networkx import MultiDiGraph
-from shapely.geometry import Point
+from shapely import affinity
+from shapely.geometry import LineString, MultiLineString, Point, box
+from shapely.ops import polygonize, unary_union
 from tqdm import tqdm
 
 from font_management import load_fonts
+
+# Optional bidirectional/RTL shaping support. These are used to correctly
+# display Arabic, Hebrew and Farsi text, which matplotlib does not handle
+# natively. If they are not installed we fall back to best-effort rendering.
+try:
+    from bidi.algorithm import get_display as _bidi_get_display
+
+    _HAS_BIDI = True
+except ImportError:  # pragma: no cover - optional dependency
+    _HAS_BIDI = False
+
+try:
+    import arabic_reshaper as _arabic_reshaper
+
+    _HAS_ARABIC_RESHAPER = True
+except ImportError:  # pragma: no cover - optional dependency
+    _HAS_ARABIC_RESHAPER = False
 
 
 class CacheError(Exception):
@@ -211,29 +232,40 @@ def load_theme(theme_name="terracotta"):
 THEME = dict[str, str]()  # Will be loaded later
 
 
+GRADIENT_RESOLUTION = 1024
+
+
 def create_gradient_fade(ax, color, location="bottom", zorder=10):
     """
-    Creates a fade effect at the top or bottom of the map.
-    """
-    vals = np.linspace(0, 1, 256).reshape(-1, 1)
-    gradient = np.hstack((vals, vals))
+    Creates a smooth fade effect at the top or bottom of the map.
 
+    Instead of a 256-entry ``ListedColormap`` (which produces visible color
+    banding on dark themes), this builds a high-resolution float32 RGBA image
+    and lets matplotlib's bilinear interpolation smooth it out. The result is
+    free of the stair-stepping artifacts that plagued the old approach.
+    """
     rgb = mcolors.to_rgb(color)
-    my_colors = np.zeros((256, 4))
-    my_colors[:, 0] = rgb[0]
-    my_colors[:, 1] = rgb[1]
-    my_colors[:, 2] = rgb[2]
+
+    # Build a tall (GRADIENT_RESOLUTION x 1) RGBA image in float32. Only the
+    # alpha channel varies, going from fully opaque (touching the edge) to
+    # fully transparent (fading into the map).
+    image = np.empty((GRADIENT_RESOLUTION, 1, 4), dtype=np.float32)
+    image[:, 0, 0] = rgb[0]
+    image[:, 0, 1] = rgb[1]
+    image[:, 0, 2] = rgb[2]
 
     if location == "bottom":
-        my_colors[:, 3] = np.linspace(1, 0, 256)
-        extent_y_start = 0
+        # Opaque at the very bottom (row 0) fading to transparent upward.
+        alpha = np.linspace(1.0, 0.0, GRADIENT_RESOLUTION, dtype=np.float32)
+        extent_y_start = 0.0
         extent_y_end = 0.25
     else:
-        my_colors[:, 3] = np.linspace(0, 1, 256)
+        # Transparent at the bottom of the band fading to opaque at the top.
+        alpha = np.linspace(0.0, 1.0, GRADIENT_RESOLUTION, dtype=np.float32)
         extent_y_start = 0.75
         extent_y_end = 1.0
 
-    custom_cmap = mcolors.ListedColormap(my_colors)
+    image[:, 0, 3] = alpha
 
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
@@ -243,13 +275,165 @@ def create_gradient_fade(ax, color, location="bottom", zorder=10):
     y_top = ylim[0] + y_range * extent_y_end
 
     ax.imshow(
-        gradient,
+        image,
         extent=[xlim[0], xlim[1], y_bottom, y_top],
         aspect="auto",
-        cmap=custom_cmap,
         zorder=zorder,
         origin="lower",
+        interpolation="bilinear",
     )
+
+
+def rotate_graph(g_proj, angle_deg, origin):
+    """
+    Rotate a projected graph in place around an origin point.
+
+    Both node coordinates and any precomputed edge geometries are rotated so
+    that ``ox.plot_graph`` renders the map turned by ``angle_deg`` degrees
+    (counter-clockwise). Used to align a city to a more pleasing angle, e.g.
+    squaring up Manhattan or San Francisco's grid.
+
+    Args:
+        g_proj: Projected MultiDiGraph (modified in place).
+        angle_deg: Rotation angle in degrees (counter-clockwise).
+        origin: (x, y) tuple in the projected CRS to rotate around.
+    """
+    if not angle_deg:
+        return g_proj
+
+    theta = math.radians(angle_deg)
+    cos_t, sin_t = math.cos(theta), math.sin(theta)
+    ox0, oy0 = origin
+
+    def _rotate_xy(x, y):
+        dx, dy = x - ox0, y - oy0
+        return (
+            ox0 + dx * cos_t - dy * sin_t,
+            oy0 + dx * sin_t + dy * cos_t,
+        )
+
+    for _node, data in g_proj.nodes(data=True):
+        if "x" in data and "y" in data:
+            data["x"], data["y"] = _rotate_xy(data["x"], data["y"])
+
+    for _u, _v, data in g_proj.edges(data=True):
+        geom = data.get("geometry")
+        if geom is not None:
+            data["geometry"] = affinity.rotate(
+                geom, angle_deg, origin=origin, use_radians=False
+            )
+
+    return g_proj
+
+
+def rotate_gdf(gdf, angle_deg, origin):
+    """Return a copy of a GeoDataFrame with geometries rotated around origin."""
+    if gdf is None or gdf.empty or not angle_deg:
+        return gdf
+    rotated = gdf.copy()
+    rotated["geometry"] = rotated.geometry.apply(
+        lambda geom: affinity.rotate(geom, angle_deg, origin=origin, use_radians=False)
+    )
+    return rotated
+
+
+def scale_factor_for(width, height):
+    """Return the poster scale factor relative to the 12-inch reference width."""
+    return min(height, width) / 12.0
+
+
+def _river_linewidth(row):
+    """Line width (at reference scale) for a linear waterway based on its type."""
+    waterway = row.get("waterway") if hasattr(row, "get") else None
+    if isinstance(waterway, list):
+        waterway = waterway[0] if waterway else None
+    if waterway == "river":
+        return 1.6
+    if waterway == "canal":
+        return 1.1
+    return 0.6  # streams and everything else
+
+
+def _project_points_to_crs(latlon_points, target_crs, rotation, origin):
+    """
+    Project a list of (lat, lon) points to ``target_crs`` and apply rotation.
+
+    Returns two lists (xs, ys) suitable for matplotlib ``plot``/``scatter``.
+    """
+    xs, ys = [], []
+    for lat, lon in latlon_points:
+        pt = ox.projection.project_geometry(
+            Point(lon, lat), crs="EPSG:4326", to_crs=target_crs
+        )[0]
+        if rotation:
+            pt = affinity.rotate(pt, rotation, origin=origin, use_radians=False)
+        xs.append(pt.x)
+        ys.append(pt.y)
+    return xs, ys
+
+
+def _plot_gpx_route(ax, gpx_points, target_crs, rotation, origin, theme):
+    """Overlay a GPX track as a bold accent line on top of the map."""
+    if not gpx_points:
+        return
+    xs, ys = _project_points_to_crs(gpx_points, target_crs, rotation, origin)
+    if not xs:
+        return
+    route_color = theme.get("route", theme.get("road_motorway", theme["text"]))
+    ax.plot(
+        xs, ys,
+        color=route_color,
+        linewidth=2.4,
+        solid_capstyle="round",
+        solid_joinstyle="round",
+        zorder=9,
+    )
+    # Start (circle) and finish (square) markers for the route.
+    ax.scatter([xs[0]], [ys[0]], s=40, color=route_color, marker="o", zorder=9.1)
+    ax.scatter([xs[-1]], [ys[-1]], s=40, color=route_color, marker="s", zorder=9.1)
+
+
+def _plot_markers(ax, markers, target_crs, rotation, origin, theme, scale_factor, active_fonts=None):
+    """Plot custom point-of-interest pins with optional labels."""
+    if not markers:
+        return
+    marker_color = theme.get("marker", theme.get("text"))
+    label_font = None
+    if active_fonts:
+        label_font = FontProperties(fname=active_fonts["bold"], size=12 * scale_factor)
+
+    pts = [(lat, lon) for lat, lon, _label in markers]
+    xs, ys = _project_points_to_crs(pts, target_crs, rotation, origin)
+
+    for (x, y), (_lat, _lon, label) in zip(zip(xs, ys), markers):
+        ax.scatter(
+            [x], [y],
+            s=90 * scale_factor,
+            color=marker_color,
+            edgecolors=theme.get("bg", "#FFFFFF"),
+            linewidths=1.2 * scale_factor,
+            marker="o",
+            zorder=9.5,
+        )
+        if label:
+            text_kwargs = dict(
+                color=marker_color,
+                ha="center",
+                va="bottom",
+                zorder=9.6,
+            )
+            if label_font is not None:
+                text_kwargs["fontproperties"] = label_font
+            else:
+                text_kwargs["fontsize"] = 12 * scale_factor
+                text_kwargs["fontweight"] = "bold"
+            ax.annotate(
+                shape_display_text(label),
+                xy=(x, y),
+                xytext=(0, 10 * scale_factor),
+                textcoords="offset points",
+                **text_kwargs,
+            )
 
 
 def get_edge_colors_by_type(g):
@@ -370,10 +554,15 @@ def get_coordinates(city, country):
     raise ValueError(f"Could not find coordinates for {city}, {country}")
 
 
-def get_crop_limits(g_proj, center_lat_lon, fig, dist):
+def get_crop_limits(g_proj, center_lat_lon, fig, dist, offset_x=0.0, offset_y=0.0):
     """
     Crop inward to preserve aspect ratio while guaranteeing
     full coverage of the requested radius.
+
+    ``offset_x`` / ``offset_y`` shift the crop window (in meters) so the most
+    interesting part of a city can be centered instead of the raw geocoded
+    centroid. Positive x shifts the view east (right); positive y shifts it
+    north (up).
     """
     lat, lon = center_lat_lon
 
@@ -385,7 +574,7 @@ def get_crop_limits(g_proj, center_lat_lon, fig, dist):
             to_crs=g_proj.graph["crs"]
         )[0]
     )
-    center_x, center_y = center.x, center.y
+    center_x, center_y = center.x + offset_x, center.y + offset_y
 
     fig_width, fig_height = fig.get_size_inches()
     aspect = fig_width / fig_height
@@ -479,6 +668,209 @@ def fetch_features(point, dist, tags, name) -> GeoDataFrame | None:
         return None
 
 
+def _explode_lines(geom):
+    """Yield individual LineString objects from any (multi)line geometry."""
+    if geom is None or geom.is_empty:
+        return
+    if isinstance(geom, LineString):
+        yield geom
+    elif isinstance(geom, MultiLineString):
+        for part in geom.geoms:
+            if not part.is_empty:
+                yield part
+
+
+def _polygon_is_water(poly, coastlines):
+    """
+    Decide whether a polygon represents sea/water using OSM coastline winding.
+
+    OSM convention: walking along a coastline way in node order, land is on the
+    LEFT and water is on the RIGHT. We find a coastline segment lying on the
+    polygon's boundary, step a tiny amount toward its right-hand side, and check
+    whether that probe point falls inside the polygon. If it does, the polygon
+    is on the water side.
+    """
+    boundary = poly.exterior
+    for line in coastlines:
+        coords = list(line.coords)
+        for i in range(len(coords) - 1):
+            x0, y0 = coords[i][0], coords[i][1]
+            x1, y1 = coords[i + 1][0], coords[i + 1][1]
+            mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+
+            # Only consider segments that actually lie on this polygon edge.
+            if boundary.distance(Point(mx, my)) > 1e-6:
+                continue
+
+            dx, dy = x1 - x0, y1 - y0
+            length = math.hypot(dx, dy)
+            if length == 0:
+                continue
+
+            # Right-hand normal of the direction vector (rotate by -90 degrees).
+            nx, ny = dy / length, -dx / length
+            eps = max(length * 0.05, 1.0)
+            probe = Point(mx + nx * eps, my + ny * eps)
+            return poly.contains(probe)
+
+    return False
+
+
+def reconstruct_sea_polygons(coastline_gdf, bbox):
+    """
+    Reconstruct open-sea water polygons from OSM coastline lines.
+
+    OSM stores oceans/seas as ``natural=coastline`` *lines* rather than filled
+    water polygons, so coastal cities (Istanbul, San Francisco, Sydney...) would
+    otherwise render the sea as blank background. This clips the coastlines to
+    the visible bounding box, splits the box along them, and keeps the pieces
+    that fall on the water side of the coastline.
+
+    Args:
+        coastline_gdf: Projected GeoDataFrame containing coastline geometries.
+        bbox: shapely Polygon describing the visible (projected) crop window.
+
+    Returns:
+        List of shapely Polygons representing sea/water areas (possibly empty).
+    """
+    if coastline_gdf is None or coastline_gdf.empty:
+        return []
+
+    raw_lines = []
+    for geom in coastline_gdf.geometry:
+        raw_lines.extend(_explode_lines(geom))
+
+    if not raw_lines:
+        return []
+
+    # Clip coastlines to the visible window.
+    clipped = []
+    for line in raw_lines:
+        inter = line.intersection(bbox)
+        clipped.extend(_explode_lines(inter))
+
+    if not clipped:
+        return []
+
+    # Polygonize the arrangement formed by the coastlines and the box boundary.
+    try:
+        merged = unary_union(clipped + [bbox.boundary])
+        candidate_polys = list(polygonize(merged))
+    except Exception as e:
+        print(f"⚠ Could not reconstruct sea polygons: {e}")
+        return []
+
+    return [poly for poly in candidate_polys if _polygon_is_water(poly, clipped)]
+
+
+def load_gpx_track(gpx_path):
+    """
+    Parse a GPX file and return its track/route points as (lat, lon) tuples.
+
+    Supports track points (``trkpt``), route points (``rtept``) and standalone
+    waypoints (``wpt``). Namespaces are handled generically so both GPX 1.0 and
+    1.1 files work.
+
+    Args:
+        gpx_path: Path to a .gpx file.
+
+    Returns:
+        List of (latitude, longitude) float tuples in file order.
+    """
+    tree = ET.parse(gpx_path)
+    root = tree.getroot()
+
+    points = []
+    for elem in root.iter():
+        tag = elem.tag.split("}")[-1]  # strip namespace
+        if tag in ("trkpt", "rtept", "wpt"):
+            lat = elem.get("lat")
+            lon = elem.get("lon")
+            if lat is not None and lon is not None:
+                points.append((float(lat), float(lon)))
+
+    return points
+
+
+# Unicode ranges for right-to-left scripts (Arabic, Hebrew, and their
+# supplements / presentation forms). Used to flip text direction.
+_RTL_RANGES = (
+    (0x0590, 0x05FF),  # Hebrew
+    (0x0600, 0x06FF),  # Arabic
+    (0x0700, 0x074F),  # Syriac
+    (0x0750, 0x077F),  # Arabic Supplement
+    (0x08A0, 0x08FF),  # Arabic Extended-A
+    (0xFB1D, 0xFB4F),  # Hebrew presentation forms
+    (0xFB50, 0xFDFF),  # Arabic presentation forms-A
+    (0xFE70, 0xFEFF),  # Arabic presentation forms-B
+)
+
+
+def is_rtl_script(text):
+    """
+    Return True if the text is predominantly a right-to-left script.
+
+    Used to fix display direction for Arabic, Hebrew and Farsi city names
+    (e.g. Dubai, Abu Dhabi, Jerusalem) which otherwise render left-to-right.
+    """
+    if not text:
+        return False
+
+    rtl_count = 0
+    total_alpha = 0
+    for char in text:
+        if not char.isalpha():
+            continue
+        total_alpha += 1
+        code = ord(char)
+        if any(lo <= code <= hi for lo, hi in _RTL_RANGES):
+            rtl_count += 1
+
+    if total_alpha == 0:
+        return False
+
+    return (rtl_count / total_alpha) > 0.5
+
+
+def shape_display_text(text):
+    """
+    Prepare text for correct visual display, including RTL handling.
+
+    For right-to-left scripts we reshape Arabic letters into their contextual
+    forms (when ``arabic_reshaper`` is available) and apply the Unicode
+    bidirectional algorithm (when ``python-bidi`` is available) so matplotlib,
+    which lays glyphs out strictly left-to-right, shows them in the correct
+    order. If those optional libraries are missing we fall back to reversing
+    the logical character order, which is a reasonable approximation for pure
+    RTL strings.
+
+    Args:
+        text: Logical-order display string.
+
+    Returns:
+        A visually-ordered string ready to hand to matplotlib.
+    """
+    if not text or not is_rtl_script(text):
+        return text
+
+    shaped = text
+    if _HAS_ARABIC_RESHAPER:
+        try:
+            shaped = _arabic_reshaper.reshape(shaped)
+        except Exception:
+            shaped = text
+
+    if _HAS_BIDI:
+        try:
+            return _bidi_get_display(shaped)
+        except Exception:
+            pass
+
+    # Fallback: reverse the (reshaped) string so a pure-RTL label at least
+    # reads in the correct direction without the bidi library.
+    return shaped[::-1]
+
+
 def create_poster(
     city,
     country,
@@ -488,11 +880,18 @@ def create_poster(
     output_format,
     width=12,
     height=16,
+    dpi=300,
     country_label=None,
     name_label=None,
     display_city=None,
     display_country=None,
     fonts=None,
+    rotation=0.0,
+    no_text=False,
+    offset_x=0.0,
+    offset_y=0.0,
+    gpx_points=None,
+    markers=None,
 ):
     """
     Generate a complete map poster with roads, water, parks, and typography.
@@ -511,6 +910,12 @@ def create_poster(
         height: Poster height in inches (default: 16)
         country_label: Optional override for country text on poster
         _name_label: Optional override for city name (unused, reserved for future use)
+        rotation: Rotate the map by this many degrees counter-clockwise
+        no_text: If True, omit all text (city/country/coords/attribution)
+        offset_x: Shift the crop window east/west in meters
+        offset_y: Shift the crop window north/south in meters
+        gpx_points: Optional list of (lat, lon) points to overlay as a route
+        markers: Optional list of (lat, lon, label) custom point-of-interest pins
 
     Raises:
         RuntimeError: If street network data cannot be retrieved
@@ -524,7 +929,7 @@ def create_poster(
 
     # Progress bar for data fetching
     with tqdm(
-        total=3,
+        total=5,
         desc="Fetching map data",
         unit="step",
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
@@ -537,7 +942,7 @@ def create_poster(
             raise RuntimeError("Failed to retrieve street network data.")
         pbar.update(1)
 
-        # 2. Fetch Water Features
+        # 2. Fetch Water Features (polygons) + coastlines (lines)
         pbar.set_description("Downloading water features")
         water = fetch_features(
             point,
@@ -545,16 +950,49 @@ def create_poster(
             tags={"natural": ["water", "bay", "strait"], "waterway": "riverbank"},
             name="water",
         )
+        # Coastlines are stored as lines in OSM; we reconstruct open sea below.
+        coastline = fetch_features(
+            point,
+            compensated_dist,
+            tags={"natural": "coastline"},
+            name="coastline",
+        )
         pbar.update(1)
 
-        # 3. Fetch Parks
+        # 3. Fetch Rivers and other linear waterways
+        pbar.set_description("Downloading rivers/waterways")
+        rivers = fetch_features(
+            point,
+            compensated_dist,
+            tags={"waterway": ["river", "canal", "stream"]},
+            name="rivers",
+        )
+        pbar.update(1)
+
+        # 4. Fetch Parks and richer green spaces
         pbar.set_description("Downloading parks/green spaces")
         parks = fetch_features(
             point,
             compensated_dist,
-            tags={"leisure": "park", "landuse": "grass"},
+            tags={
+                "leisure": ["park", "garden", "golf_course", "nature_reserve"],
+                "landuse": [
+                    "grass",
+                    "cemetery",
+                    "allotments",
+                    "meadow",
+                    "farmland",
+                    "forest",
+                    "recreation_ground",
+                    "village_green",
+                    "orchard",
+                    "vineyard",
+                ],
+                "natural": ["wood", "grassland", "scrub", "heath"],
+            },
             name="parks",
         )
+        pbar.update(1)
         pbar.update(1)
 
     print("✓ All data retrieved successfully!")
@@ -567,37 +1005,87 @@ def create_poster(
 
     # Project graph to a metric CRS so distances and aspect are linear (meters)
     g_proj = ox.project_graph(g)
+    target_crs = g_proj.graph["crs"]
+
+    # Projected center point (used for rotation origin and crop window).
+    proj_center = ox.projection.project_geometry(
+        Point(point[1], point[0]), crs="EPSG:4326", to_crs=target_crs
+    )[0]
+    rotation_origin = (proj_center.x + offset_x, proj_center.y + offset_y)
+
+    def _project_gdf(gdf):
+        """Project a GeoDataFrame to the graph CRS, with a robust fallback."""
+        try:
+            return ox.projection.project_gdf(gdf)
+        except Exception:
+            return gdf.to_crs(target_crs)
+
+    # Apply optional rotation to the street network up front so node/edge
+    # geometry is already turned before plotting.
+    if rotation:
+        print(f"Rotating map by {rotation}°...")
+        g_proj = rotate_graph(g_proj, rotation, rotation_origin)
+
+    # Determine cropping limits to maintain the poster aspect ratio. The crop is
+    # computed on the (post-rotation) center so the requested point stays put.
+    crop_xlim, crop_ylim = get_crop_limits(
+        g_proj, point, fig, compensated_dist, offset_x=offset_x, offset_y=offset_y
+    )
+    crop_box = box(crop_xlim[0], crop_ylim[0], crop_xlim[1], crop_ylim[1])
 
     # 3. Plot Layers
+    # Layer 0: Reconstructed open sea from coastlines (drawn beneath everything).
+    if coastline is not None and not coastline.empty:
+        coast_lines = coastline[coastline.geometry.type.isin(["LineString", "MultiLineString"])]
+        if not coast_lines.empty:
+            coast_proj = _project_gdf(coast_lines)
+            coast_proj = rotate_gdf(coast_proj, rotation, rotation_origin)
+            try:
+                sea_polys = reconstruct_sea_polygons(coast_proj, crop_box)
+            except Exception as e:
+                print(f"⚠ Sea reconstruction failed: {e}")
+                sea_polys = []
+            if sea_polys:
+                sea_gdf = GeoDataFrame(geometry=sea_polys, crs=target_crs)
+                sea_gdf.plot(ax=ax, facecolor=THEME['water'], edgecolor='none', zorder=0.3)
+
     # Layer 1: Polygons (filter to only plot polygon/multipolygon geometries, not points)
     if water is not None and not water.empty:
         # Filter to only polygon/multipolygon geometries to avoid point features showing as dots
         water_polys = water[water.geometry.type.isin(["Polygon", "MultiPolygon"])]
         if not water_polys.empty:
-            # Project water features in the same CRS as the graph
-            try:
-                water_polys = ox.projection.project_gdf(water_polys)
-            except Exception:
-                water_polys = water_polys.to_crs(g_proj.graph['crs'])
+            water_polys = _project_gdf(water_polys)
+            water_polys = rotate_gdf(water_polys, rotation, rotation_origin)
             water_polys.plot(ax=ax, facecolor=THEME['water'], edgecolor='none', zorder=0.5)
+
+    # Layer 1b: Linear rivers/waterways (most rivers are lines, not polygons).
+    if rivers is not None and not rivers.empty:
+        river_lines = rivers[rivers.geometry.type.isin(["LineString", "MultiLineString"])]
+        if not river_lines.empty:
+            river_lines = _project_gdf(river_lines)
+            river_lines = rotate_gdf(river_lines, rotation, rotation_origin)
+            # Wider lines for rivers, narrower for canals/streams.
+            river_widths = river_lines.apply(_river_linewidth, axis=1) * scale_factor_for(width, height)
+            river_lines.plot(
+                ax=ax,
+                color=THEME['water'],
+                linewidth=list(river_widths),
+                zorder=0.6,
+                capstyle='round',
+            )
 
     if parks is not None and not parks.empty:
         # Filter to only polygon/multipolygon geometries to avoid point features showing as dots
         parks_polys = parks[parks.geometry.type.isin(["Polygon", "MultiPolygon"])]
         if not parks_polys.empty:
-            # Project park features in the same CRS as the graph
-            try:
-                parks_polys = ox.projection.project_gdf(parks_polys)
-            except Exception:
-                parks_polys = parks_polys.to_crs(g_proj.graph['crs'])
+            parks_polys = _project_gdf(parks_polys)
+            parks_polys = rotate_gdf(parks_polys, rotation, rotation_origin)
             parks_polys.plot(ax=ax, facecolor=THEME['parks'], edgecolor='none', zorder=0.8)
     # Layer 2: Roads with hierarchy coloring
     print("Applying road hierarchy colors...")
     edge_colors = get_edge_colors_by_type(g_proj)
     edge_widths = get_edge_widths_by_type(g_proj)
 
-    # Determine cropping limits to maintain the poster aspect ratio
-    crop_xlim, crop_ylim = get_crop_limits(g_proj, point, fig, compensated_dist)
     # Plot the projected graph and then apply the cropped limits
     ox.plot_graph(
         g_proj, ax=ax, bgcolor=THEME['bg'],
@@ -610,9 +1098,16 @@ def create_poster(
     ax.set_xlim(crop_xlim)
     ax.set_ylim(crop_ylim)
 
-    # Layer 3: Gradients (Top and Bottom)
-    create_gradient_fade(ax, THEME['gradient_color'], location='bottom', zorder=10)
-    create_gradient_fade(ax, THEME['gradient_color'], location='top', zorder=10)
+    # Layer 2b: GPX route overlay (marathon route, hiking trail, road trip...).
+    if gpx_points:
+        _plot_gpx_route(ax, gpx_points, target_crs, rotation, rotation_origin, THEME)
+
+    # Layer 2c: Custom point-of-interest markers.
+    if markers:
+        _plot_markers(
+            ax, markers, target_crs, rotation, rotation_origin, THEME,
+            scale_factor_for(width, height), active_fonts=fonts or FONTS,
+        )
 
     # Calculate scale factor based on smaller dimension (reference 12 inches)
     # This ensures text scales properly for both portrait and landscape orientations
@@ -625,127 +1120,138 @@ def create_poster(
     base_attr = 8
 
     # 4. Typography - use custom fonts if provided, otherwise use default FONTS
+    # Skipped entirely in --no-text "clean" mode for a pure map aesthetic.
     active_fonts = fonts or FONTS
-    if active_fonts:
-        # font_main is calculated dynamically later based on length
-        font_sub = FontProperties(
-            fname=active_fonts["light"], size=base_sub * scale_factor
+    if not no_text:
+        if active_fonts:
+            # font_main is calculated dynamically later based on length
+            font_sub = FontProperties(
+                fname=active_fonts["light"], size=base_sub * scale_factor
+            )
+            font_coords = FontProperties(
+                fname=active_fonts["regular"], size=base_coords * scale_factor
+            )
+            font_attr = FontProperties(
+                fname=active_fonts["light"], size=base_attr * scale_factor
+            )
+        else:
+            # Fallback to system fonts
+            font_sub = FontProperties(
+                family="monospace", weight="normal", size=base_sub * scale_factor
+            )
+            font_coords = FontProperties(
+                family="monospace", size=base_coords * scale_factor
+            )
+            font_attr = FontProperties(family="monospace", size=base_attr * scale_factor)
+
+        # Format city name based on script type
+        # Latin scripts: apply uppercase and letter spacing for aesthetic
+        # RTL scripts (Arabic, Hebrew, Farsi): shape + reorder, no spacing/upper
+        # Other non-Latin (CJK, Thai...): preserve case structure, no spacing
+        if is_rtl_script(display_city):
+            spaced_city = shape_display_text(display_city)
+        elif is_latin_script(display_city):
+            spaced_city = " ".join(list(display_city.upper()))
+        else:
+            spaced_city = display_city
+
+        # Dynamically adjust font size based on rendered text width to prevent overflow.
+        # Use spaced_city length since that's what actually gets rendered.
+        base_adjusted_main = base_main * scale_factor
+        visual_length = len(spaced_city)
+
+        if visual_length > 20:
+            length_factor = 20 / visual_length
+            adjusted_font_size = max(base_adjusted_main * length_factor, 10 * scale_factor)
+        else:
+            adjusted_font_size = base_adjusted_main
+
+        if active_fonts:
+            font_main_adjusted = FontProperties(
+                fname=active_fonts["bold"], size=adjusted_font_size
+            )
+        else:
+            font_main_adjusted = FontProperties(
+                family="monospace", weight="bold", size=adjusted_font_size
+            )
+
+        # --- BOTTOM TEXT ---
+        ax.text(
+            0.5,
+            0.14,
+            spaced_city,
+            transform=ax.transAxes,
+            color=THEME["text"],
+            ha="center",
+            fontproperties=font_main_adjusted,
+            zorder=11,
         )
-        font_coords = FontProperties(
-            fname=active_fonts["regular"], size=base_coords * scale_factor
-        )
-        font_attr = FontProperties(
-            fname=active_fonts["light"], size=base_attr * scale_factor
-        )
-    else:
-        # Fallback to system fonts
-        font_sub = FontProperties(
-            family="monospace", weight="normal", size=base_sub * scale_factor
-        )
-        font_coords = FontProperties(
-            family="monospace", size=base_coords * scale_factor
-        )
-        font_attr = FontProperties(family="monospace", size=base_attr * scale_factor)
 
-    # Format city name based on script type
-    # Latin scripts: apply uppercase and letter spacing for aesthetic
-    # Non-Latin scripts (CJK, Thai, Arabic, etc.): no spacing, preserve case structure
-    if is_latin_script(display_city):
-        spaced_city = " ".join(list(display_city.upper()))
-    else:
-        spaced_city = display_city
+        # Country: uppercase for Latin, shaped/reordered for RTL.
+        if is_latin_script(display_country):
+            country_text = shape_display_text(display_country.upper())
+        else:
+            country_text = shape_display_text(display_country)
 
-    # Dynamically adjust font size based on rendered text width to prevent overflow.
-    # Use spaced_city length since that's what actually gets rendered.
-    base_adjusted_main = base_main * scale_factor
-    visual_length = len(spaced_city)
-
-    if visual_length > 20:
-        length_factor = 20 / visual_length
-        adjusted_font_size = max(base_adjusted_main * length_factor, 10 * scale_factor)
-    else:
-        adjusted_font_size = base_adjusted_main
-
-    if active_fonts:
-        font_main_adjusted = FontProperties(
-            fname=active_fonts["bold"], size=adjusted_font_size
-        )
-    else:
-        font_main_adjusted = FontProperties(
-            family="monospace", weight="bold", size=adjusted_font_size
+        ax.text(
+            0.5,
+            0.10,
+            country_text,
+            transform=ax.transAxes,
+            color=THEME["text"],
+            ha="center",
+            fontproperties=font_sub,
+            zorder=11,
         )
 
-    # --- BOTTOM TEXT ---
-    ax.text(
-        0.5,
-        0.14,
-        spaced_city,
-        transform=ax.transAxes,
-        color=THEME["text"],
-        ha="center",
-        fontproperties=font_main_adjusted,
-        zorder=11,
-    )
+        lat, lon = point
+        coords = (
+            f"{lat:.4f}° N / {lon:.4f}° E"
+            if lat >= 0
+            else f"{abs(lat):.4f}° S / {lon:.4f}° E"
+        )
+        if lon < 0:
+            coords = coords.replace("E", "W")
 
-    ax.text(
-        0.5,
-        0.10,
-        display_country.upper(),
-        transform=ax.transAxes,
-        color=THEME["text"],
-        ha="center",
-        fontproperties=font_sub,
-        zorder=11,
-    )
+        ax.text(
+            0.5,
+            0.07,
+            coords,
+            transform=ax.transAxes,
+            color=THEME["text"],
+            alpha=0.7,
+            ha="center",
+            fontproperties=font_coords,
+            zorder=11,
+        )
 
-    lat, lon = point
-    coords = (
-        f"{lat:.4f}° N / {lon:.4f}° E"
-        if lat >= 0
-        else f"{abs(lat):.4f}° S / {lon:.4f}° E"
-    )
-    if lon < 0:
-        coords = coords.replace("E", "W")
+        ax.plot(
+            [0.4, 0.6],
+            [0.125, 0.125],
+            transform=ax.transAxes,
+            color=THEME["text"],
+            linewidth=1 * scale_factor,
+            zorder=11,
+        )
 
-    ax.text(
-        0.5,
-        0.07,
-        coords,
-        transform=ax.transAxes,
-        color=THEME["text"],
-        alpha=0.7,
-        ha="center",
-        fontproperties=font_coords,
-        zorder=11,
-    )
+        # --- ATTRIBUTION (bottom right) ---
+        if FONTS:
+            font_attr = FontProperties(fname=FONTS["light"], size=4)
+        else:
+            font_attr = FontProperties(family="monospace", size=4)
 
-    ax.plot(
-        [0.4, 0.6],
-        [0.125, 0.125],
-        transform=ax.transAxes,
-        color=THEME["text"],
-        linewidth=1 * scale_factor,
-        zorder=11,
-    )
-
-    # --- ATTRIBUTION (bottom right) ---
-    if FONTS:
-        font_attr = FontProperties(fname=FONTS["light"], size=4)
-    else:
-        font_attr = FontProperties(family="monospace", size=4)
-
-    ax.text(
-        0.99,
-        0.008,
-        "© OpenStreetMap contributors",
-        transform=ax.transAxes,
-        color=THEME["text"],
-        alpha=0.25,
-        ha="right",
-        va="bottom",
-        fontproperties=font_attr,
-        zorder=11,
-    )
+        ax.text(
+            0.99,
+            0.008,
+            "© OpenStreetMap contributors",
+            transform=ax.transAxes,
+            color=THEME["text"],
+            alpha=0.25,
+            ha="right",
+            va="bottom",
+            fontproperties=font_attr,
+            zorder=11,
+        )
 
     # 5. Save — ensure axes fills the entire figure with zero margins
     ax.set_position([0, 0, 1, 1])
@@ -765,7 +1271,7 @@ def create_poster(
 
     # DPI matters mainly for raster formats
     if fmt == "png":
-        save_kwargs["dpi"] = 300
+        save_kwargs["dpi"] = dpi if dpi and dpi > 0 else 300
 
     plt.savefig(output_file, format=fmt, **save_kwargs)
 
@@ -820,6 +1326,12 @@ Options:
   --theme, -t       Theme name (default: terracotta)
   --all-themes      Generate posters for all themes
   --distance, -d    Map radius in meters (default: 18000)
+  --rotation, -r    Rotate the map by N degrees counter-clockwise
+  --no-text         Clean mode: strip all text for a pure map look
+  --offset-x, -mx   Shift crop window east(+)/west(-) in meters
+  --offset-y, -my   Shift crop window north(+)/south(-) in meters
+  --gpx             Overlay a GPX route (marathon, hike, road trip)
+  --marker          Pin a POI: 'lat,lon,label' (repeatable)
   --list-themes     List all available themes
 
 Distance guide:
@@ -956,6 +1468,56 @@ Examples:
         choices=["png", "svg", "pdf"],
         help="Output format for the poster (default: png)",
     )
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="Raster output resolution in DPI (default: 300). Used for PNG.",
+    )
+    parser.add_argument(
+        "--rotation",
+        "-r",
+        type=float,
+        default=0.0,
+        help="Rotate the map by this many degrees counter-clockwise (default: 0)",
+    )
+    parser.add_argument(
+        "--no-text",
+        dest="no_text",
+        action="store_true",
+        help="Clean mode: omit all city/country/coordinate/attribution text",
+    )
+    parser.add_argument(
+        "--offset-x",
+        "-mx",
+        dest="offset_x",
+        type=float,
+        default=0.0,
+        help="Shift the crop window east(+)/west(-) in meters",
+    )
+    parser.add_argument(
+        "--offset-y",
+        "-my",
+        dest="offset_y",
+        type=float,
+        default=0.0,
+        help="Shift the crop window north(+)/south(-) in meters",
+    )
+    parser.add_argument(
+        "--gpx",
+        type=str,
+        help="Path to a GPX file to overlay as a route (marathon, hike, road trip)",
+    )
+    parser.add_argument(
+        "--marker",
+        action="append",
+        default=None,
+        metavar="LAT,LON[,LABEL]",
+        help=(
+            "Pin a point of interest. Format: 'lat,lon,label'. "
+            "Repeatable, e.g. --marker '40.7,-74.0,Home' --marker '40.8,-73.9,Work'"
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -974,9 +1536,6 @@ Examples:
         print("Error: --city and --country are required.\n")
         print_examples()
         sys.exit(1)
-
-
-
 
     # Enforce maximum dimensions
     if args.width > 20:
@@ -1015,6 +1574,43 @@ Examples:
         if not custom_fonts:
             print(f"⚠ Failed to load '{args.font_family}', falling back to Roboto")
 
+    # Load GPX route overlay if specified
+    gpx_points = None
+    if args.gpx:
+        if not os.path.exists(args.gpx):
+            print(f"Error: GPX file '{args.gpx}' not found.")
+            sys.exit(1)
+        try:
+            gpx_points = load_gpx_track(args.gpx)
+        except Exception as e:
+            print(f"Error: Failed to parse GPX file '{args.gpx}': {e}")
+            sys.exit(1)
+        if not gpx_points:
+            print(f"⚠ No track/route points found in '{args.gpx}'. Skipping overlay.")
+            gpx_points = None
+        else:
+            print(f"✓ Loaded {len(gpx_points)} route points from {args.gpx}")
+
+    # Parse custom markers ("lat,lon,label")
+    markers = None
+    if args.marker:
+        markers = []
+        for raw in args.marker:
+            parts = raw.split(",")
+            if len(parts) < 2:
+                print(f"⚠ Ignoring invalid marker '{raw}' (expected 'lat,lon[,label]')")
+                continue
+            try:
+                m_lat = parse(parts[0].strip())
+                m_lon = parse(parts[1].strip())
+            except Exception:
+                print(f"⚠ Ignoring marker with unparseable coordinates: '{raw}'")
+                continue
+            label = ",".join(parts[2:]).strip() if len(parts) > 2 else ""
+            markers.append((m_lat, m_lon, label))
+        if not markers:
+            markers = None
+
     # Get coordinates and generate poster
     try:
         if args.latitude and args.longitude:
@@ -1037,10 +1633,17 @@ Examples:
                 args.format,
                 args.width,
                 args.height,
+                dpi=args.dpi,
                 country_label=args.country_label,
                 display_city=args.display_city,
                 display_country=args.display_country,
                 fonts=custom_fonts,
+                rotation=args.rotation,
+                no_text=args.no_text,
+                offset_x=args.offset_x,
+                offset_y=args.offset_y,
+                gpx_points=gpx_points,
+                markers=markers,
             )
 
         print("\n" + "=" * 50)

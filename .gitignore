@@ -53,3 +53,4 @@ node_modules/
 # Generated posters (local dev)
 posters/
 tmp/
+.env*.local

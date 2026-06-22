@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { stripe, PLAN_PRICE_MAP } from "@/lib/stripe";
+import { stripe, PLAN_PRICE_MAP, SINGLE_DOWNLOAD_PRICE_ID } from "@/lib/stripe";
 import { z } from "zod";
 import { applyRateLimit } from "@/lib/rate-limit";
 
+// "starter" / "pro" → recurring subscription via PLAN_PRICE_MAP.
+// "single_download" → $9 one-time, fulfilled by webhook → download_credits.
 const checkoutSchema = z.object({
-  planSlug: z.enum(["basic", "pro", "pro_plus"]),
+  planSlug: z.enum(["starter", "pro", "single_download"]),
 });
 
 export async function POST(request: Request) {
@@ -18,6 +20,15 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Stripe Checkout creates a Customer; we never want one tied to an
+    // anonymous, expiring Supabase session. Force them to sign up first.
+    if (user.is_anonymous) {
+      return NextResponse.json(
+        { error: "Sign up to purchase a plan or download." },
+        { status: 401 }
+      );
     }
 
     const limited = applyRateLimit(user.id, "checkout", { windowMs: 60_000, max: 5 });
@@ -33,7 +44,10 @@ export async function POST(request: Request) {
     }
 
     const { planSlug } = parsed.data;
-    const priceId = PLAN_PRICE_MAP[planSlug];
+    const isSingleDownload = planSlug === "single_download";
+    const priceId = isSingleDownload
+      ? SINGLE_DOWNLOAD_PRICE_ID
+      : PLAN_PRICE_MAP[planSlug];
     if (!priceId) {
       return NextResponse.json(
         { error: "Stripe price not configured for this plan" },
@@ -61,6 +75,9 @@ export async function POST(request: Request) {
       metadata: {
         user_id: user.id,
         plan_slug: planSlug,
+        // `kind` lets the webhook fan-out: physical_order / single_download /
+        // (absent for legacy subscription flows).
+        ...(isSingleDownload ? { kind: "single_download" } : {}),
       },
       line_items: [{ price: priceId, quantity: 1 }],
       mode: isRecurring ? "subscription" : "payment",

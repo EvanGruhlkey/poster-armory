@@ -43,8 +43,21 @@ export async function GET() {
       );
     }
 
+    // Download credits are independent of subscription status — surface them
+    // in every response so the UI can render "X downloads available" even
+    // for users on the Free plan.
+    const loadCredits = async (): Promise<number> => {
+      const { count } = await admin
+        .from("download_credits")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user!.id)
+        .eq("used", false);
+      return count || 0;
+    };
+
     if (!sub) {
-      // Check if there's a recently expired/cancelled sub for the expired banner
+      const downloadCredits = await loadCredits();
+
       const { data: expiredSub } = await admin
         .from("subscriptions")
         .select("id, plan_slug, status, current_period_end, created_at")
@@ -66,10 +79,15 @@ export async function GET() {
           expired: true,
           subscription: expiredSub,
           plan: expiredPlan,
+          downloadCredits,
         });
       }
 
-      return NextResponse.json({ active: false, subscription: null });
+      return NextResponse.json({
+        active: false,
+        subscription: null,
+        downloadCredits,
+      });
     }
 
     // Auto-expire only non-recurring subs (no stripe_sub_id).
@@ -150,6 +168,8 @@ export async function GET() {
       console.error("subscription usage counts:", e);
     }
 
+    const downloadCredits = await loadCredits();
+
     return NextResponse.json({
       active: true,
       subscription: sub,
@@ -159,6 +179,7 @@ export async function GET() {
       downloadUsage,
       designQuota: plan?.monthly_quota ?? null,
       downloadQuota: plan?.monthly_download_quota ?? null,
+      downloadCredits,
     });
   } catch (err) {
     console.error("GET /api/subscription error:", err);

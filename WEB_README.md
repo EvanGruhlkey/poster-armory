@@ -60,9 +60,17 @@ Required variables:
 - `STRIPE_SECRET_KEY` - Stripe secret key
 - `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Stripe publishable key
-- `STRIPE_PRICE_DAY_PASS` - Stripe Price ID for Day Pass ($19)
-- `STRIPE_PRICE_PRO` - Stripe Price ID for Pro Plan ($29/mo)
-- `STRIPE_PRICE_BUSINESS` - Stripe Price ID for Business Plan ($49/mo)
+- `STRIPE_PRICE_STARTER` - Stripe Price ID for Starter ($10/mo recurring)
+- `STRIPE_PRICE_PRO` - Stripe Price ID for Pro ($20/mo recurring)
+- `STRIPE_PRICE_SINGLE_DOWNLOAD` - Stripe Price ID for the $9 one-time Single Download credit
+
+Physical fulfillment (Gelato):
+- `GELATO_API_KEY` - Gelato API key (server-only)
+- `GELATO_WEBHOOK_SECRET` - Token appended to the Gelato webhook URL to authenticate status callbacks
+- `GELATO_ORDER_MARKUP` - Retail multiplier on the Gelato base product price (default `1.5`)
+- `GELATO_CURRENCY` - ISO 4217 currency to quote/charge in (default `USD`)
+- `GELATO_PRODUCT_UID_<SIZE>_<ORIENTATION>` - Optional per-size product UID overrides (e.g. `GELATO_PRODUCT_UID_18X24_PORTRAIT`)
+- `WORKER_CALLBACK_SECRET` - Shared secret so the worker can notify the web app when a print render finishes (must match in web + worker env)
 
 ### 4. Database Setup
 
@@ -87,15 +95,44 @@ In your Supabase dashboard:
 
 ### 6. Stripe Configuration
 
-1. Create products & prices in Stripe Dashboard:
-   - Day Pass: $19 one-time payment
-   - Pro Plan: $29/month subscription
-   - Business: $49/month subscription
-2. Copy the Price IDs to your `.env.local`
+1. Create products & prices in Stripe Dashboard (or via `stripe products create`):
+   - Starter: $10/month recurring subscription
+   - Pro: $20/month recurring subscription
+   - Single Download: $9 one-time payment
+2. Copy the Price IDs to `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`,
+   and `STRIPE_PRICE_SINGLE_DOWNLOAD` in `.env.local`
 3. For local webhook testing:
    ```bash
    stripe listen --forward-to localhost:3000/api/stripe/webhook
    ```
+
+### 6b. Physical Fulfillment (Gelato)
+
+Physical poster ordering is offered alongside digital downloads. Any logged-in
+user can order a print (pay-per-order via Stripe); subscriptions still gate
+digital downloads.
+
+1. Generate an API key in the Gelato dashboard (API Portal) and set `GELATO_API_KEY`.
+2. Find the product UIDs for the poster line you want to sell in the
+   [Gelato catalog](https://dashboard.gelato.com/catalogue/categories). The
+   defaults in `lib/poster-products.ts` are placeholders — override them with
+   the real UIDs via `GELATO_PRODUCT_UID_<SIZE>_<ORIENTATION>` env vars
+   (e.g. `GELATO_PRODUCT_UID_18X24_PORTRAIT`).
+3. Set `GELATO_ORDER_MARKUP` (retail multiplier) and `GELATO_CURRENCY`.
+4. Configure a Gelato order-status webhook pointing at
+   `https://<your-app>/api/gelato/webhook?token=<GELATO_WEBHOOK_SECRET>` and set
+   `GELATO_WEBHOOK_SECRET` to the same token.
+5. Set `WORKER_CALLBACK_SECRET` (same value in the web app and the worker) and
+   ensure the worker has `NEXT_PUBLIC_APP_URL` pointing at the web app so it can
+   POST `/api/internal/job-complete` when a print render finishes.
+
+Order flow: customize a poster -> "Order Physical Poster" -> pick size, quantity,
+and shipping address (live Gelato quote + markup) -> pay via Stripe. On payment,
+a 300 DPI print PNG is rendered by the worker and the order is submitted to
+Gelato. Status updates (in production, shipped, delivered) arrive via the Gelato
+webhook and are shown on `/app/orders` and `/order/[id]`.
+
+> Run migration `008_physical_orders.sql` before using this feature.
 
 ### 7. Run Development
 
@@ -160,11 +197,19 @@ The app will be available at `http://localhost:3000`.
 
 ## Plans & Quotas
 
-| Plan | Price | Quota |
-|------|-------|-------|
-| Day Pass | $19 | Unlimited for 24 hours |
-| Pro | $29/mo | 50 maps per month |
-| Business | $49/mo | 200 maps per month |
+Pricing v2 (see `supabase/migrations/010_pricing_v2.sql`):
+
+| Tier            | Price          | Previews   | Downloads          | Notes                                |
+|-----------------|----------------|------------|--------------------|--------------------------------------|
+| Free Preview    | $0             | Unlimited  | None               | Auto-granted on signup               |
+| Single Download | $9 one-time    | n/a        | 1 credit, never expires | Adds row to `download_credits`  |
+| Starter         | $10/month      | Unlimited  | 5 / month          | All themes + full editor + library   |
+| Pro             | $20/month      | Unlimited  | Unlimited          | Adds SVG export + commercial license |
+| Physical Poster | Live-quoted    | n/a        | n/a                | Pay-per-order via Gelato             |
+
+Single-download credits live in `public.download_credits` and are consumed
+atomically by the `create_job_with_quota_or_credit` RPC when a paid tier's
+monthly download quota is exhausted (or when a free user clicks Download).
 
 ## Caching
 

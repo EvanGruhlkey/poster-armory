@@ -63,7 +63,6 @@ function DownloadPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const cachedPreview = searchParams.get("preview");
-  const bgColor = searchParams.get("bg") || undefined;
   const textColor = searchParams.get("tc") || undefined;
   const [job, setJob] = useState<JobStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -229,7 +228,6 @@ function DownloadPageInner() {
               alt="Poster preview"
               className="max-h-[min(400px,60vh)] w-full max-w-sm rounded-lg border shadow-md sm:w-auto"
               containerClassName="w-full max-w-sm"
-              bgColor={bgColor}
               textColor={textColor}
             />
           </div>

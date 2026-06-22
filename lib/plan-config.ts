@@ -1,4 +1,15 @@
-export type PlanTier = "free" | "basic" | "pro" | "pro_plus" | "none";
+// Pricing v2 (see supabase/migrations/010_pricing_v2.sql)
+//
+//   free    : unlimited previews, 0 downloads
+//   starter : $10/mo — unlimited previews + 5 downloads/month
+//   pro     : $20/mo — unlimited previews + unlimited downloads + commercial use
+//
+// Single Download ($9 one-time) does NOT change planTier — it grants one
+// row in `download_credits` that the worker consumes on demand. The legacy
+// `basic` and `pro_plus` slugs are still honoured for grandfathered DB rows
+// and silently mapped to the closest current tier.
+
+export type PlanTier = "free" | "starter" | "pro" | "none";
 
 export type DownloadFormat = "png" | "pdf" | "svg";
 
@@ -8,6 +19,9 @@ export interface PlanEntitlements {
   rotationControls: boolean;
   multipleSizes: boolean;
   posterLibrary: boolean;
+  /** Includes commercial use rights for downloaded files. */
+  commercialUse: boolean;
+  /** null = unlimited; numeric value enforced by RPC + UI. */
   designsPerMonth: number | null;
   downloadsPerMonth: number | null;
   formats: DownloadFormat[];
@@ -20,6 +34,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, PlanEntitlements> = {
     rotationControls: false,
     multipleSizes: false,
     posterLibrary: false,
+    commercialUse: false,
     designsPerMonth: 0,
     downloadsPerMonth: 0,
     formats: [],
@@ -30,19 +45,21 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, PlanEntitlements> = {
     rotationControls: false,
     multipleSizes: false,
     posterLibrary: false,
-    designsPerMonth: 5,
+    commercialUse: false,
+    designsPerMonth: null,
     downloadsPerMonth: 0,
     formats: [],
   },
-  basic: {
-    allThemes: false,
-    zoomControls: false,
-    rotationControls: false,
-    multipleSizes: false,
-    posterLibrary: false,
-    designsPerMonth: 10,
-    downloadsPerMonth: 2,
-    formats: ["png"],
+  starter: {
+    allThemes: true,
+    zoomControls: true,
+    rotationControls: true,
+    multipleSizes: true,
+    posterLibrary: true,
+    commercialUse: false,
+    designsPerMonth: null,
+    downloadsPerMonth: 5,
+    formats: ["png", "pdf"],
   },
   pro: {
     allThemes: true,
@@ -50,16 +67,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, PlanEntitlements> = {
     rotationControls: true,
     multipleSizes: true,
     posterLibrary: true,
-    designsPerMonth: 25,
-    downloadsPerMonth: 10,
-    formats: ["png", "pdf"],
-  },
-  pro_plus: {
-    allThemes: true,
-    zoomControls: true,
-    rotationControls: true,
-    multipleSizes: true,
-    posterLibrary: true,
+    commercialUse: true,
     designsPerMonth: null,
     downloadsPerMonth: null,
     formats: ["png", "pdf", "svg"],
@@ -75,15 +83,20 @@ export const PREMIUM_THEMES = [
 
 export const DEFAULT_SIZE = { label: '18"x24"', width: 9, height: 12, key: "png_18x24" };
 
+/**
+ * Map a `plans.slug` value (including grandfathered legacy slugs) to the
+ * narrow `PlanTier` union the rest of the app consumes.
+ *
+ * Legacy mapping:
+ *   - "basic"    → "starter" (closest equivalent: 5 downloads/month tier)
+ *   - "pro_plus" → "pro"     (already unlimited)
+ */
 export function getPlanTier(planSlug: string | null | undefined): PlanTier {
-  if (
-    planSlug === "free" ||
-    planSlug === "basic" ||
-    planSlug === "pro" ||
-    planSlug === "pro_plus"
-  ) {
-    return planSlug;
-  }
+  if (planSlug === "free") return "free";
+  if (planSlug === "starter") return "starter";
+  if (planSlug === "pro") return "pro";
+  if (planSlug === "basic") return "starter";
+  if (planSlug === "pro_plus") return "pro";
   return "none";
 }
 

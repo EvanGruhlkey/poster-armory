@@ -9,7 +9,11 @@
     "start": "next start",
     "lint": "next lint",
     "worker": "tsx --watch scripts/worker.ts",
-    "db:push": "supabase db push"
+    "admin:create": "tsx scripts/create-admin.ts",
+    "db:push": "supabase db push",
+    "setup:stripe-live": "node scripts/setup-stripe-live.mjs",
+    "verify:prod-env": "node scripts/verify-production-env.mjs",
+    "sync:vercel-env": "node scripts/sync-vercel-env.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.0",

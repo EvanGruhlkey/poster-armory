@@ -39,20 +39,23 @@ export default async function LibraryPage({
 
   const planSlug = sub?.plan_slug;
 
-  if (!planSlug || planSlug === "basic") {
+  // Library is a paid feature — gate everything except Starter / Pro
+  // (and the legacy "basic" / "pro_plus" subscribers we honour).
+  const LIBRARY_PLANS = ["starter", "pro", "pro_plus"];
+  if (!planSlug || !LIBRARY_PLANS.includes(planSlug)) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 text-center">
         <Crown className="mx-auto mb-4 h-12 w-12 text-amber-500" />
         <h1 className="text-2xl font-bold mb-2">Poster Library</h1>
         <p className="text-muted-foreground mb-6">
-          Save and revisit your poster designs anytime. The poster library is available on Pro and Pro+ plans.
+          Save and revisit your poster designs anytime. The poster library is included with Starter and Pro.
         </p>
         <div className="flex justify-center gap-3">
           <Button asChild variant="outline">
             <Link href="/app">Create a Poster</Link>
           </Button>
           <Button asChild>
-            <Link href="/app/billing">Upgrade to Pro</Link>
+            <Link href="/app/billing">See Plans</Link>
           </Button>
         </div>
       </div>

@@ -78,7 +78,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Do I need a subscription?",
-    a: "No. Every account starts on the free plan, which includes 5 design previews per month so you can try the full experience. Upgrade to a paid plan whenever you want to download print-ready files.",
+    a: "No. Every account starts on the free plan with unlimited poster previews so you can try every theme and city. Buy a single $9 download when you find one you love, or upgrade to Starter ($10/mo) or Pro ($20/mo) for monthly downloads.",
   },
   {
     q: "Can I use any location?",
@@ -113,7 +113,7 @@ export default function LandingPage() {
 
         <div className="relative z-10 mx-auto flex min-h-[min(88vh,760px)] max-w-3xl flex-col items-center justify-center px-4 py-16 text-center sm:px-6 sm:py-20">
           <p className="mb-4 rounded-full border bg-background/80 px-4 py-1.5 text-xs font-medium tracking-wide text-muted-foreground backdrop-blur-sm sm:text-sm">
-            Free to try, 5 designs every month
+            Unlimited previews, free forever
           </p>
           <h1 className="text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
             Turn any place into

@@ -8,7 +8,6 @@ interface ProtectedImageProps {
   className?: string;
   containerClassName?: string;
   watermark?: boolean;
-  bgColor?: string;
   textColor?: string;
 }
 
@@ -18,7 +17,6 @@ export function ProtectedImage({
   className,
   containerClassName,
   watermark = false,
-  bgColor,
   textColor,
 }: ProtectedImageProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -73,25 +71,6 @@ export function ProtectedImage({
           transition: "filter 0.15s ease-out",
         }}
       />
-
-      {bgColor && (
-        <>
-          <div
-            className="absolute inset-x-0 top-0 z-[5] h-[18%]"
-            style={{
-              background: `linear-gradient(to bottom, ${bgColor}, transparent)`,
-              pointerEvents: "none",
-            }}
-          />
-          <div
-            className="absolute inset-x-0 bottom-0 z-[5] h-[18%]"
-            style={{
-              background: `linear-gradient(to top, ${bgColor}, transparent)`,
-              pointerEvents: "none",
-            }}
-          />
-        </>
-      )}
 
       {watermark && (
         <div

@@ -86,6 +86,12 @@ function ensureTmpDir() {
   }
 }
 
+interface PosterMarker {
+  lat: number;
+  lon: number;
+  label: string;
+}
+
 interface PosterConfig {
   style_id: string;
   city: string;
@@ -102,6 +108,13 @@ interface PosterConfig {
   subtitle: string;
   date_line: string;
   format: string;
+  rotation?: number;
+  offset_x?: number;
+  offset_y?: number;
+  markers?: PosterMarker[];
+  gpx_data?: string;
+  /** Set on physical-order render jobs; triggers a single high-DPI print PNG. */
+  print_size_key?: string;
 }
 
 function runPythonCli(
@@ -109,7 +122,8 @@ function runPythonCli(
   outputFile: string,
   format: string,
   width: number,
-  height: number
+  height: number,
+  dpi?: number
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const theme = config.style_id || "warm_beige";
@@ -134,6 +148,10 @@ function runPythonCli(
       format,
     ];
 
+    if (dpi && Number.isFinite(dpi)) {
+      args.push("--dpi", String(Math.round(dpi)));
+    }
+
     if (config.country) {
       args.push("--country", config.country);
     }
@@ -144,6 +162,59 @@ function runPythonCli(
     if (config.subtitle) {
       args.push("--country-label", config.subtitle);
     }
+
+    // --- Advanced map framing & overlays ---
+    if (config.rotation) {
+      args.push("--rotation", String(config.rotation));
+    }
+    // show_labels === false maps to the CLI's clean "--no-text" mode.
+    if (config.show_labels === false) {
+      args.push("--no-text");
+    }
+    if (config.offset_x) {
+      args.push("--offset-x", String(config.offset_x));
+    }
+    if (config.offset_y) {
+      args.push("--offset-y", String(config.offset_y));
+    }
+    if (Array.isArray(config.markers)) {
+      for (const m of config.markers) {
+        if (
+          typeof m?.lat === "number" &&
+          typeof m?.lon === "number" &&
+          Number.isFinite(m.lat) &&
+          Number.isFinite(m.lon)
+        ) {
+          const label = (m.label || "").replace(/[\r\n]+/g, " ");
+          args.push("--marker", `${m.lat},${m.lon},${label}`);
+        }
+      }
+    }
+
+    // Materialize embedded GPX XML to a temp file the CLI can read, alongside
+    // the output file so it shares the job's temp dir lifecycle.
+    let gpxTempPath: string | null = null;
+    if (config.gpx_data && config.gpx_data.trim()) {
+      gpxTempPath = `${outputFile}.route.gpx`;
+      try {
+        fs.writeFileSync(gpxTempPath, config.gpx_data, "utf-8");
+        args.push("--gpx", gpxTempPath);
+      } catch (e) {
+        console.error(`  Failed to write GPX temp file: ${e}`);
+        gpxTempPath = null;
+      }
+    }
+
+    const cleanupGpx = () => {
+      if (gpxTempPath) {
+        try {
+          fs.rmSync(gpxTempPath, { force: true });
+        } catch {
+          // ignore cleanup errors
+        }
+        gpxTempPath = null;
+      }
+    };
 
     console.log(
       `  Running: ${PYTHON_EXECUTABLE} ${args.join(" ").substring(0, 120)}...`
@@ -165,6 +236,7 @@ function runPythonCli(
     const timeout = setTimeout(() => {
       killed = true;
       proc.kill("SIGKILL");
+      cleanupGpx();
       reject(new Error(`Python process timed out after ${PYTHON_TIMEOUT_MS / 1000}s`));
     }, PYTHON_TIMEOUT_MS);
 
@@ -177,6 +249,7 @@ function runPythonCli(
 
     proc.on("close", (code, signal) => {
       clearTimeout(timeout);
+      cleanupGpx();
       if (killed) return;
 
       if (code !== 0 || signal) {
@@ -213,6 +286,7 @@ function runPythonCli(
 
     proc.on("error", (err) => {
       clearTimeout(timeout);
+      cleanupGpx();
       reject(new Error(`Failed to spawn Python: ${err.message}`));
     });
   });
@@ -238,6 +312,30 @@ async function uploadFile(
 
   if (error) {
     throw new Error(`Upload failed for ${storagePath}: ${error.message}`);
+  }
+}
+
+/**
+ * Tell the web app a render finished so it can advance any linked physical
+ * order to Gelato. Fire-and-forget; the Stripe webhook is the other trigger,
+ * so a failed callback here is not fatal.
+ */
+async function notifyJobComplete(jobId: string): Promise<void> {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const secret = process.env.WORKER_CALLBACK_SECRET;
+  if (!appUrl || !secret) return;
+
+  try {
+    const res = await fetch(`${appUrl.replace(/\/$/, "")}/api/internal/job-complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId, secret }),
+    });
+    if (!res.ok) {
+      console.error(`  job-complete callback for ${jobId} returned ${res.status}`);
+    }
+  } catch (err) {
+    console.error(`  job-complete callback for ${jobId} failed:`, err);
   }
 }
 
@@ -278,10 +376,23 @@ async function processJob(jobId: string): Promise<void> {
   const jobDir = path.join(TMP_DIR, jobId);
   fs.mkdirSync(jobDir, { recursive: true });
 
+  const printSizeKey = config.print_size_key;
+
   try {
     const output: Record<string, string> = {};
 
-    if (isPreview) {
+    if (printSizeKey) {
+      // Physical-order render: a single print-ready PNG at the product's
+      // aspect ratio. config.width/height are the render dimensions chosen by
+      // the order API; 300 DPI keeps the long edge near 6000px.
+      const outputFile = path.join(jobDir, "print.png");
+      await runPythonCli(config, outputFile, "png", config.width, config.height, 300);
+      const storagePath = `${userId}/${jobId}/print.png`;
+      await uploadFile(outputFile, storagePath);
+      output.print = storagePath;
+      // Reuse the same image as the order preview thumbnail.
+      output.preview = storagePath;
+    } else if (isPreview) {
       // Generate a single small preview PNG
       const outputFile = path.join(jobDir, "preview.png");
       await runPythonCli(config, outputFile, "png", 4, 5.3);
@@ -320,8 +431,10 @@ async function processJob(jobId: string): Promise<void> {
         .limit(1)
         .single();
 
-      // Generate SVG for Pro+ users
-      if (userSub?.plan_slug === "pro_plus") {
+      // SVG export is a Pro-tier perk. The legacy pro_plus slug also
+      // qualifies (grandfathered subscribers keep what they had).
+      const SVG_PLANS = ["pro", "pro_plus"];
+      if (userSub?.plan_slug && SVG_PLANS.includes(userSub.plan_slug)) {
         const svgFile = path.join(jobDir, "poster.svg");
         await runPythonCli(config, svgFile, "svg", 12, 16);
         const svgPath = `${userId}/${jobId}/poster.svg`;
@@ -367,6 +480,12 @@ async function processJob(jobId: string): Promise<void> {
       .eq("id", jobId);
 
     console.log(`  Job ${jobId} completed successfully`);
+
+    // Notify the web app so it can submit any paid physical order tied to this
+    // render to Gelato (no-op for previews/downloads or if not configured).
+    if (printSizeKey) {
+      await notifyJobComplete(jobId);
+    }
   } catch (err) {
     const errorMessage =
       err instanceof Error ? err.message : "Unknown error occurred";

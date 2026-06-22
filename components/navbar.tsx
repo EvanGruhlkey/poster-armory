@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MapPin, LogOut, Library, CreditCard, Menu, X } from "lucide-react";
+import { MapPin, LogOut, Library, CreditCard, Menu, X, Package } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { useEffect, useState } from "react";
 import type { User as SupaUser } from "@supabase/supabase-js";
@@ -80,16 +80,28 @@ export function Navbar() {
           ) : user ? (
             <>
               {isApp && (
-                <Link
-                  href="/app/library"
-                  className={`text-sm font-medium transition-colors hover:text-foreground ${
-                    pathname === "/app/library"
-                      ? "text-foreground"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  Library
-                </Link>
+                <>
+                  <Link
+                    href="/app/library"
+                    className={`text-sm font-medium transition-colors hover:text-foreground ${
+                      pathname === "/app/library"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    Library
+                  </Link>
+                  <Link
+                    href="/app/orders"
+                    className={`text-sm font-medium transition-colors hover:text-foreground ${
+                      pathname === "/app/orders"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    Orders
+                  </Link>
+                </>
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -110,6 +122,10 @@ export function Navbar() {
                   <DropdownMenuItem onClick={() => router.push("/app/library")}>
                     <Library className="mr-2 h-4 w-4" />
                     Library
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push("/app/orders")}>
+                    <Package className="mr-2 h-4 w-4" />
+                    Orders
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => router.push("/app/billing")}>
                     <CreditCard className="mr-2 h-4 w-4" />
@@ -173,13 +189,16 @@ export function Navbar() {
             <Link href="/pricing" className={navLinkClass("/pricing")}>
               Pricing
             </Link>
+            <Link href="/app" className={navLinkClass("/app")}>
+              New Poster
+            </Link>
             {user && (
               <>
-                <Link href="/app" className={navLinkClass("/app")}>
-                  New Poster
-                </Link>
                 <Link href="/app/library" className={navLinkClass("/app/library")}>
                   Library
+                </Link>
+                <Link href="/app/orders" className={navLinkClass("/app/orders")}>
+                  Orders
                 </Link>
                 <Link href="/app/billing" className={navLinkClass("/app/billing")}>
                   Billing

@@ -64,7 +64,6 @@ export function PosterCard({ poster, job }: PosterCardProps) {
               alt={title}
               className="h-full w-full object-cover"
               containerClassName="h-full w-full"
-              bgColor={style.bgColor}
               textColor={style.textColor}
             />
           ) : (

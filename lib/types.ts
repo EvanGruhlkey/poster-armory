@@ -41,6 +41,12 @@ export interface GeocodeCache {
   created_at: string;
 }
 
+export interface PosterMarker {
+  lat: number;
+  lon: number;
+  label: string;
+}
+
 export interface PosterConfig {
   style_id: string;
   city: string;
@@ -60,6 +66,12 @@ export interface PosterConfig {
   subtitle: string;
   date_line: string;
   format: "png" | "pdf" | "svg";
+  // Advanced map framing & overlays
+  rotation: number;
+  offset_x: number;
+  offset_y: number;
+  markers: PosterMarker[];
+  gpx_data: string;
 }
 
 export interface PosterJob {
@@ -106,6 +118,52 @@ export interface Usage {
   period_start: string;
   period_end: string;
   posters_generated: number;
+}
+
+export type OrderStatus =
+  | "created"
+  | "paid"
+  | "submitting"
+  | "submitted"
+  | "in_production"
+  | "shipped"
+  | "delivered"
+  | "failed"
+  | "cancelled";
+
+export interface PosterOrder {
+  id: string;
+  user_id: string;
+  job_id: string | null;
+  config: PosterConfig;
+  config_hash: string;
+  size_key: string;
+  product_uid: string;
+  quantity: number;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  address_line1: string;
+  address_line2: string | null;
+  city: string;
+  state: string | null;
+  post_code: string;
+  country: string;
+  currency: string;
+  amount_total: number | null;
+  amount_product: number | null;
+  amount_shipping: number | null;
+  markup: number | null;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent: string | null;
+  gelato_order_id: string | null;
+  gelato_order_reference_id: string | null;
+  status: OrderStatus;
+  tracking_url: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export const STYLE_PRESETS: Record<
@@ -158,4 +216,9 @@ export const DEFAULT_CONFIG: PosterConfig = {
   subtitle: "",
   date_line: "",
   format: "png",
+  rotation: 0,
+  offset_x: 0,
+  offset_y: 0,
+  markers: [],
+  gpx_data: "",
 };

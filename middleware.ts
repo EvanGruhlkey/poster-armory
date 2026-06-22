@@ -1,7 +1,18 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PATHS = ["/app"];
+// `/app` and `/app/design/*` are intentionally open: guests can browse and
+// generate previews without signing up. Everything that costs money,
+// persists across devices, or has commercial value requires a real
+// (non-anonymous) account. An anonymous Supabase session counts as
+// logged-out for these gates.
+const REAL_AUTH_PATHS = [
+  "/app/order",
+  "/app/orders",
+  "/app/library",
+  "/app/billing",
+  "/app/account",
+];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
@@ -36,13 +47,16 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isProtected = PROTECTED_PATHS.some((path) =>
+  const requiresRealAuth = REAL_AUTH_PATHS.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
 
-  if (isProtected && !user) {
+  if (requiresRealAuth && !user) {
     const redirectUrl = new URL("/login", request.url);
-    redirectUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    redirectUrl.searchParams.set(
+      "redirect",
+      request.nextUrl.pathname + request.nextUrl.search
+    );
     return NextResponse.redirect(redirectUrl);
   }
 

@@ -34,12 +34,18 @@ export default function LoginPage() {
 }
 
 function LoginContent() {
+  const searchParams = useSearchParams();
+  const reason = searchParams.get("reason");
+  // When someone arrives here by clicking Download / Order Physical on
+  // the design page as a guest, default the form to Sign Up so the CTA
+  // matches their intent.
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const searchParams = useSearchParams();
+  const [isSignUp, setIsSignUp] = useState(
+    reason === "download" || reason === "order"
+  );
   const rawRedirect = searchParams.get("redirect") || "/app";
   const redirect =
     rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") && !rawRedirect.includes("://")
@@ -48,6 +54,13 @@ function LoginContent() {
 
   const supabase = createClient();
   const errorParam = searchParams.get("error");
+
+  const reasonCopy =
+    reason === "download"
+      ? "Create a free account to download your poster."
+      : reason === "order"
+        ? "Create a free account to ship your poster."
+        : null;
 
   useEffect(() => {
     if (errorParam) {
@@ -122,9 +135,11 @@ function LoginContent() {
             {isSignUp ? "Create an account" : "Welcome back"}
           </CardTitle>
           <CardDescription>
-            {isSignUp
-              ? "Sign up to start creating map posters"
-              : "Sign in to create beautiful map posters"}
+            {reasonCopy
+              ? reasonCopy
+              : isSignUp
+                ? "Sign up to start creating map posters"
+                : "Sign in to create beautiful map posters"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

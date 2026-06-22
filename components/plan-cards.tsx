@@ -11,82 +11,100 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CheckCircle, XCircle, Loader2, Zap } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Zap, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+
+type CheckoutSlug = "free" | "single_download" | "starter" | "pro";
 
 interface Feature {
   text: string;
   included: boolean;
 }
 
-const PLANS = [
+interface PlanCard {
+  slug: CheckoutSlug;
+  name: string;
+  price: string;
+  period: string;
+  tagline: string;
+  features: Feature[];
+  highlight: boolean;
+  /** "Pay once" / "Most popular" pill above the title. */
+  badge?: string;
+  /** Override "Get started" CTA copy for the single-download tier. */
+  ctaLabel?: string;
+}
+
+// Pricing v2 — Free / Single Download / Starter / Pro.
+// See lib/plan-config.ts for the entitlements these cards describe.
+const PLANS: PlanCard[] = [
   {
     slug: "free",
-    name: "Free",
+    name: "Free Preview",
     price: "$0",
-    period: "/month",
-    tagline: "Try it before you buy.",
+    period: "/forever",
+    tagline: "Try every design before you commit.",
     features: [
-      { text: "5 poster designs (previews) per month", included: true },
+      { text: "Unlimited poster previews", included: true },
+      { text: "Standard themes", included: true },
+      { text: "Order physical prints", included: true },
       { text: "High-resolution downloads", included: false },
-      { text: "Standard themes only", included: true },
-      { text: "One print size", included: true },
       { text: "Zoom & rotation controls", included: false },
       { text: "Poster library", included: false },
-    ] as Feature[],
+    ],
     highlight: false,
-    color: "gray",
   },
   {
-    slug: "basic",
-    name: "Basic",
-    price: "$5",
-    period: "/month",
-    tagline: "Make a meaningful gift.",
+    slug: "single_download",
+    name: "Single Download",
+    price: "$9",
+    period: "one-time",
+    tagline: "Grab one high-res file. No subscription.",
+    badge: "Pay once",
+    ctaLabel: "Buy 1 Download",
     features: [
-      { text: "10 poster designs (previews) per month", included: true },
-      { text: "2 high-resolution downloads per month", included: true },
-      { text: "Standard themes only", included: true },
-      { text: "One print size", included: true },
-      { text: "Zoom & rotation controls", included: false },
-      { text: "Poster library", included: false },
-    ] as Feature[],
+      { text: "1 high-resolution PNG or PDF", included: true },
+      { text: "Credit never expires", included: true },
+      { text: "All themes unlocked for that design", included: true },
+      { text: "Personal use license", included: true },
+      { text: "Monthly downloads or library", included: false },
+      { text: "Commercial use rights", included: false },
+    ],
     highlight: false,
-    color: "green",
+  },
+  {
+    slug: "starter",
+    name: "Starter",
+    price: "$10",
+    period: "/month",
+    tagline: "For casual repeat creators.",
+    badge: "Most popular",
+    highlight: true,
+    features: [
+      { text: "Unlimited poster previews", included: true },
+      { text: "5 high-resolution downloads / month", included: true },
+      { text: "All themes unlocked", included: true },
+      { text: "Multiple print sizes", included: true },
+      { text: "Zoom, rotation & fine positioning", included: true },
+      { text: "Poster library: save your designs", included: true },
+    ],
   },
   {
     slug: "pro",
     name: "Pro",
-    price: "$15",
+    price: "$20",
     period: "/month",
-    tagline: "Full creative freedom.",
+    tagline: "For creators and businesses.",
+    badge: "Commercial use",
     features: [
-      { text: "25 poster designs per month", included: true },
-      { text: "10 high-resolution downloads per month", included: true },
-      { text: "All themes unlocked", included: true },
-      { text: "Multiple print sizes", included: true },
-      { text: "Zoom, rotation & fine positioning", included: true },
-      { text: "Poster library: save your designs", included: true },
-    ] as Feature[],
-    highlight: true,
-    color: "blue",
-  },
-  {
-    slug: "pro_plus",
-    name: "Pro+",
-    price: "$25",
-    period: "/month",
-    tagline: "Never think about limits.",
-    features: [
-      { text: "Unlimited poster designs (fair use)", included: true },
-      { text: "Unlimited high-resolution downloads", included: true },
-      { text: "All themes unlocked", included: true },
-      { text: "Multiple print sizes", included: true },
-      { text: "Zoom, rotation & fine positioning", included: true },
-      { text: "Poster library: save your designs", included: true },
-    ] as Feature[],
+      { text: "Unlimited downloads (fair use)", included: true },
+      { text: "Commercial use license", included: true },
+      { text: "Everything in Starter", included: true },
+      { text: "SVG export", included: true },
+      { text: "Priority rendering", included: true },
+      { text: "Email support", included: true },
+    ],
     highlight: false,
-    color: "purple",
   },
 ];
 
@@ -97,18 +115,13 @@ interface PlanCardsProps {
 
 export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
   const router = useRouter();
-  const [loadingSlug, setLoadingSlug] = useState<string | null>(null);
+  const [loadingSlug, setLoadingSlug] = useState<CheckoutSlug | null>(null);
 
-  async function handleCheckout(planSlug: string) {
-    // Free is auto-granted on signup, so the "checkout" button just routes
-    // to the signup form (or no-ops if they're already logged in, since
-    // every signed-in user already has a free sub from the trigger).
+  async function handleCheckout(planSlug: CheckoutSlug) {
+    // Free is auto-granted on signup, so the button just routes them
+    // into the app (or to signup if they're not logged in yet).
     if (planSlug === "free") {
-      if (!isLoggedIn) {
-        router.push("/login?redirect=/app");
-      } else {
-        router.push("/app");
-      }
+      router.push(isLoggedIn ? "/app" : "/login?redirect=/app");
       return;
     }
 
@@ -126,17 +139,10 @@ export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to start checkout");
-      }
-
-      if (data.url) {
-        window.location.href = data.url;
-      }
+      if (!res.ok) throw new Error(data.error || "Failed to start checkout");
+      if (data.url) window.location.href = data.url;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Checkout failed";
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : "Checkout failed");
       setLoadingSlug(null);
     }
   }
@@ -147,19 +153,21 @@ export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
         const isCurrent = currentPlanSlug === plan.slug;
         const isLoading = loadingSlug === plan.slug;
         const isFreePlan = plan.slug === "free";
+        const isOneTime = plan.slug === "single_download";
         // For paid users browsing pricing, the free card represents the
         // permanent fallback they already have. Don't offer it as an
         // actionable "switch" target.
         const isFreeAlreadyIncluded =
-          isFreePlan && isLoggedIn && currentPlanSlug && currentPlanSlug !== "free";
+          isFreePlan &&
+          isLoggedIn &&
+          currentPlanSlug &&
+          currentPlanSlug !== "free";
 
         return (
           <Card
             key={plan.slug}
             className={`flex flex-col ${
-              plan.highlight
-                ? "border-primary shadow-lg ring-1 ring-primary"
-                : ""
+              plan.highlight ? "border-primary shadow-lg ring-1 ring-primary" : ""
             } ${isCurrent ? "ring-2 ring-green-500 border-green-500" : ""}`}
           >
             <CardHeader className="text-center">
@@ -169,16 +177,28 @@ export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
                   Current Plan
                 </div>
               )}
-              {plan.highlight && !isCurrent && (
-                <div className="mx-auto mb-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                  <Zap className="h-3 w-3" />
-                  Most Popular
+              {plan.badge && !isCurrent && (
+                <div
+                  className={`mx-auto mb-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
+                    plan.highlight
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {plan.highlight ? (
+                    <Zap className="h-3 w-3" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
+                  )}
+                  {plan.badge}
                 </div>
               )}
               <CardTitle className="text-xl">{plan.name}</CardTitle>
               <div className="mt-2">
                 <span className="text-4xl font-bold">{plan.price}</span>
-                <span className="text-muted-foreground">{plan.period}</span>
+                <span className="text-muted-foreground">
+                  {plan.period.startsWith("/") ? plan.period : ` ${plan.period}`}
+                </span>
               </div>
               <CardDescription className="mt-1">{plan.tagline}</CardDescription>
             </CardHeader>
@@ -220,13 +240,17 @@ export function PlanCards({ isLoggedIn, currentPlanSlug }: PlanCardsProps) {
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
-                  {isFreePlan
-                    ? isLoggedIn
-                      ? "Start Creating"
-                      : "Sign Up Free"
-                    : currentPlanSlug
-                      ? "Switch Plan"
-                      : "Get Started"}
+                  {plan.ctaLabel
+                    ? plan.ctaLabel
+                    : isFreePlan
+                      ? isLoggedIn
+                        ? "Start Creating"
+                        : "Sign Up Free"
+                      : isOneTime
+                        ? "Buy Now"
+                        : currentPlanSlug && currentPlanSlug !== "free"
+                          ? "Switch Plan"
+                          : "Get Started"}
                 </Button>
               )}
             </CardFooter>

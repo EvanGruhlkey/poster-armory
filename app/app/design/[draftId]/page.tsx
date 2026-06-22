@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -13,7 +14,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Download, Eye, MapPin, Lock, Crown } from "lucide-react";
+import {
+  Loader2,
+  Download,
+  Eye,
+  MapPin,
+  Lock,
+  Crown,
+  Package,
+  LogIn,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   STYLE_PRESETS,
@@ -61,6 +71,10 @@ export default function CustomizePosterPage() {
 
   const [planTier, setPlanTier] = useState<PlanTier>("none");
   const [planLoading, setPlanLoading] = useState(true);
+  // Guests get an anonymous Supabase session so previews work without
+  // signing up. We still treat them as logged-out for any action that
+  // touches money or persistence (Download / Order Physical).
+  const [isGuest, setIsGuest] = useState(false);
   const entitlements = PLAN_ENTITLEMENTS[planTier];
 
   const [config, setConfig] = useState<PosterConfig>({
@@ -137,18 +151,59 @@ export default function CustomizePosterPage() {
     };
   }, [previewJobStatus]);
 
+  // Restore a design that the user stashed before being bounced through
+  // the sign-up flow (see redirectToSignup). This runs once on mount and
+  // discards the cache so a hard reload doesn't keep re-restoring it.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("poster-design-resume");
+      if (!raw) return;
+      sessionStorage.removeItem("poster-design-resume");
+      const saved = JSON.parse(raw) as {
+        config?: PosterConfig;
+        selectedSize?: typeof DEFAULT_SIZE;
+        previewUrl?: string | null;
+        city?: string;
+        country?: string;
+        action?: "download" | "order";
+      };
+      if (saved.config) setConfig(saved.config);
+      if (saved.selectedSize) setSelectedSize(saved.selectedSize);
+      if (saved.previewUrl) setPreviewUrl(saved.previewUrl);
+      if (saved.action === "download") {
+        toast.success("Welcome back — finish your download below.");
+      } else if (saved.action === "order") {
+        toast.success("Welcome back — finish your order below.");
+      }
+    } catch {
+      // Corrupt or unavailable sessionStorage — silently ignore.
+    }
+  }, []);
+
   useEffect(() => {
     async function loadPlan() {
       try {
-        const res = await fetch("/api/subscription");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.active && data.subscription?.plan_slug) {
-            setPlanTier(getPlanTier(data.subscription.plan_slug));
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data } = await supabase.auth.getUser();
+        const signedIn = !!data.user;
+
+        // Guests have no session — previews are served by a shared
+        // guest user on the server. The UI just needs to know they
+        // can't download or order until they sign up.
+        setIsGuest(!signedIn);
+
+        if (signedIn) {
+          const res = await fetch("/api/subscription");
+          if (res.ok) {
+            const subData = await res.json();
+            if (subData.active && subData.subscription?.plan_slug) {
+              setPlanTier(getPlanTier(subData.subscription.plan_slug));
+            }
           }
         }
       } catch {
-        // fall through to "none"
+        // fall through to defaults
       } finally {
         setPlanLoading(false);
       }
@@ -268,9 +323,42 @@ export default function CustomizePosterPage() {
     }
   }
 
+  function redirectToSignup(reason: "download" | "order") {
+    // Stash the current design so the user lands back in the editor with
+    // their work intact after signing up.
+    try {
+      sessionStorage.setItem(
+        "poster-design-resume",
+        JSON.stringify({
+          config,
+          selectedSize,
+          previewUrl,
+          city,
+          country,
+          action: reason,
+        })
+      );
+    } catch {
+      // sessionStorage unavailable (rare) — sign-up still works, the
+      // user just has to re-customize.
+    }
+    const currentPath =
+      typeof window !== "undefined"
+        ? window.location.pathname + window.location.search
+        : "/app";
+    router.push(
+      `/login?redirect=${encodeURIComponent(currentPath)}&reason=${reason}`
+    );
+  }
+
   async function handleDownloadPoster() {
     if (!config.city) {
       toast.error("Please go back and pick a location first.");
+      return;
+    }
+    if (isGuest) {
+      toast.info("Create a free account to download your poster.");
+      redirectToSignup("download");
       return;
     }
     setGenerateLoading(true);
@@ -322,6 +410,41 @@ export default function CustomizePosterPage() {
     }
   }
 
+  function handleOrderPhysical() {
+    if (!config.city) {
+      toast.error("Please go back and pick a location first.");
+      return;
+    }
+    if (isGuest) {
+      toast.info("Create a free account to ship your poster.");
+      redirectToSignup("order");
+      return;
+    }
+    const submitConfig = {
+      ...config,
+      width: selectedSize.width,
+      height: selectedSize.height,
+    };
+    try {
+      sessionStorage.setItem(
+        "poster-order-draft",
+        JSON.stringify({
+          config: submitConfig,
+          previewUrl,
+          style: {
+            bgColor: currentStyle.bgColor,
+            textColor: currentStyle.textColor,
+          },
+          city,
+          country,
+        })
+      );
+    } catch {
+      // sessionStorage may be unavailable; the order page falls back gracefully.
+    }
+    router.push("/app/order");
+  }
+
   const currentStyle = STYLE_PRESETS[config.style_id] || STYLE_PRESETS.warm_beige;
 
   function UpgradeBadge() {
@@ -356,7 +479,6 @@ export default function CustomizePosterPage() {
             alt="Poster preview"
             className="h-full w-full object-cover"
             containerClassName="h-full w-full"
-            bgColor={currentStyle.bgColor}
             textColor={currentStyle.textColor}
           />
         ) : previewLoading ? (
@@ -584,36 +706,94 @@ export default function CustomizePosterPage() {
             </CardContent>
           </Card>
 
+          {/* Text labels */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold sm:text-base">
+                Text labels
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="labels" className="text-sm">
+                    Show text labels
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Off = clean map, no city/coordinates text.
+                  </p>
+                </div>
+                <Switch
+                  id="labels"
+                  checked={config.show_labels}
+                  onCheckedChange={(v) => updateConfig({ show_labels: v })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Desktop actions */}
-          <div className="hidden gap-3 sm:flex">
+          <div className="hidden flex-col gap-3 sm:flex">
             <Button
-              variant="outline"
-              onClick={handleGeneratePreview}
-              disabled={previewLoading || planTier === "none"}
-              className="flex-1"
+              size="lg"
+              onClick={handleOrderPhysical}
+              disabled={!config.city}
+              className="w-full"
             >
-              {previewLoading ? (
-                <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
-              ) : (
-                <Eye className="mr-2 h-5 w-5 shrink-0" />
-              )}
-              Preview
+              <Package className="mr-2 h-5 w-5 shrink-0" />
+              Order Physical Poster
             </Button>
-            <Button
-              onClick={handleDownloadPoster}
-              disabled={generateLoading || planTier === "none"}
-              className="flex-1"
-            >
-              {generateLoading ? (
-                <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-5 w-5 shrink-0" />
-              )}
-              Download
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handleGeneratePreview}
+                disabled={previewLoading || (planTier === "none" && !isGuest)}
+                className="flex-1"
+              >
+                {previewLoading ? (
+                  <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
+                ) : (
+                  <Eye className="mr-2 h-5 w-5 shrink-0" />
+                )}
+                Preview
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDownloadPoster}
+                disabled={generateLoading || (planTier === "none" && !isGuest)}
+                className="flex-1"
+              >
+                {generateLoading ? (
+                  <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
+                ) : isGuest ? (
+                  <LogIn className="mr-2 h-5 w-5 shrink-0" />
+                ) : (
+                  <Download className="mr-2 h-5 w-5 shrink-0" />
+                )}
+                {isGuest ? "Sign Up to Download" : "Download"}
+              </Button>
+            </div>
           </div>
 
-          {planTier === "free" && (
+          {isGuest && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
+              <p className="text-sm text-blue-900">
+                Browsing as a guest — previews are unlimited. Create an
+                account to download or order a print.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => redirectToSignup("download")}
+              >
+                <LogIn className="mr-2 h-4 w-4" />
+                Create Free Account
+              </Button>
+            </div>
+          )}
+
+          {!isGuest && planTier === "free" && (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
               Free plan: previews only.{" "}
               <button
@@ -626,7 +806,7 @@ export default function CustomizePosterPage() {
             </p>
           )}
 
-          {planTier === "none" && (
+          {!isGuest && planTier === "none" && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
               <p className="text-sm text-amber-900">Choose a plan to get started.</p>
               <Button
@@ -653,8 +833,9 @@ export default function CustomizePosterPage() {
         <Button
           variant="outline"
           onClick={handleGeneratePreview}
-          disabled={previewLoading || planTier === "none"}
-          className="h-11 min-w-11 flex-1 shrink-0 px-3"
+          disabled={previewLoading || (planTier === "none" && !isGuest)}
+          className="h-11 min-w-11 shrink-0 px-3"
+          aria-label="Preview"
         >
           {previewLoading ? (
             <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
@@ -663,16 +844,27 @@ export default function CustomizePosterPage() {
           )}
         </Button>
         <Button
+          variant="outline"
           onClick={handleDownloadPoster}
-          disabled={generateLoading || planTier === "none"}
-          className="h-11 min-w-0 flex-[2] gap-2"
+          disabled={generateLoading || (planTier === "none" && !isGuest)}
+          className="h-11 min-w-11 shrink-0 px-3"
+          aria-label={isGuest ? "Sign up to download" : "Download"}
         >
           {generateLoading ? (
             <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+          ) : isGuest ? (
+            <LogIn className="h-5 w-5 shrink-0" />
           ) : (
             <Download className="h-5 w-5 shrink-0" />
           )}
-          Download
+        </Button>
+        <Button
+          onClick={handleOrderPhysical}
+          disabled={!config.city}
+          className="h-11 min-w-0 flex-1 gap-2"
+        >
+          <Package className="h-5 w-5 shrink-0" />
+          Order
         </Button>
       </div>
     </div>
