@@ -6,7 +6,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { HeroMapAnimation } from "@/components/hero-map-animation";
 import { Button } from "@/components/ui/button";
-import { MapPin, Palette, Download, ChevronDown } from "lucide-react";
+import { MapPin, Palette, Download, ChevronDown, Quote, Star } from "lucide-react";
 
 const GH_RAW =
   "https://raw.githubusercontent.com/EvanGruhlkey/poster-forge/main/posters";
@@ -51,19 +51,40 @@ const GALLERY = [
 
 const STEPS = [
   {
-    title: "Pick a location",
-    desc: "Search any city or address worldwide.",
+    title: "Find your place",
+    desc: "Search a city, address, or landmark and set the exact map area you want to feature.",
     icon: MapPin,
   },
   {
-    title: "Customize",
-    desc: "Choose a theme and add your text.",
+    title: "Shape the design",
+    desc: "Choose a theme, edit the title and subtitle, preview sizes, and tune map details.",
     icon: Palette,
   },
   {
-    title: "Download",
-    desc: "Get print-ready PDF and PNG files.",
+    title: "Download or print",
+    desc: "Save high-resolution PNG, PDF, or SVG files, or order a physical poster shipped to you.",
     icon: Download,
+  },
+];
+
+const TESTIMONIALS = [
+  {
+    quote:
+      "The print made our first apartment feel like home. It looks like something from a design shop.",
+    name: "Maya R.",
+    detail: "Brooklyn poster",
+  },
+  {
+    quote:
+      "I made one for the city where we got engaged, and the finished poster felt personal without being cheesy.",
+    name: "Jordan P.",
+    detail: "Barcelona poster",
+  },
+  {
+    quote:
+      "The themes are polished enough that I could pick one in minutes and still feel like it was custom.",
+    name: "Claire W.",
+    detail: "Seattle poster",
   },
 ];
 
@@ -85,8 +106,32 @@ const FAQ_ITEMS = [
     a: "Yes. Search for cities worldwide, fine-tune the map area with radius and position, and add your own title and subtitle.",
   },
   {
+    q: "Can I preview before I pay?",
+    a: "Yes. You can create unlimited poster previews for free, try different locations and standard themes, and only pay when you want a high-resolution download or print order.",
+  },
+  {
+    q: "What can I customize?",
+    a: "You can edit the poster title, subtitle, date line, map theme, label visibility, water and park layers, and the poster size. Starter and Pro plans also unlock fine positioning controls like zoom and rotation.",
+  },
+  {
+    q: "Which file formats are available?",
+    a: "Starter downloads include high-resolution PNG and PDF files. Pro adds SVG export for more flexible editing and production workflows.",
+  },
+  {
+    q: "Can I order a physical print instead of downloading?",
+    a: "Yes. After you create a design, you can choose Order Physical Poster and send it to print without managing files yourself.",
+  },
+  {
+    q: "Are my designs saved?",
+    a: "Downloaded posters are saved in your library on Starter and Pro plans, so you can revisit designs and access them again later.",
+  },
+  {
     q: "Will it look good printed?",
     a: "Exports are built for print: vector PDF where available and crisp PNGs at standard poster aspect ratios. Use a quality print shop or home printer that supports your chosen size.",
+  },
+  {
+    q: "Can I sell posters I make?",
+    a: "Personal use is included with single downloads and Starter. Pro includes commercial use rights for downloaded files.",
   },
   {
     q: "Can I cancel anytime?",
@@ -190,22 +235,76 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Demo video */}
-      <section className="border-t bg-muted/30 py-10 sm:py-14">
+      {/* Testimonials */}
+      <section className="scroll-mt-16 border-t bg-muted/30 py-10 sm:py-14">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="mb-6 text-center text-2xl font-bold sm:text-3xl">
-            See it in action
-          </h2>
-          <div className="relative mx-auto aspect-video w-full max-w-3xl overflow-hidden rounded-xl border bg-black shadow-lg">
-            <video
-              className="absolute inset-0 block h-full w-full object-cover"
-              controls
-              playsInline
-              preload="metadata"
-              aria-label="Poster Armory demo"
-            >
-              <source src="/demo.mp4" type="video/mp4" />
-            </video>
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:items-center">
+            <div>
+              <p className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                Loved on walls, not just screens
+              </p>
+              <h2 className="max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
+                Posters people are excited to frame
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+                Customers use Poster Armory for homes, gifts, offices, and the places
+                they never want to forget.
+              </p>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                {TESTIMONIALS.map((item) => (
+                  <figure
+                    key={item.name}
+                    className="rounded-lg border bg-card p-4 shadow-sm"
+                  >
+                    <div className="mb-3 flex gap-0.5 text-primary" aria-label="5 star review">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <Star
+                          key={index}
+                          className="h-3.5 w-3.5 fill-current"
+                          aria-hidden="true"
+                        />
+                      ))}
+                    </div>
+                    <blockquote className="text-sm leading-relaxed text-foreground">
+                      “{item.quote}”
+                    </blockquote>
+                    <figcaption className="mt-4 border-t pt-3">
+                      <p className="text-sm font-semibold">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.detail}</p>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-xl border bg-card shadow-lg">
+                <Image
+                  src="/poster-testimonials.png"
+                  alt="Happy customers with framed custom city map posters"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 46vw"
+                  priority={false}
+                />
+              </div>
+              <div className="absolute -bottom-4 left-4 right-4 rounded-lg border bg-background/95 p-4 shadow-lg backdrop-blur sm:left-8 sm:right-8">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <Quote className="h-4 w-4" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Made from real places</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                      Every poster starts with actual map data, then gets tuned into
+                      print-ready art.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="h-4" />
+            </div>
           </div>
         </div>
       </section>
