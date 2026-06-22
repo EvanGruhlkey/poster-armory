@@ -21,6 +21,23 @@ export function assertProductionEnv(): void {
     );
   }
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  if (
+    !supabaseUrl ||
+    supabaseUrl.includes("your-project.supabase.co") ||
+    supabaseUrl.includes("your-project")
+  ) {
+    issues.push(
+      "NEXT_PUBLIC_SUPABASE_URL is missing or still set to the .env.example placeholder."
+    );
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    issues.push(
+      "SUPABASE_SERVICE_ROLE_KEY is required for guest previews and admin operations."
+    );
+  }
+
   if (!stripeKey.startsWith(LIVE_KEY_PREFIX)) {
     issues.push(
       "STRIPE_SECRET_KEY should be a live key (sk_live_...) in production."
