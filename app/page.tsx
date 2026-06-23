@@ -6,7 +6,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { HeroMapAnimation } from "@/components/hero-map-animation";
 import { Button } from "@/components/ui/button";
-import { MapPin, Palette, Download, ChevronDown, Quote, Star } from "lucide-react";
+import { MapPin, Palette, Download, ChevronDown, Truck } from "lucide-react";
 
 const GH_RAW =
   "https://raw.githubusercontent.com/EvanGruhlkey/poster-forge/main/posters";
@@ -47,6 +47,11 @@ const GALLERY = [
     city: "Seattle",
     theme: "Emerald",
   },
+  {
+    src: `${GH_RAW}/london_noir_20260118_150259.png`,
+    city: "London",
+    theme: "Noir",
+  },
 ];
 
 const STEPS = [
@@ -64,27 +69,6 @@ const STEPS = [
     title: "Download or print",
     desc: "Save high-resolution PNG, PDF, or SVG files, or order a physical poster shipped to you.",
     icon: Download,
-  },
-];
-
-const TESTIMONIALS = [
-  {
-    quote:
-      "The print made our first apartment feel like home. It looks like something from a design shop.",
-    name: "Maya R.",
-    detail: "Brooklyn poster",
-  },
-  {
-    quote:
-      "I made one for the city where we got engaged, and the finished poster felt personal without being cheesy.",
-    name: "Jordan P.",
-    detail: "Barcelona poster",
-  },
-  {
-    quote:
-      "The themes are polished enough that I could pick one in minutes and still feel like it was custom.",
-    name: "Claire W.",
-    detail: "Seattle poster",
   },
 ];
 
@@ -157,22 +141,27 @@ export default function LandingPage() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_45%_at_50%_48%,hsl(var(--background)/0.92)_0%,hsl(var(--background)/0.55)_45%,transparent_72%)]" />
 
         <div className="relative z-10 mx-auto flex min-h-[min(88vh,760px)] max-w-3xl flex-col items-center justify-center px-4 py-16 text-center sm:px-6 sm:py-20">
-          <p className="mb-4 rounded-full border bg-background/80 px-4 py-1.5 text-xs font-medium tracking-wide text-muted-foreground backdrop-blur-sm sm:text-sm">
-            Unlimited previews, free forever
+          <p className="mb-4 inline-flex items-center gap-2 rounded-full border bg-background/80 px-4 py-1.5 text-xs font-medium tracking-wide text-muted-foreground backdrop-blur-sm sm:text-sm">
+            <Truck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            Premium map posters, shipped to your door
           </p>
           <h1 className="text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
-            Turn any place into
+            Turn a place you love
             <br />
-            <span className="text-primary">custom map art</span>
+            <span className="text-primary">into a poster</span>
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:mt-6 sm:text-lg">
-            Pick a city, choose from 17 themes, and download a print-ready poster in minutes.
+            Choose any city, neighborhood, or memory. We&apos;ll turn it into a
+            custom map poster, print it on premium paper, and ship it straight
+            to you.
           </p>
           <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-3 sm:mt-10">
             <Button asChild size="lg" className="h-12 w-full px-8 text-base shadow-lg sm:w-auto">
-              <Link href="/app">Start Free</Link>
+              <Link href="/app">Create your poster</Link>
             </Button>
-            <p className="text-sm text-muted-foreground">No credit card required</p>
+            <p className="text-sm text-muted-foreground">
+              No design skills needed · Arrives ready to frame
+            </p>
           </div>
         </div>
       </section>
@@ -231,80 +220,6 @@ export default function LandingPage() {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="scroll-mt-16 border-t bg-muted/30 py-10 sm:py-14">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] lg:items-center">
-            <div>
-              <p className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                Loved on walls, not just screens
-              </p>
-              <h2 className="max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
-                Posters people are excited to frame
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Customers use Poster Armory for homes, gifts, offices, and the places
-                they never want to forget.
-              </p>
-
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                {TESTIMONIALS.map((item) => (
-                  <figure
-                    key={item.name}
-                    className="rounded-lg border bg-card p-4 shadow-sm"
-                  >
-                    <div className="mb-3 flex gap-0.5 text-primary" aria-label="5 star review">
-                      {Array.from({ length: 5 }).map((_, index) => (
-                        <Star
-                          key={index}
-                          className="h-3.5 w-3.5 fill-current"
-                          aria-hidden="true"
-                        />
-                      ))}
-                    </div>
-                    <blockquote className="text-sm leading-relaxed text-foreground">
-                      “{item.quote}”
-                    </blockquote>
-                    <figcaption className="mt-4 border-t pt-3">
-                      <p className="text-sm font-semibold">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{item.detail}</p>
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
-            </div>
-
-            <div className="relative">
-              <div className="relative aspect-[4/3] overflow-hidden rounded-xl border bg-card shadow-lg">
-                <Image
-                  src="/poster-testimonials.png"
-                  alt="Happy customers with framed custom city map posters"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 46vw"
-                  priority={false}
-                />
-              </div>
-              <div className="absolute -bottom-4 left-4 right-4 rounded-lg border bg-background/95 p-4 shadow-lg backdrop-blur sm:left-8 sm:right-8">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    <Quote className="h-4 w-4" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">Made from real places</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                      Every poster starts with actual map data, then gets tuned into
-                      print-ready art.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="h-4" />
-            </div>
           </div>
         </div>
       </section>

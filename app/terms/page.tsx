@@ -18,7 +18,7 @@ export default function TermsPage() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <h1 className="text-4xl font-bold">Terms of Service</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Last updated: March 18, 2026
+            Last updated: June 23, 2026
           </p>
 
           <div className="mt-10 space-y-8 text-sm leading-relaxed text-muted-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground [&_h3]:text-base [&_h3]:font-medium [&_h3]:text-foreground [&_strong]:text-foreground">
@@ -42,9 +42,11 @@ export default function TermsPage() {
               <h2>2. Description of Service</h2>
               <p className="mt-3">
                 Poster Armory is a web-based platform that allows users to create custom map
-                art posters. Users select a geographic location, customize the design (theme,
-                text, size, and layout), generate a preview, and download high-resolution
-                print-ready files in various formats (PNG, PDF, SVG depending on plan).
+                art posters. Users select a geographic location, customize the design
+                (theme, title, subtitle, date line, size, layout, labels, map layers,
+                framing, markers, and optional route data), generate previews, download
+                high-resolution print-ready files, and order physical poster prints shipped
+                to a delivery address.
               </p>
               <p className="mt-2">
                 Map data used in poster generation is sourced from OpenStreetMap and is
@@ -82,16 +84,18 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2>4. Subscriptions and Billing</h2>
+              <h2>4. Purchases, Subscriptions, and Billing</h2>
 
               <h3 className="mt-4">4.1 Plans and Pricing</h3>
               <p className="mt-2">
-                The Service offers multiple subscription tiers with varying features,
-                design limits, and download quotas. Current pricing is listed on our{" "}
+                The Service offers a free preview plan, one-time download purchases, and
+                subscription tiers with varying features, download quotas, library access,
+                and usage rights. Current pricing is listed on our{" "}
                 <Link href="/pricing" className="underline hover:text-foreground">
                   Pricing page
                 </Link>
-                . Prices are in US dollars and may change with notice.
+                . Prices are in US dollars unless otherwise shown and may change with
+                notice.
               </p>
 
               <h3 className="mt-4">4.2 Payment Processing</h3>
@@ -105,8 +109,9 @@ export default function TermsPage() {
                 >
                   Stripe
                 </a>
-                . We do not store your credit card or payment details on our servers. By
-                subscribing, you agree to Stripe&apos;s{" "}
+                . We do not store your full credit card or payment details on our servers.
+                By purchasing a download, placing a print order, or subscribing, you agree
+                to Stripe&apos;s{" "}
                 <a
                   href="https://stripe.com/legal"
                   target="_blank"
@@ -125,7 +130,14 @@ export default function TermsPage() {
                 before the renewal date.
               </p>
 
-              <h3 className="mt-4">4.4 Cancellation</h3>
+              <h3 className="mt-4">4.4 One-Time Downloads</h3>
+              <p className="mt-2">
+                One-time download purchases grant a single high-resolution download credit.
+                Download credits are tied to your account and may be used only through the
+                Service. They are not transferable, redeemable for cash, or a subscription.
+              </p>
+
+              <h3 className="mt-4">4.5 Cancellation</h3>
               <p className="mt-2">
                 You may cancel your subscription at any time from your{" "}
                 <Link href="/app/billing" className="underline hover:text-foreground">
@@ -136,7 +148,7 @@ export default function TermsPage() {
                 for partial months.
               </p>
 
-              <h3 className="mt-4">4.5 Plan Changes</h3>
+              <h3 className="mt-4">4.6 Plan Changes</h3>
               <p className="mt-2">
                 You may upgrade or downgrade your plan at any time. When switching plans,
                 your previous subscription is cancelled and the new plan takes effect
@@ -145,31 +157,68 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2>5. Usage Limits and Fair Use</h2>
+              <h2>5. Physical Poster Orders</h2>
               <p className="mt-3">
-                Each subscription tier includes monthly limits on poster designs (previews)
-                and high-resolution downloads. These limits reset at the beginning of each
-                calendar month.
+                Physical poster orders are printed and fulfilled by third-party production
+                partners, including Gelato. When you place a physical order, we collect the
+                design configuration, selected size, quantity, delivery address, contact
+                details, and payment confirmation needed to produce and ship your poster.
               </p>
               <p className="mt-2">
-                Plans advertised as &quot;unlimited&quot; are subject to a fair use policy.
-                Automated, scripted, or bulk generation that exceeds reasonable personal or
-                commercial use may result in rate limiting or account suspension.
+                Shipping prices and estimated delivery windows are calculated during
+                checkout based on the delivery destination and available fulfillment options.
+                Delivery estimates are not guarantees. Delays may occur because of printing,
+                carrier issues, customs, incomplete addresses, weather, or other events
+                outside our control.
+              </p>
+              <p className="mt-2">
+                Please review your poster design, size, quantity, and shipping address
+                carefully before paying. Custom printed products are made to order. Once a
+                print order has entered production, it may not be possible to cancel or
+                change the order. If a print arrives damaged, defective, or materially
+                different from the confirmed order, contact us promptly with your order
+                details and photos so we can review the issue with our fulfillment partner.
               </p>
             </section>
 
             <section>
-              <h2>6. Intellectual Property</h2>
-
-              <h3 className="mt-4">6.1 Your Content</h3>
+              <h2>6. Usage Limits and Fair Use</h2>
+              <p className="mt-3">
+                Free accounts may create unlimited poster previews. Paid plans and one-time
+                purchases include the downloads shown on the Pricing page and in your
+                Billing page. Subscription download limits reset based on the applicable
+                subscription billing period.
+              </p>
               <p className="mt-2">
-                You retain ownership of the poster designs you create using the Service,
-                including the specific configuration choices (text, layout, color theme)
-                you apply. You are granted a perpetual license to use, print, sell, and
-                distribute the posters you create.
+                Plans advertised as &quot;unlimited&quot; are subject to a fair use policy.
+                Automated, scripted, abusive, or unusually high-volume generation that
+                exceeds reasonable use may result in rate limiting, delayed processing, or
+                account suspension.
+              </p>
+            </section>
+
+            <section>
+              <h2>7. Intellectual Property and Usage Rights</h2>
+
+              <h3 className="mt-4">7.1 Your Content</h3>
+              <p className="mt-2">
+                You retain ownership of text, route files, marker labels, and other content
+                you provide to the Service. You are responsible for ensuring you have the
+                right to use any content you submit. You grant Poster Armory the limited
+                rights needed to process, render, store, display, print, and fulfill your
+                poster designs.
               </p>
 
-              <h3 className="mt-4">6.2 Map Data</h3>
+              <h3 className="mt-4">7.2 Download and Print Rights</h3>
+              <p className="mt-2">
+                You may use downloaded files and physical prints for the rights included
+                with your purchase or plan. Single downloads and Starter plans include
+                personal use rights. Pro plans include commercial use rights for downloaded
+                poster files, subject to these Terms and any third-party map-data
+                attribution requirements.
+              </p>
+
+              <h3 className="mt-4">7.3 Map Data</h3>
               <p className="mt-2">
                 The underlying map data is sourced from OpenStreetMap and is available
                 under the{" "}
@@ -181,11 +230,12 @@ export default function TermsPage() {
                 >
                   Open Data Commons Open Database License (ODbL)
                 </a>
-                . When redistributing or selling posters, you should provide appropriate
-                attribution to OpenStreetMap contributors.
+                . When printing, redistributing, or selling posters, you are responsible
+                for providing appropriate attribution to OpenStreetMap contributors where
+                required.
               </p>
 
-              <h3 className="mt-4">6.3 Our Service</h3>
+              <h3 className="mt-4">7.4 Our Service</h3>
               <p className="mt-2">
                 The Poster Armory name, logo, design templates, themes, website design,
                 and underlying software are the intellectual property of Poster Armory and
@@ -195,7 +245,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2>7. Acceptable Use</h2>
+              <h2>8. Acceptable Use</h2>
               <p className="mt-3">You agree not to:</p>
               <ul className="mt-2 list-disc space-y-1 pl-6">
                 <li>
@@ -225,7 +275,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2>8. Availability and Modifications</h2>
+              <h2>9. Availability and Modifications</h2>
               <p className="mt-3">
                 We strive to keep the Service available and reliable but do not guarantee
                 uninterrupted access. We reserve the right to modify, suspend, or
@@ -235,7 +285,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2>9. Termination</h2>
+              <h2>10. Termination</h2>
               <p className="mt-3">
                 We may suspend or terminate your account if you violate these Terms or
                 engage in conduct that is harmful to other users or the Service. You may
@@ -246,7 +296,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2>10. Disclaimer of Warranties</h2>
+              <h2>11. Disclaimer of Warranties</h2>
               <p className="mt-3">
                 The Service is provided on an &quot;as is&quot; and &quot;as
                 available&quot; basis without warranties of any kind, either express or
@@ -258,7 +308,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2>11. Limitation of Liability</h2>
+              <h2>12. Limitation of Liability</h2>
               <p className="mt-3">
                 To the maximum extent permitted by applicable law, Poster Armory and its
                 operators shall not be liable for any indirect, incidental, special,
@@ -270,7 +320,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2>12. Indemnification</h2>
+              <h2>13. Indemnification</h2>
               <p className="mt-3">
                 You agree to indemnify, defend, and hold harmless Poster Armory and its
                 operators from and against any claims, damages, losses, or expenses
@@ -281,7 +331,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2>13. Governing Law</h2>
+              <h2>14. Governing Law</h2>
               <p className="mt-3">
                 These Terms shall be governed by and construed in accordance with the laws
                 of the United States. Any disputes arising from these Terms or the Service
@@ -291,7 +341,7 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2>14. Contact</h2>
+              <h2>15. Contact</h2>
               <p className="mt-3">
                 If you have questions about these Terms, please contact us at{" "}
                 <a

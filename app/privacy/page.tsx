@@ -18,7 +18,7 @@ export default function PrivacyPage() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <h1 className="text-4xl font-bold">Privacy Policy</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Last updated: March 18, 2026
+            Last updated: June 23, 2026
           </p>
 
           <div className="mt-10 space-y-8 text-sm leading-relaxed text-muted-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground [&_h3]:text-base [&_h3]:font-medium [&_h3]:text-foreground [&_strong]:text-foreground">
@@ -45,13 +45,24 @@ export default function PrivacyPage() {
                 </li>
                 <li>
                   <strong>Poster configurations:</strong> The locations, text, themes, and
-                  design settings you choose when creating posters.
+                  design settings you choose when creating posters, including map location,
+                  coordinates, title, subtitle, date line, selected theme, size, layout,
+                  labels, map layers, markers, and optional route data such as GPX files.
                 </li>
                 <li>
-                  <strong>Payment information:</strong> When you subscribe, payment details
-                  (credit card number, billing address) are collected and processed directly
-                  by Stripe. We do not store your full payment details on our servers. We
-                  only receive a Stripe customer ID and subscription status.
+                  <strong>Order and shipping information:</strong> When you order a
+                  physical poster, we collect the recipient name, shipping address, country,
+                  postal code, optional phone number, optional email address, selected
+                  poster size, quantity, order status, shipping quote, and fulfillment
+                  details needed to print and ship the order.
+                </li>
+                <li>
+                  <strong>Payment information:</strong> When you buy a download, place a
+                  print order, or subscribe, payment details (such as credit card number and
+                  billing address) are collected and processed directly by Stripe. We do not
+                  store your full payment details on our servers. We receive payment status,
+                  Stripe customer IDs, checkout session IDs, subscription status, and related
+                  billing metadata needed to fulfill purchases and manage your account.
                 </li>
                 <li>
                   <strong>Communications:</strong> If you contact us for support, we collect
@@ -63,7 +74,15 @@ export default function PrivacyPage() {
               <ul className="mt-2 list-disc space-y-1 pl-6">
                 <li>
                   <strong>Usage data:</strong> We track the number of poster designs and
-                  downloads you generate each month for quota enforcement purposes.
+                  downloads you generate each billing period, single-download credits, and
+                  order activity for quota enforcement, fulfillment, support, and fraud
+                  prevention purposes.
+                </li>
+                <li>
+                  <strong>Device and request data:</strong> Our application and hosting
+                  providers may process IP address, browser type, device information,
+                  request URLs, timestamps, and error logs for security, troubleshooting,
+                  and operational purposes.
                 </li>
                 <li>
                   <strong>Authentication cookies:</strong> We use cookies strictly for
@@ -71,9 +90,9 @@ export default function PrivacyPage() {
                   cookies, or third-party analytics cookies.
                 </li>
                 <li>
-                  <strong>Server logs:</strong> Our hosting infrastructure may automatically
-                  collect standard log data such as your IP address, browser type, and
-                  request timestamps for security and operational purposes.
+                  <strong>Essential local storage:</strong> We may use browser storage to
+                  preserve in-progress poster drafts, resume a download or order flow after
+                  sign-in, and keep the app working as expected.
                 </li>
               </ul>
 
@@ -92,10 +111,13 @@ export default function PrivacyPage() {
               <p className="mt-3">We use the information we collect to:</p>
               <ul className="mt-2 list-disc space-y-1 pl-6">
                 <li>Provide, maintain, and improve the Service.</li>
-                <li>Process your poster designs and deliver downloadable files.</li>
-                <li>Manage your account, subscription, and billing.</li>
+                <li>Process your poster designs, previews, downloads, and library items.</li>
+                <li>Calculate physical poster pricing and shipping quotes.</li>
+                <li>Print, fulfill, and ship physical poster orders.</li>
+                <li>Manage your account, purchases, subscription, credits, and billing.</li>
                 <li>Enforce usage limits and prevent abuse.</li>
                 <li>Respond to your support requests and communications.</li>
+                <li>Send purchase confirmations, order updates, and operational notices.</li>
                 <li>
                   Ensure the security and integrity of the Service (fraud prevention, rate
                   limiting).
@@ -136,8 +158,15 @@ export default function PrivacyPage() {
                       <td className="px-4 py-2">
                         <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Stripe</a>
                       </td>
-                      <td className="px-4 py-2">Payment processing</td>
-                      <td className="px-4 py-2">Email, payment method, billing address</td>
+                      <td className="px-4 py-2">Payment processing, subscriptions, checkout</td>
+                      <td className="px-4 py-2">Email, payment method, billing details, purchase metadata</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-2">
+                        <a href="https://www.gelato.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Gelato</a>
+                      </td>
+                      <td className="px-4 py-2">Print production, shipping quotes, fulfillment</td>
+                      <td className="px-4 py-2">Poster print file, size, quantity, shipping address, contact details</td>
                     </tr>
                     <tr>
                       <td className="px-4 py-2">
@@ -186,12 +215,20 @@ export default function PrivacyPage() {
                 </li>
                 <li>
                   <strong>Poster designs and files:</strong> Stored as long as your account
-                  is active. Generated files are stored in secure cloud storage.
+                  is active, unless deleted earlier through product behavior or support.
+                  Preview jobs may be temporary; downloaded posters and library records are
+                  stored in secure cloud storage while available in your account.
+                </li>
+                <li>
+                  <strong>Physical orders:</strong> Order records, shipping details,
+                  fulfillment status, and related support information are retained as needed
+                  to fulfill the order, handle support, prevent fraud, and meet accounting
+                  or legal obligations.
                 </li>
                 <li>
                   <strong>Usage records:</strong> Retained for billing and quota tracking
-                  purposes. Historical records may be kept for up to 12 months after account
-                  closure for accounting and legal compliance.
+                  purposes. Historical records may be kept after account closure for
+                  accounting, abuse prevention, tax, and legal compliance.
                 </li>
                 <li>
                   <strong>Payment records:</strong> Managed by Stripe in accordance with
