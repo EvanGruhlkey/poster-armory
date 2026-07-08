@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Loader2, Package, Truck } from "lucide-react";
 import { toast } from "sonner";
-import { PosterWallMockup } from "@/components/poster-wall-mockup";
+import { ProtectedImage } from "@/components/protected-image";
 import { PHYSICAL_SIZES } from "@/lib/poster-products";
 
 const COUNTRIES = [
@@ -413,13 +413,27 @@ export default function OrderPage() {
               <CardTitle className="text-base">Order summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <PosterWallMockup
-                src={draft.previewUrl}
-                alt="Poster preview"
-                bgColor={style?.bgColor}
-                textColor={style?.textColor}
-                orientation={orientation}
-              />
+              <div
+                className="aspect-[3/4] overflow-hidden rounded-md"
+                style={{ backgroundColor: style?.bgColor || "#f5f0e8" }}
+              >
+                {draft.previewUrl ? (
+                  <ProtectedImage
+                    src={draft.previewUrl}
+                    alt="Poster preview"
+                    className="h-full w-full object-cover"
+                    containerClassName="h-full w-full"
+                    textColor={style?.textColor}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Package
+                      className="h-10 w-10"
+                      style={{ color: `${style?.textColor || "#6b5b4f"}40` }}
+                    />
+                  </div>
+                )}
+              </div>
 
               <div className="text-sm">
                 <p className="font-medium">
