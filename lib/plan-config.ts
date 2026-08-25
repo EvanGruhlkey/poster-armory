@@ -1,8 +1,8 @@
 // Pricing v2 (see supabase/migrations/010_pricing_v2.sql)
 //
-//   free    : unlimited previews, 0 downloads
-//   starter : $10/mo — unlimited previews + 5 downloads/month
-//   pro     : $20/mo — unlimited previews + unlimited downloads + commercial use
+//   free    : full live designer, 0 high-resolution downloads
+//   starter : $10/mo — full designer + 5 downloads/month
+//   pro     : $20/mo — full designer + unlimited downloads + commercial use
 //
 // Single Download ($9 one-time) does NOT change planTier — it grants one
 // row in `download_credits` that the worker consumes on demand. The legacy
@@ -29,10 +29,10 @@ export interface PlanEntitlements {
 
 export const PLAN_ENTITLEMENTS: Record<PlanTier, PlanEntitlements> = {
   none: {
-    allThemes: false,
-    zoomControls: false,
-    rotationControls: false,
-    multipleSizes: false,
+    allThemes: true,
+    zoomControls: true,
+    rotationControls: true,
+    multipleSizes: true,
     posterLibrary: false,
     commercialUse: false,
     designsPerMonth: 0,
@@ -40,10 +40,10 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, PlanEntitlements> = {
     formats: [],
   },
   free: {
-    allThemes: false,
-    zoomControls: false,
-    rotationControls: false,
-    multipleSizes: false,
+    allThemes: true,
+    zoomControls: true,
+    rotationControls: true,
+    multipleSizes: true,
     posterLibrary: false,
     commercialUse: false,
     designsPerMonth: null,

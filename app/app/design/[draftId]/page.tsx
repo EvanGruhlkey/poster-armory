@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,10 @@ import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import {
   Loader2,
   Download,
-  Eye,
-  Lock,
   Crown,
   Package,
   LogIn,
@@ -35,38 +30,11 @@ import {
   type PosterConfig,
   DEFAULT_CONFIG,
 } from "@/lib/types";
-import { ProtectedImage } from "@/components/protected-image";
 import {
   LivePosterMap,
   type MapLayerPreset,
 } from "@/components/live-poster-map";
-import {
-  PLAN_ENTITLEMENTS,
-  STANDARD_THEMES,
-  DEFAULT_SIZE,
-  getPlanTier,
-  type PlanTier,
-} from "@/lib/plan-config";
-
-const PREVIEW_STAGES = [
-  { threshold: 0, label: "Waiting for available worker..." },
-  { threshold: 10, label: "Job picked up, initializing..." },
-  { threshold: 25, label: "Fetching map data from OpenStreetMap..." },
-  { threshold: 45, label: "Processing roads and features..." },
-  { threshold: 65, label: "Rendering map layers..." },
-  { threshold: 80, label: "Applying theme and styling..." },
-  { threshold: 92, label: "Uploading preview..." },
-];
-
-function getPreviewStageLabel(progress: number): string {
-  let label = PREVIEW_STAGES[0].label;
-  for (const stage of PREVIEW_STAGES) {
-    if (progress >= stage.threshold) label = stage.label;
-  }
-  return label;
-}
-
-type PreviewJobStatus = "queued" | "running" | null;
+import { DEFAULT_SIZE, getPlanTier, type PlanTier } from "@/lib/plan-config";
 type EditorMode = "quick" | "standard" | "advanced";
 type EditorTool = "location" | "layers" | "type" | "style";
 
@@ -96,12 +64,9 @@ export default function CustomizePosterPage() {
   const occasion = searchParams.get("occasion") || "";
 
   const [planTier, setPlanTier] = useState<PlanTier>("none");
-  const [planLoading, setPlanLoading] = useState(true);
-  // Guests get an anonymous Supabase session so previews work without
-  // signing up. We still treat them as logged-out for any action that
-  // touches money or persistence (Download / Order Physical).
+  // Designing is free and instant. We only need auth/plan state when the
+  // user asks for a high-resolution file or a physical print.
   const [isGuest, setIsGuest] = useState(false);
-  const entitlements = PLAN_ENTITLEMENTS[planTier];
 
   const [config, setConfig] = useState<PosterConfig>({
     ...DEFAULT_CONFIG,
@@ -120,67 +85,12 @@ export default function CustomizePosterPage() {
   });
 
   const [selectedSize, setSelectedSize] = useState(DEFAULT_SIZE);
-  const [previewLoading, setPreviewLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewProgress, setPreviewProgress] = useState(0);
-  const [previewJobStatus, setPreviewJobStatus] =
-    useState<PreviewJobStatus>(null);
   const [editorMode, setEditorMode] = useState<EditorMode>("quick");
   const [activeTool, setActiveTool] = useState<EditorTool>("location");
   const [layerPreset, setLayerPreset] =
     useState<MapLayerPreset>("everything");
   const [pitch, setPitch] = useState(0);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
-  const previewStartTime = useRef<number | null>(null);
-  const previewAnimFrame = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-      if (previewAnimFrame.current)
-        cancelAnimationFrame(previewAnimFrame.current);
-    };
-  }, []);
-
-  // Smooth progress bar driven by elapsed time. Mirrors the download page:
-  // 0–10% during queued, then asymptotically approaches ~95% during running
-  // so the bar keeps moving without ever pretending to be done. Tuned for
-  // preview (~30s typical) since it only renders one small PNG, unlike the
-  // full download path which also produces a PDF and optional SVG.
-  useEffect(() => {
-    if (!previewJobStatus) {
-      if (previewAnimFrame.current) {
-        cancelAnimationFrame(previewAnimFrame.current);
-        previewAnimFrame.current = null;
-      }
-      return;
-    }
-
-    const tick = () => {
-      if (previewStartTime.current === null) return;
-      const elapsed = (Date.now() - previewStartTime.current) / 1000;
-      const target =
-        previewJobStatus === "queued"
-          ? Math.min(10, elapsed * 2)
-          : 10 + 85 * (1 - Math.exp(-elapsed / 30));
-
-      setPreviewProgress((prev) => {
-        if (prev >= 100) return 100;
-        return Math.max(prev, Math.round(target));
-      });
-
-      previewAnimFrame.current = requestAnimationFrame(tick);
-    };
-
-    previewAnimFrame.current = requestAnimationFrame(tick);
-    return () => {
-      if (previewAnimFrame.current) {
-        cancelAnimationFrame(previewAnimFrame.current);
-        previewAnimFrame.current = null;
-      }
-    };
-  }, [previewJobStatus]);
 
   // Restore a design that the user stashed before being bounced through
   // the sign-up flow (see redirectToSignup). This runs once on mount and
@@ -193,14 +103,12 @@ export default function CustomizePosterPage() {
       const saved = JSON.parse(raw) as {
         config?: PosterConfig;
         selectedSize?: typeof DEFAULT_SIZE;
-        previewUrl?: string | null;
         city?: string;
         country?: string;
         action?: "download" | "order";
       };
       if (saved.config) setConfig(saved.config);
       if (saved.selectedSize) setSelectedSize(saved.selectedSize);
-      if (saved.previewUrl) setPreviewUrl(saved.previewUrl);
       if (saved.action === "download") {
         toast.success("Welcome back — finish your download below.");
       } else if (saved.action === "order") {
@@ -219,9 +127,7 @@ export default function CustomizePosterPage() {
         const { data } = await supabase.auth.getUser();
         const signedIn = !!data.user;
 
-        // Guests have no session — previews are served by a shared
-        // guest user on the server. The UI just needs to know they
-        // can't download or order until they sign up.
+        // Guests can design freely, but downloads and orders require an account.
         setIsGuest(!signedIn);
 
         if (signedIn) {
@@ -235,8 +141,6 @@ export default function CustomizePosterPage() {
         }
       } catch {
         // fall through to defaults
-      } finally {
-        setPlanLoading(false);
       }
     }
     loadPlan();
@@ -249,111 +153,6 @@ export default function CustomizePosterPage() {
     []
   );
 
-  async function handleGeneratePreview() {
-    if (!config.city) {
-      toast.error("Please go back and pick a location first.");
-      return;
-    }
-    if (pollRef.current) clearInterval(pollRef.current);
-    setPreviewLoading(true);
-    setPreviewProgress(0);
-    setPreviewJobStatus("queued");
-    previewStartTime.current = Date.now();
-    try {
-      const submitConfig = {
-        ...config,
-        width: selectedSize.width,
-        height: selectedSize.height,
-      };
-      const res = await fetch("/api/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ config: submitConfig, is_preview: true }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        if (res.status === 403) {
-          toast.error(err.error, {
-            action: { label: "Upgrade", onClick: () => router.push("/app/billing") },
-            duration: 8000,
-          });
-          setPreviewLoading(false);
-          setPreviewJobStatus(null);
-          return;
-        }
-        const msg = err.error || "Failed to create preview job";
-        if (err.details?.fieldErrors) {
-          const fields = Object.entries(err.details.fieldErrors)
-            .map(([k, v]) => `${k}: ${(v as string[]).join(", ")}`)
-            .join("; ");
-          throw new Error(`${msg} (${fields})`);
-        }
-        throw new Error(msg);
-      }
-
-      const { jobId, cached, status: cachedStatus } = await res.json();
-
-      // Cached + already done → fetch the existing signed URL once and skip
-      // polling so the user sees the preview instantly without a 3s gap.
-      if (cached && cachedStatus === "done") {
-        const r = await fetch(`/api/jobs/${jobId}`);
-        if (r.ok) {
-          const data = await r.json();
-          setPreviewUrl(data.downloadUrls?.preview || null);
-        }
-        setPreviewLoading(false);
-        setPreviewJobStatus(null);
-        setPreviewProgress(100);
-        toast.success("Showing your existing preview for this design.");
-        return;
-      }
-
-      toast.success(
-        cached
-          ? "An earlier preview for this design is still rendering. Picking it up."
-          : "Preview generation started!"
-      );
-
-      // Fire one immediate poll so cached-pending and brand-new jobs both
-      // resolve as fast as the worker finishes, instead of always waiting 3s.
-      const pollOnce = async () => {
-        try {
-          const r = await fetch(`/api/jobs/${jobId}`);
-          if (!r.ok) return;
-          const data = await r.json();
-          if (data.status === "done") {
-            if (pollRef.current) clearInterval(pollRef.current);
-            pollRef.current = null;
-            setPreviewUrl(data.downloadUrls?.preview || null);
-            setPreviewLoading(false);
-            setPreviewJobStatus(null);
-            setPreviewProgress(100);
-          } else if (data.status === "failed") {
-            if (pollRef.current) clearInterval(pollRef.current);
-            pollRef.current = null;
-            toast.error(data.error || "Preview generation failed");
-            setPreviewLoading(false);
-            setPreviewJobStatus(null);
-            setPreviewProgress(0);
-          } else if (data.status === "running" || data.status === "queued") {
-            setPreviewJobStatus(data.status);
-          }
-        } catch {
-          // network blip, keep polling
-        }
-      };
-      pollOnce();
-      pollRef.current = setInterval(pollOnce, 3000);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      toast.error(msg);
-      setPreviewLoading(false);
-      setPreviewJobStatus(null);
-      setPreviewProgress(0);
-    }
-  }
-
   function redirectToSignup(reason: "download" | "order") {
     // Stash the current design so the user lands back in the editor with
     // their work intact after signing up.
@@ -363,7 +162,6 @@ export default function CustomizePosterPage() {
         JSON.stringify({
           config,
           selectedSize,
-          previewUrl,
           city,
           country,
           action: reason,
@@ -429,7 +227,6 @@ export default function CustomizePosterPage() {
       }
 
       const params = new URLSearchParams();
-      if (previewUrl) params.set("preview", previewUrl);
       params.set("bg", currentStyle.bgColor);
       params.set("tc", currentStyle.textColor);
       const qs = params.toString();
@@ -461,7 +258,6 @@ export default function CustomizePosterPage() {
         "poster-order-draft",
         JSON.stringify({
           config: submitConfig,
-          previewUrl,
           style: {
             bgColor: currentStyle.bgColor,
             textColor: currentStyle.textColor,
@@ -513,91 +309,25 @@ export default function CustomizePosterPage() {
       },
     };
     updateConfig(updates[preset]);
-    setPreviewUrl(null);
   }
 
-  function UpgradeBadge() {
-    return (
-      <button
-        onClick={() => router.push("/app/billing")}
-        className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-200 transition-colors"
-      >
-        <Crown className="h-3 w-3" />
-        Pro
-      </button>
-    );
-  }
-
-  if (planLoading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  const previewPanel = (
+  const livePosterPanel = (
     <Card className="overflow-hidden">
       <div
         className="aspect-[3/4] flex items-center justify-center"
         style={{ backgroundColor: currentStyle.bgColor }}
       >
-        {previewUrl ? (
-          <ProtectedImage
-            src={previewUrl}
-            alt="Poster preview"
-            className="h-full w-full object-cover"
-            containerClassName="h-full w-full"
-            textColor={currentStyle.textColor}
-          />
-        ) : previewLoading ? (
-          <div className="w-full max-w-xs px-6 text-center sm:px-8">
-            <Loader2
-              className="mx-auto h-8 w-8 animate-spin"
-              style={{ color: currentStyle.textColor }}
-            />
-            <p
-              className="mt-3 text-sm font-medium"
-              style={{ color: currentStyle.textColor }}
-            >
-              Generating preview
-            </p>
-            <div
-              className="mt-4 h-2 w-full overflow-hidden rounded-full"
-              style={{ backgroundColor: `${currentStyle.textColor}20` }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-700 ease-out"
-                style={{
-                  width: `${previewProgress}%`,
-                  backgroundColor: currentStyle.textColor,
-                }}
-              />
-            </div>
-            <div
-              className="mt-2 flex items-center justify-between text-xs"
-              style={{ color: `${currentStyle.textColor}b3` }}
-            >
-              <span className="truncate pr-2 text-left">
-                {getPreviewStageLabel(previewProgress)}
-              </span>
-              <span className="tabular-nums">{previewProgress}%</span>
-            </div>
-          </div>
-        ) : (
-          <LivePosterMap
-            config={config}
-            bgColor={currentStyle.bgColor}
-            textColor={currentStyle.textColor}
-            layerPreset={layerPreset}
-            pitch={pitch}
-            onViewChange={({ pitch: nextPitch, ...updates }) => {
-              if (typeof nextPitch === "number") setPitch(nextPitch);
-              updateConfig(updates);
-              setPreviewUrl(null);
-            }}
-          />
-        )}
+        <LivePosterMap
+          config={config}
+          bgColor={currentStyle.bgColor}
+          textColor={currentStyle.textColor}
+          layerPreset={layerPreset}
+          pitch={pitch}
+          onViewChange={({ pitch: nextPitch, ...updates }) => {
+            if (typeof nextPitch === "number") setPitch(nextPitch);
+            updateConfig(updates);
+          }}
+        />
       </div>
     </Card>
   );
@@ -679,6 +409,21 @@ export default function CustomizePosterPage() {
                       <div className="space-y-4 border-t pt-4">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium">Map area</span>
+                            <span className="tabular-nums text-muted-foreground">
+                              {(config.distance / 1000).toFixed(0)} km
+                            </span>
+                          </div>
+                          <Slider
+                            value={[config.distance]}
+                            onValueChange={([value]) => updateConfig({ distance: value })}
+                            min={2000}
+                            max={30000}
+                            step={1000}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
                             <span className="inline-flex items-center gap-1.5 font-medium">
                               <Rotate3D className="h-3.5 w-3.5" /> Rotation
                             </span>
@@ -686,10 +431,7 @@ export default function CustomizePosterPage() {
                           </div>
                           <Slider
                             value={[config.rotation]}
-                            onValueChange={([value]) => {
-                              updateConfig({ rotation: value });
-                              setPreviewUrl(null);
-                            }}
+                            onValueChange={([value]) => updateConfig({ rotation: value })}
                             min={-180}
                             max={180}
                             step={1}
@@ -744,10 +486,9 @@ export default function CustomizePosterPage() {
                             <Switch
                               id={`layer-${String(key)}`}
                               checked={Boolean(checked)}
-                              onCheckedChange={(value) => {
-                                updateConfig({ [String(key)]: value } as Partial<PosterConfig>);
-                                setPreviewUrl(null);
-                              }}
+                              onCheckedChange={(value) =>
+                                updateConfig({ [String(key)]: value } as Partial<PosterConfig>)
+                              }
                             />
                           </div>
                         ))}
@@ -790,30 +531,19 @@ export default function CustomizePosterPage() {
                     <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                       {Object.entries(STYLE_PRESETS)
                         .slice(0, editorMode === "quick" ? 5 : undefined)
-                        .map(([id, preset]) => {
-                          const isLocked = !entitlements.allThemes && !STANDARD_THEMES.includes(id);
-                          return (
+                        .map(([id, preset]) => (
                             <button
                               key={id}
                               type="button"
-                              onClick={() => {
-                                if (isLocked) {
-                                  toast("Upgrade to unlock this theme.");
-                                  return;
-                                }
-                                updateConfig({ style_id: id });
-                                setPreviewUrl(null);
-                              }}
+                              onClick={() => updateConfig({ style_id: id })}
                               className={`relative rounded-md border p-2 text-center ${
                                 config.style_id === id ? "border-primary ring-2 ring-primary/15" : "hover:bg-muted"
-                              } ${isLocked ? "opacity-45" : ""}`}
+                              }`}
                             >
                               <span className="mx-auto mb-1 block h-7 w-7 rounded" style={{ backgroundColor: preset.bgColor }} />
                               <span className="block truncate text-[10px] font-medium">{preset.name}</span>
-                              {isLocked && <Lock className="absolute right-1 top-1 h-3 w-3" />}
                             </button>
-                          );
-                        })}
+                          ))}
                     </div>
                   </div>
                 )}
@@ -822,216 +552,64 @@ export default function CustomizePosterPage() {
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold sm:text-base">
-                Theme
-                {!entitlements.allThemes && (
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    Pro unlocks all
-                  </span>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3 md:grid-cols-5">
-                {Object.entries(STYLE_PRESETS).map(([id, preset]) => {
-                  const isStandard = STANDARD_THEMES.includes(id);
-                  const isLocked = !entitlements.allThemes && !isStandard;
-
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => {
-                        if (isLocked) {
-                          toast("Upgrade to Pro to unlock all themes.", {
-                            action: { label: "Upgrade", onClick: () => router.push("/app/billing") },
-                          });
-                          return;
-                        }
-                        updateConfig({ style_id: id });
-                        setPreviewUrl(null);
-                      }}
-                      className={`relative rounded-md border-2 p-2.5 text-center transition-all sm:rounded-lg sm:p-3 ${
-                        config.style_id === id
-                          ? "border-primary ring-2 ring-primary/20"
-                          : isLocked
-                            ? "border-transparent opacity-50"
-                            : "border-transparent hover:border-muted-foreground/20"
-                      }`}
-                    >
-                      {isLocked && (
-                        <Lock className="absolute right-1 top-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      )}
-                      <div
-                        className="mx-auto mb-1.5 h-7 w-7 shrink-0 rounded sm:mb-2 sm:h-9 sm:w-9"
-                        style={{ backgroundColor: preset.bgColor }}
-                      />
-                      <span className="text-[10px] font-medium leading-tight sm:text-xs">
-                        {preset.name}
-                      </span>
-                    </button>
-                  );
-                })}
+            <CardContent className="space-y-4 p-4 sm:p-5">
+              <div>
+                <h2 className="text-sm font-semibold">Choose your output</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Designing is free. Pay only when you download a high-resolution file or order a print.
+                </p>
               </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">
-                    Map radius: {(config.distance / 1000).toFixed(0)} km
-                  </Label>
-                  {!entitlements.zoomControls && <UpgradeBadge />}
-                </div>
-                {entitlements.zoomControls ? (
-                  <Slider
-                    value={[config.distance]}
-                    onValueChange={([v]) => updateConfig({ distance: v })}
-                    min={2000}
-                    max={30000}
-                    step={1000}
-                  />
-                ) : (
-                  <div>
-                    <Slider value={[10000]} min={2000} max={30000} step={1000} disabled />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Fixed at 10 km on Basic.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">Print size</Label>
-                  {!entitlements.multipleSizes && <UpgradeBadge />}
-                </div>
-                {entitlements.multipleSizes ? (
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {POSTER_SIZES.map((size) => (
-                      <button
-                        key={size.key}
-                        onClick={() => setSelectedSize(size)}
-                        className={`rounded-md border-2 px-2 py-1.5 text-center text-xs transition-all sm:text-sm ${
-                          selectedSize.key === size.key
-                            ? "border-primary ring-2 ring-primary/20"
-                            : "border-transparent hover:border-muted-foreground/20"
-                        }`}
-                      >
-                        {size.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{DEFAULT_SIZE.label}</p>
-                )}
-              </div>
-
-              <Separator />
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="title" className="text-sm">
-                    Title
-                  </Label>
-                  <Input
-                    id="title"
-                    placeholder="Paris"
-                    value={config.title}
-                    onChange={(e) => updateConfig({ title: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="subtitle" className="text-sm">
-                    Subtitle
-                  </Label>
-                  <Input
-                    id="subtitle"
-                    placeholder="Where We Met"
-                    value={config.subtitle}
-                    onChange={(e) => updateConfig({ subtitle: e.target.value })}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Text labels */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold sm:text-base">
-                Text labels
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="labels" className="text-sm">
-                    Show text labels
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Off = clean map, no city/coordinates text.
-                  </p>
-                </div>
-                <Switch
-                  id="labels"
-                  checked={config.show_labels}
-                  onCheckedChange={(v) => updateConfig({ show_labels: v })}
-                />
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {POSTER_SIZES.map((size) => (
+                  <button
+                    key={size.key}
+                    type="button"
+                    onClick={() => setSelectedSize(size)}
+                    className={`rounded-md border px-2 py-2 text-center text-xs transition-colors ${
+                      selectedSize.key === size.key
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "hover:bg-muted"
+                    }`}
+                  >
+                    {size.label}
+                  </button>
+                ))}
               </div>
             </CardContent>
           </Card>
 
           {/* Desktop actions */}
-          <div className="hidden flex-col gap-3 sm:flex">
+          <div className="hidden grid-cols-2 gap-3 sm:grid">
             <Button
               size="lg"
               onClick={handleOrderPhysical}
               disabled={!config.city}
-              className="w-full"
             >
               <Package className="mr-2 h-5 w-5 shrink-0" />
-              Order Physical Poster
+              Order a Print
             </Button>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={handleGeneratePreview}
-                disabled={previewLoading || (planTier === "none" && !isGuest)}
-                className="flex-1"
-              >
-                {previewLoading ? (
-                  <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
-                ) : (
-                  <Eye className="mr-2 h-5 w-5 shrink-0" />
-                )}
-                Preview
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleDownloadPoster}
-                disabled={generateLoading || (planTier === "none" && !isGuest)}
-                className="flex-1"
-              >
-                {generateLoading ? (
-                  <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
-                ) : isGuest ? (
-                  <LogIn className="mr-2 h-5 w-5 shrink-0" />
-                ) : (
-                  <Download className="mr-2 h-5 w-5 shrink-0" />
-                )}
-                {isGuest ? "Sign Up to Download" : "Download"}
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handleDownloadPoster}
+              disabled={generateLoading || (planTier === "none" && !isGuest)}
+            >
+              {generateLoading ? (
+                <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
+              ) : isGuest ? (
+                <LogIn className="mr-2 h-5 w-5 shrink-0" />
+              ) : (
+                <Download className="mr-2 h-5 w-5 shrink-0" />
+              )}
+              {isGuest ? "Sign Up to Download" : "Download High-Res"}
+            </Button>
           </div>
 
           {isGuest && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
               <p className="text-sm text-blue-900">
-                Browsing as a guest — previews are unlimited. Create an
-                account to download or order a print.
+                Your live design is free. Create an account only when you are
+                ready to download or order a print.
               </p>
               <Button
                 variant="outline"
@@ -1047,7 +625,7 @@ export default function CustomizePosterPage() {
 
           {!isGuest && planTier === "free" && (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
-              Free plan: previews only.{" "}
+              Keep designing for free.{" "}
               <button
                 type="button"
                 className="font-medium underline"
@@ -1074,9 +652,9 @@ export default function CustomizePosterPage() {
           )}
         </div>
 
-        {/* Preview — above controls on mobile, right column on desktop */}
+        {/* Automatic live poster — above controls on mobile, sticky on desktop */}
         <div className="order-1 mx-auto w-full max-w-sm lg:sticky lg:top-20 lg:order-2 lg:max-w-none">
-          {previewPanel}
+          {livePosterPanel}
         </div>
       </div>
 
@@ -1084,22 +662,9 @@ export default function CustomizePosterPage() {
       <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2.5 border-t bg-background/95 p-3 backdrop-blur sm:hidden">
         <Button
           variant="outline"
-          onClick={handleGeneratePreview}
-          disabled={previewLoading || (planTier === "none" && !isGuest)}
-          className="h-11 min-w-11 shrink-0 px-3"
-          aria-label="Preview"
-        >
-          {previewLoading ? (
-            <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-          ) : (
-            <Eye className="h-5 w-5 shrink-0" />
-          )}
-        </Button>
-        <Button
-          variant="outline"
           onClick={handleDownloadPoster}
           disabled={generateLoading || (planTier === "none" && !isGuest)}
-          className="h-11 min-w-11 shrink-0 px-3"
+          className="h-11 min-w-11 flex-1 px-3"
           aria-label={isGuest ? "Sign up to download" : "Download"}
         >
           {generateLoading ? (

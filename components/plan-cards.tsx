@@ -40,16 +40,16 @@ interface PlanCard {
 const PLANS: PlanCard[] = [
   {
     slug: "free",
-    name: "Free Preview",
+    name: "Free Designer",
     price: "$0",
     period: "/forever",
-    tagline: "Try every design before you commit.",
+    tagline: "Create the whole poster before you commit.",
     features: [
-      { text: "Unlimited poster previews", included: true },
-      { text: "Standard themes", included: true },
+      { text: "Unlimited live poster designs", included: true },
+      { text: "Every theme and map layer", included: true },
+      { text: "Zoom, rotation & fine positioning", included: true },
       { text: "Order physical prints", included: true },
       { text: "High-resolution downloads", included: false },
-      { text: "Zoom & rotation controls", included: false },
       { text: "Poster library", included: false },
     ],
     highlight: false,
@@ -65,7 +65,7 @@ const PLANS: PlanCard[] = [
     features: [
       { text: "1 high-resolution PNG or PDF", included: true },
       { text: "Credit never expires", included: true },
-      { text: "All themes unlocked for that design", included: true },
+      { text: "Any theme, size and map framing", included: true },
       { text: "Personal use license", included: true },
       { text: "Monthly downloads or library", included: false },
       { text: "Commercial use rights", included: false },
@@ -81,9 +81,9 @@ const PLANS: PlanCard[] = [
     badge: "Most popular",
     highlight: true,
     features: [
-      { text: "Unlimited poster previews", included: true },
+      { text: "Unlimited live poster designs", included: true },
       { text: "5 high-resolution downloads / month", included: true },
-      { text: "All themes unlocked", included: true },
+      { text: "Every design tool included", included: true },
       { text: "Multiple print sizes", included: true },
       { text: "Zoom, rotation & fine positioning", included: true },
       { text: "Poster library: save your designs", included: true },

@@ -263,7 +263,7 @@ export function LivePosterMap({
 
       {error && !ready && (
         <div className="absolute inset-0 grid place-items-center px-8 text-center" style={{ color: textColor }}>
-          <p className="text-xs">The live map could not load. Your high-resolution preview is still available.</p>
+          <p className="text-xs">The live map could not load. Try refreshing—the design settings are safe.</p>
         </div>
       )}
 
