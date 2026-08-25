@@ -2,12 +2,31 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, ChevronRight, Loader2, ChevronDown } from "lucide-react";
+import {
+  MapPin,
+  ChevronRight,
+  Loader2,
+  ChevronDown,
+  Heart,
+  Home,
+  KeyRound,
+  Plane,
+} from "lucide-react";
 import { toast } from "sonner";
+
+const OCCASIONS = [
+  { label: "Where we met", value: "Where We Met", icon: Heart },
+  { label: "Our first home", value: "Our First Home", icon: KeyRound },
+  { label: "My hometown", value: "Hometown", icon: Home },
+  { label: "A favorite trip", value: "A Favorite Trip", icon: Plane },
+] as const;
+
+const ONBOARDING_STEPS = ["Place", "Style", "Words", "Layout", "Preview"];
 
 export default function PickLocationPage() {
   const router = useRouter();
@@ -19,6 +38,7 @@ export default function PickLocationPage() {
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [found, setFound] = useState(false);
+  const [occasion, setOccasion] = useState("");
 
   async function reverseGeocode(latitude: string, longitude: string) {
     const res = await fetch(
@@ -141,141 +161,225 @@ export default function PickLocationPage() {
       lat,
       lon,
     });
+    if (occasion) params.set("occasion", occasion);
     const draftId = crypto.randomUUID();
     router.push(`/app/design/${draftId}?${params.toString()}`);
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6 pb-28 sm:px-6 sm:py-10 sm:pb-10">
-      <div className="mb-6 text-center sm:mb-8">
-        <h1 className="text-2xl font-bold sm:text-3xl">Where should we map?</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Search for a city, address, or landmark.
-        </p>
+    <div className="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 sm:py-10 sm:pb-10 lg:px-8">
+      <div className="mb-8 hidden sm:block">
+        <ol className="mx-auto flex max-w-2xl items-center" aria-label="Poster creation progress">
+          {ONBOARDING_STEPS.map((step, index) => (
+            <li key={step} className="flex min-w-0 flex-1 items-center last:flex-none">
+              <div className="flex flex-col items-center gap-1.5">
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                    index === 0
+                      ? "bg-primary text-primary-foreground"
+                      : "border bg-card text-muted-foreground"
+                  }`}
+                >
+                  {index + 1}
+                </span>
+                <span className={`text-xs ${index === 0 ? "font-medium" : "text-muted-foreground"}`}>
+                  {step}
+                </span>
+              </div>
+              {index < ONBOARDING_STEPS.length - 1 && (
+                <span className="mx-2 mb-5 h-px min-w-4 flex-1 bg-border" aria-hidden="true" />
+              )}
+            </li>
+          ))}
+        </ol>
       </div>
 
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <div className="space-y-2">
-            <Label htmlFor="location">Place</Label>
-            <Input
-              id="location"
-              placeholder="Paris, France or Eiffel Tower"
-              value={locationText}
-              onChange={(e) => setLocationText(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleFindLocation()}
-            />
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+        <div>
+          <div className="mb-6">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Step 1 of 5 · Choose a place
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Where did your story happen?
+            </h1>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+              Search for a city, address, landmark, or meaningful place. You can
+              refine the exact map area before creating your free preview.
+            </p>
           </div>
 
-          <Button
-            onClick={handleFindLocation}
-            disabled={loading}
-            className="w-full"
-          >
-            {loading ? (
-              <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
-            ) : (
-              <MapPin className="mr-2 h-5 w-5 shrink-0" />
-            )}
-            Find Location
-          </Button>
-
-          {found && lat && lon && (
-            <div className="rounded-lg bg-muted/60 px-3 py-2.5 text-sm">
-              <p className="font-medium">
-                {city || "Location"}
-                {country && <span className="text-muted-foreground">, {country}</span>}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {lat}, {lon}
-              </p>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ChevronDown
-              className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? "rotate-180" : ""}`}
-            />
-            Manual entry
-          </button>
-
-          {showAdvanced && (
-            <div className="space-y-3 border-t pt-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="city" className="text-xs">
-                    City
-                  </Label>
+          <Card className="shadow-sm">
+            <CardContent className="space-y-5 pt-6">
+              <div className="space-y-2">
+                <Label htmlFor="location">Place</Label>
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
-                    id="city"
-                    placeholder="Paris"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
+                    id="location"
+                    placeholder="Paris, France or Eiffel Tower"
+                    value={locationText}
+                    onChange={(e) => {
+                      setLocationText(e.target.value);
+                      setFound(false);
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleFindLocation()}
+                    className="h-11 flex-1"
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="country" className="text-xs">
-                    Country
-                  </Label>
-                  <Input
-                    id="country"
-                    placeholder="France"
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                  />
+                  <Button
+                    onClick={handleFindLocation}
+                    disabled={loading}
+                    className="h-11 shrink-0 sm:px-5"
+                  >
+                    {loading ? (
+                      <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+                    ) : (
+                      <MapPin className="mr-2 h-4 w-4 shrink-0" />
+                    )}
+                    Find place
+                  </Button>
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="lat" className="text-xs">
-                    Latitude
-                  </Label>
-                  <Input
-                    id="lat"
-                    placeholder="48.8566"
-                    value={lat}
-                    onChange={(e) => {
-                      setLat(e.target.value);
-                      if (e.target.value && lon) setFound(true);
-                    }}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="lon" className="text-xs">
-                    Longitude
-                  </Label>
-                  <Input
-                    id="lon"
-                    placeholder="2.3522"
-                    value={lon}
-                    onChange={(e) => {
-                      setLon(e.target.value);
-                      if (lat && e.target.value) setFound(true);
-                    }}
-                  />
+
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                  What makes this place meaningful?
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {OCCASIONS.map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => setOccasion(occasion === item.value ? "" : item.value)}
+                      aria-pressed={occasion === item.value}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                        occasion === item.value
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "bg-background hover:bg-muted"
+                      }`}
+                    >
+                      <item.icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      {item.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Desktop CTA */}
-      <div className="mt-6 hidden sm:flex sm:justify-end">
-        <Button onClick={handleNext} disabled={!found} size="lg">
-          Customize Design
-          <ChevronRight className="ml-2 h-5 w-5 shrink-0" />
-        </Button>
+              {found && lat && lon && (
+                <div className="rounded-lg border border-primary/15 bg-primary/5 px-3 py-2.5 text-sm">
+                  <p className="flex items-center gap-2 font-medium">
+                    <MapPin className="h-4 w-4 text-primary" aria-hidden="true" />
+                    {city || "Location"}
+                    {country && <span className="text-muted-foreground">, {country}</span>}
+                  </p>
+                  <p className="ml-6 mt-0.5 text-xs text-muted-foreground">
+                    {lat}, {lon}
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="flex w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? "rotate-180" : ""}`}
+                />
+                Enter coordinates manually
+              </button>
+
+              {showAdvanced && (
+                <div className="space-y-3 border-t pt-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="city" className="text-xs">City</Label>
+                      <Input id="city" placeholder="Paris" value={city} onChange={(e) => setCity(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="country" className="text-xs">Country</Label>
+                      <Input id="country" placeholder="France" value={country} onChange={(e) => setCountry(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="lat" className="text-xs">Latitude</Label>
+                      <Input
+                        id="lat"
+                        placeholder="48.8566"
+                        value={lat}
+                        onChange={(e) => {
+                          setLat(e.target.value);
+                          if (e.target.value && lon) setFound(true);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="lon" className="text-xs">Longitude</Label>
+                      <Input
+                        id="lon"
+                        placeholder="2.3522"
+                        value={lon}
+                        onChange={(e) => {
+                          setLon(e.target.value);
+                          if (lat && e.target.value) setFound(true);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={handleNext} disabled={!found} size="lg" className="hidden w-full sm:flex">
+                Choose a style
+                <ChevronRight className="ml-2 h-5 w-5 shrink-0" />
+              </Button>
+
+              <p className="text-center text-xs text-muted-foreground">
+                Free to preview · No account or credit card required
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <aside className="hidden lg:block" aria-label="Example personalized poster">
+          <div className="sticky top-24">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Your starting point
+              </p>
+              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">
+                LIVE SAMPLE
+              </span>
+            </div>
+            <div className="overflow-hidden rounded-xl border bg-card p-3 shadow-lg shadow-primary/5">
+              <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-muted">
+                <Image
+                  src="/example-posters/venice-blueprint.webp"
+                  alt="Example Venice Blueprint map poster"
+                  fill
+                  priority
+                  className="object-cover"
+                  sizes="380px"
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4 px-1 pb-1 pt-3">
+                <div>
+                  <p className="text-sm font-semibold">Venice · Blueprint</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Every place starts with a polished design.
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs font-medium text-primary">17 themes</span>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
 
       {/* Mobile sticky CTA */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 p-4 backdrop-blur sm:hidden">
         <Button onClick={handleNext} disabled={!found} size="lg" className="h-12 w-full gap-2">
-          Customize Design
+          Choose a style
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Button>
       </div>

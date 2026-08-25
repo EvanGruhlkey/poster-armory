@@ -203,7 +203,7 @@ export default function BillingPage() {
                     <p className="text-sm font-medium">Designs</p>
                     <p className="text-sm text-muted-foreground">
                       {data?.designQuota === null
-                        ? "Unlimited previews"
+                        ? "Unlimited live designs"
                         : `${data?.designUsage || 0} / ${data?.designQuota} this month`}
                     </p>
                   </div>
