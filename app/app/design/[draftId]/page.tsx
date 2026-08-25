@@ -68,6 +68,7 @@ export default function CustomizePosterPage() {
   const country = searchParams.get("country") || "";
   const lat = parseFloat(searchParams.get("lat") || "0");
   const lon = parseFloat(searchParams.get("lon") || "0");
+  const occasion = searchParams.get("occasion") || "";
 
   const [planTier, setPlanTier] = useState<PlanTier>("none");
   const [planLoading, setPlanLoading] = useState(true);
@@ -84,7 +85,7 @@ export default function CustomizePosterPage() {
     lat,
     lon,
     title: city,
-    subtitle: "",
+    subtitle: occasion,
     date_line: "",
     style_id: "warm_beige",
     distance: 10000,
