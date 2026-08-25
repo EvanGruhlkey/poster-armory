@@ -35,7 +35,6 @@ import {
   type MapLayerPreset,
 } from "@/components/live-poster-map";
 import { DEFAULT_SIZE, getPlanTier, type PlanTier } from "@/lib/plan-config";
-type EditorMode = "quick" | "standard" | "advanced";
 type EditorTool = "location" | "layers" | "type" | "style";
 
 const EDITOR_TOOLS = [
@@ -86,7 +85,6 @@ export default function CustomizePosterPage() {
 
   const [selectedSize, setSelectedSize] = useState(DEFAULT_SIZE);
   const [generateLoading, setGenerateLoading] = useState(false);
-  const [editorMode, setEditorMode] = useState<EditorMode>("quick");
   const [activeTool, setActiveTool] = useState<EditorTool>("location");
   const [layerPreset, setLayerPreset] =
     useState<MapLayerPreset>("everything");
@@ -348,23 +346,6 @@ export default function CustomizePosterPage() {
         {/* Controls */}
         <div className="order-2 space-y-4 lg:order-1">
           <Card className="overflow-hidden">
-            <div className="flex border-b bg-muted/30 p-1.5">
-              {(["quick", "standard", "advanced"] as EditorMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setEditorMode(mode)}
-                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
-                    editorMode === mode
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-
             <div className="grid grid-cols-[76px_1fr] sm:grid-cols-[92px_1fr]">
               <nav className="space-y-1 border-r bg-muted/20 p-2" aria-label="Editor tools">
                 {EDITOR_TOOLS.map((tool) => (
@@ -390,38 +371,16 @@ export default function CustomizePosterPage() {
                     <div>
                       <h2 className="text-sm font-semibold">Frame your map</h2>
                       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        Drag the live map to reposition it. Scroll or pinch to change the map area.
+                        Drag the live map to reposition it. Use the controls on the poster to zoom.
                       </p>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/50 p-3 text-xs">
-                      <div>
-                        <p className="text-muted-foreground">Center</p>
-                        <p className="mt-0.5 font-medium tabular-nums">
-                          {config.lat.toFixed(3)}, {config.lon.toFixed(3)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Map area</p>
-                        <p className="mt-0.5 font-medium">{(config.distance / 1000).toFixed(1)} km</p>
-                      </div>
+                    <div className="rounded-lg bg-muted/50 p-3 text-xs">
+                      <p className="text-muted-foreground">Center</p>
+                      <p className="mt-0.5 font-medium tabular-nums">
+                        {config.lat.toFixed(3)}, {config.lon.toFixed(3)}
+                      </p>
                     </div>
-                    {editorMode !== "quick" && (
-                      <div className="space-y-4 border-t pt-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-medium">Map area</span>
-                            <span className="tabular-nums text-muted-foreground">
-                              {(config.distance / 1000).toFixed(0)} km
-                            </span>
-                          </div>
-                          <Slider
-                            value={[config.distance]}
-                            onValueChange={([value]) => updateConfig({ distance: value })}
-                            min={2000}
-                            max={30000}
-                            step={1000}
-                          />
-                        </div>
+                    <div className="space-y-4 border-t pt-4">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-xs">
                             <span className="inline-flex items-center gap-1.5 font-medium">
@@ -437,17 +396,14 @@ export default function CustomizePosterPage() {
                             step={1}
                           />
                         </div>
-                        {editorMode === "advanced" && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-medium">Tilt</span>
-                              <span className="tabular-nums text-muted-foreground">{Math.round(pitch)}°</span>
-                            </div>
-                            <Slider value={[pitch]} onValueChange={([value]) => setPitch(value)} min={0} max={60} step={1} />
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium">Tilt</span>
+                            <span className="tabular-nums text-muted-foreground">{Math.round(pitch)}°</span>
                           </div>
-                        )}
+                          <Slider value={[pitch]} onValueChange={([value]) => setPitch(value)} min={0} max={60} step={1} />
+                        </div>
                       </div>
-                    )}
                   </div>
                 )}
 
@@ -473,8 +429,7 @@ export default function CustomizePosterPage() {
                         </button>
                       ))}
                     </div>
-                    {editorMode !== "quick" && (
-                      <div className="space-y-3 border-t pt-4">
+                    <div className="space-y-3 border-t pt-4">
                         {[
                           ["show_labels", "Map labels", config.show_labels],
                           ["show_water", "Water", config.show_water],
@@ -492,8 +447,7 @@ export default function CustomizePosterPage() {
                             />
                           </div>
                         ))}
-                      </div>
-                    )}
+                    </div>
                   </div>
                 )}
 
@@ -512,12 +466,10 @@ export default function CustomizePosterPage() {
                         <Label htmlFor="live-subtitle" className="text-xs">Subtitle or dedication</Label>
                         <Input id="live-subtitle" placeholder="Where our story began" value={config.subtitle} onChange={(event) => updateConfig({ subtitle: event.target.value })} />
                       </div>
-                      {editorMode === "advanced" && (
-                        <div className="space-y-1.5">
-                          <Label htmlFor="live-date" className="text-xs">Date line</Label>
-                          <Input id="live-date" placeholder="EST. 2026" value={config.date_line} onChange={(event) => updateConfig({ date_line: event.target.value })} />
-                        </div>
-                      )}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="live-date" className="text-xs">Date line</Label>
+                        <Input id="live-date" placeholder="EST. 2026" value={config.date_line} onChange={(event) => updateConfig({ date_line: event.target.value })} />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -529,9 +481,7 @@ export default function CustomizePosterPage() {
                       <p className="mt-1 text-xs text-muted-foreground">Choose a palette and watch the WebGL map redraw.</p>
                     </div>
                     <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                      {Object.entries(STYLE_PRESETS)
-                        .slice(0, editorMode === "quick" ? 5 : undefined)
-                        .map(([id, preset]) => (
+                      {Object.entries(STYLE_PRESETS).map(([id, preset]) => (
                             <button
                               key={id}
                               type="button"
