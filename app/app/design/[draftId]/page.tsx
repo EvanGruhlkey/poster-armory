@@ -18,11 +18,15 @@ import {
   Loader2,
   Download,
   Eye,
-  MapPin,
   Lock,
   Crown,
   Package,
   LogIn,
+  Map,
+  Layers3,
+  Type,
+  Palette,
+  Rotate3D,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -32,6 +36,10 @@ import {
   DEFAULT_CONFIG,
 } from "@/lib/types";
 import { ProtectedImage } from "@/components/protected-image";
+import {
+  LivePosterMap,
+  type MapLayerPreset,
+} from "@/components/live-poster-map";
 import {
   PLAN_ENTITLEMENTS,
   STANDARD_THEMES,
@@ -59,6 +67,23 @@ function getPreviewStageLabel(progress: number): string {
 }
 
 type PreviewJobStatus = "queued" | "running" | null;
+type EditorMode = "quick" | "standard" | "advanced";
+type EditorTool = "location" | "layers" | "type" | "style";
+
+const EDITOR_TOOLS = [
+  { id: "location" as const, label: "Location", icon: Map },
+  { id: "layers" as const, label: "Layers", icon: Layers3 },
+  { id: "type" as const, label: "Words", icon: Type },
+  { id: "style" as const, label: "Style", icon: Palette },
+];
+
+const LAYER_PRESETS: Array<{ id: MapLayerPreset; label: string }> = [
+  { id: "everything", label: "Everything" },
+  { id: "city", label: "City life" },
+  { id: "nature", label: "Nature" },
+  { id: "minimal", label: "Minimal" },
+  { id: "transit", label: "Transit" },
+];
 
 export default function CustomizePosterPage() {
   const router = useRouter();
@@ -101,6 +126,11 @@ export default function CustomizePosterPage() {
   const [previewProgress, setPreviewProgress] = useState(0);
   const [previewJobStatus, setPreviewJobStatus] =
     useState<PreviewJobStatus>(null);
+  const [editorMode, setEditorMode] = useState<EditorMode>("quick");
+  const [activeTool, setActiveTool] = useState<EditorTool>("location");
+  const [layerPreset, setLayerPreset] =
+    useState<MapLayerPreset>("everything");
+  const [pitch, setPitch] = useState(0);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const previewStartTime = useRef<number | null>(null);
   const previewAnimFrame = useRef<number | null>(null);
@@ -448,6 +478,44 @@ export default function CustomizePosterPage() {
 
   const currentStyle = STYLE_PRESETS[config.style_id] || STYLE_PRESETS.warm_beige;
 
+  function chooseLayerPreset(preset: MapLayerPreset) {
+    setLayerPreset(preset);
+    const updates: Record<MapLayerPreset, Partial<PosterConfig>> = {
+      everything: {
+        show_labels: true,
+        show_water: true,
+        show_parks: true,
+        major_roads_only: false,
+      },
+      city: {
+        show_labels: true,
+        show_water: true,
+        show_parks: false,
+        major_roads_only: false,
+      },
+      nature: {
+        show_labels: false,
+        show_water: true,
+        show_parks: true,
+        major_roads_only: true,
+      },
+      minimal: {
+        show_labels: false,
+        show_water: true,
+        show_parks: false,
+        major_roads_only: true,
+      },
+      transit: {
+        show_labels: true,
+        show_water: true,
+        show_parks: false,
+        major_roads_only: true,
+      },
+    };
+    updateConfig(updates[preset]);
+    setPreviewUrl(null);
+  }
+
   function UpgradeBadge() {
     return (
       <button
@@ -517,39 +585,18 @@ export default function CustomizePosterPage() {
             </div>
           </div>
         ) : (
-          <div className="flex h-full w-full flex-col items-center p-6 sm:p-8">
-            <div
-              className="flex flex-1 w-full items-center justify-center rounded"
-              style={{ backgroundColor: `${currentStyle.textColor}10` }}
-            >
-              <MapPin
-                className="h-12 w-12 sm:h-16 sm:w-16"
-                style={{ color: `${currentStyle.textColor}30` }}
-              />
-            </div>
-            <div className="mt-4 space-y-1 text-center">
-              <p
-                className="text-sm font-bold tracking-[0.12em] sm:text-base sm:tracking-[0.15em]"
-                style={{ color: currentStyle.textColor }}
-              >
-                {config.title
-                  ? config.title.toUpperCase().split("").join(" ")
-                  : "YOUR CITY"}
-              </p>
-              {config.subtitle && (
-                <p className="text-xs" style={{ color: currentStyle.textColor }}>
-                  {config.subtitle}
-                </p>
-              )}
-              <p
-                className="text-[10px] opacity-60"
-                style={{ color: currentStyle.textColor }}
-              >
-                {lat.toFixed(4)}&deg; {lat >= 0 ? "N" : "S"},{" "}
-                {Math.abs(lon).toFixed(4)}&deg; {lon >= 0 ? "E" : "W"}
-              </p>
-            </div>
-          </div>
+          <LivePosterMap
+            config={config}
+            bgColor={currentStyle.bgColor}
+            textColor={currentStyle.textColor}
+            layerPreset={layerPreset}
+            pitch={pitch}
+            onViewChange={({ pitch: nextPitch, ...updates }) => {
+              if (typeof nextPitch === "number") setPitch(nextPitch);
+              updateConfig(updates);
+              setPreviewUrl(null);
+            }}
+          />
         )}
       </div>
     </Card>
@@ -570,6 +617,210 @@ export default function CustomizePosterPage() {
       <div className="grid gap-5 lg:grid-cols-[1fr_340px] lg:gap-8 xl:grid-cols-[1fr_380px]">
         {/* Controls */}
         <div className="order-2 space-y-4 lg:order-1">
+          <Card className="overflow-hidden">
+            <div className="flex border-b bg-muted/30 p-1.5">
+              {(["quick", "standard", "advanced"] as EditorMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setEditorMode(mode)}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+                    editorMode === mode
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-[76px_1fr] sm:grid-cols-[92px_1fr]">
+              <nav className="space-y-1 border-r bg-muted/20 p-2" aria-label="Editor tools">
+                {EDITOR_TOOLS.map((tool) => (
+                  <button
+                    key={tool.id}
+                    type="button"
+                    onClick={() => setActiveTool(tool.id)}
+                    className={`flex w-full flex-col items-center gap-1 rounded-md px-1 py-2 text-[10px] font-medium transition-colors sm:text-xs ${
+                      activeTool === tool.id
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <tool.icon className="h-4 w-4" aria-hidden="true" />
+                    {tool.label}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="min-w-0 p-4 sm:p-5">
+                {activeTool === "location" && (
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-sm font-semibold">Frame your map</h2>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        Drag the live map to reposition it. Scroll or pinch to change the map area.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/50 p-3 text-xs">
+                      <div>
+                        <p className="text-muted-foreground">Center</p>
+                        <p className="mt-0.5 font-medium tabular-nums">
+                          {config.lat.toFixed(3)}, {config.lon.toFixed(3)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Map area</p>
+                        <p className="mt-0.5 font-medium">{(config.distance / 1000).toFixed(1)} km</p>
+                      </div>
+                    </div>
+                    {editorMode !== "quick" && (
+                      <div className="space-y-4 border-t pt-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="inline-flex items-center gap-1.5 font-medium">
+                              <Rotate3D className="h-3.5 w-3.5" /> Rotation
+                            </span>
+                            <span className="tabular-nums text-muted-foreground">{Math.round(config.rotation)}°</span>
+                          </div>
+                          <Slider
+                            value={[config.rotation]}
+                            onValueChange={([value]) => {
+                              updateConfig({ rotation: value });
+                              setPreviewUrl(null);
+                            }}
+                            min={-180}
+                            max={180}
+                            step={1}
+                          />
+                        </div>
+                        {editorMode === "advanced" && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-medium">Tilt</span>
+                              <span className="tabular-nums text-muted-foreground">{Math.round(pitch)}°</span>
+                            </div>
+                            <Slider value={[pitch]} onValueChange={([value]) => setPitch(value)} min={0} max={60} step={1} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTool === "layers" && (
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-sm font-semibold">Map layers</h2>
+                      <p className="mt-1 text-xs text-muted-foreground">Start with a preset, then fine-tune the details.</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {LAYER_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => chooseLayerPreset(preset.id)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            layerPreset === preset.id
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "hover:bg-muted"
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                    {editorMode !== "quick" && (
+                      <div className="space-y-3 border-t pt-4">
+                        {[
+                          ["show_labels", "Map labels", config.show_labels],
+                          ["show_water", "Water", config.show_water],
+                          ["show_parks", "Parks & green areas", config.show_parks],
+                          ["major_roads_only", "Major roads only", config.major_roads_only],
+                        ].map(([key, label, checked]) => (
+                          <div key={String(key)} className="flex items-center justify-between gap-4">
+                            <Label htmlFor={`layer-${String(key)}`} className="text-xs font-normal">{String(label)}</Label>
+                            <Switch
+                              id={`layer-${String(key)}`}
+                              checked={Boolean(checked)}
+                              onCheckedChange={(value) => {
+                                updateConfig({ [String(key)]: value } as Partial<PosterConfig>);
+                                setPreviewUrl(null);
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTool === "type" && (
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-sm font-semibold">Poster words</h2>
+                      <p className="mt-1 text-xs text-muted-foreground">Changes appear instantly on the live poster.</p>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="live-title" className="text-xs">Title</Label>
+                        <Input id="live-title" value={config.title} onChange={(event) => updateConfig({ title: event.target.value })} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="live-subtitle" className="text-xs">Subtitle or dedication</Label>
+                        <Input id="live-subtitle" placeholder="Where our story began" value={config.subtitle} onChange={(event) => updateConfig({ subtitle: event.target.value })} />
+                      </div>
+                      {editorMode === "advanced" && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="live-date" className="text-xs">Date line</Label>
+                          <Input id="live-date" placeholder="EST. 2026" value={config.date_line} onChange={(event) => updateConfig({ date_line: event.target.value })} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTool === "style" && (
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-sm font-semibold">Poster style</h2>
+                      <p className="mt-1 text-xs text-muted-foreground">Choose a palette and watch the WebGL map redraw.</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                      {Object.entries(STYLE_PRESETS)
+                        .slice(0, editorMode === "quick" ? 5 : undefined)
+                        .map(([id, preset]) => {
+                          const isLocked = !entitlements.allThemes && !STANDARD_THEMES.includes(id);
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => {
+                                if (isLocked) {
+                                  toast("Upgrade to unlock this theme.");
+                                  return;
+                                }
+                                updateConfig({ style_id: id });
+                                setPreviewUrl(null);
+                              }}
+                              className={`relative rounded-md border p-2 text-center ${
+                                config.style_id === id ? "border-primary ring-2 ring-primary/15" : "hover:bg-muted"
+                              } ${isLocked ? "opacity-45" : ""}`}
+                            >
+                              <span className="mx-auto mb-1 block h-7 w-7 rounded" style={{ backgroundColor: preset.bgColor }} />
+                              <span className="block truncate text-[10px] font-medium">{preset.name}</span>
+                              {isLocked && <Lock className="absolute right-1 top-1 h-3 w-3" />}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold sm:text-base">
