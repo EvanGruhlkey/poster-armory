@@ -274,12 +274,14 @@ export function LivePosterMap({
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
       <div className="pointer-events-none absolute inset-x-6 bottom-7 text-center text-white drop-shadow-md sm:inset-x-8 sm:bottom-9">
-        <p className="text-base font-bold tracking-[0.2em] sm:text-xl">
-          {(config.title || config.city || "YOUR CITY").toUpperCase()}
-        </p>
-        {(config.subtitle || config.country) && (
+        {config.title && (
+          <p className="text-base font-bold tracking-[0.2em] sm:text-xl">
+            {config.title.toUpperCase()}
+          </p>
+        )}
+        {config.subtitle && (
           <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.16em] opacity-90 sm:text-xs">
-            {config.subtitle || config.country}
+            {config.subtitle}
           </p>
         )}
         {config.date_line && (
@@ -287,10 +289,12 @@ export function LivePosterMap({
             {config.date_line}
           </p>
         )}
-        <p className="mt-1.5 text-[9px] tracking-[0.12em] opacity-75">
-          {Math.abs(config.lat).toFixed(4)}° {config.lat >= 0 ? "N" : "S"} ·{" "}
-          {Math.abs(config.lon).toFixed(4)}° {config.lon >= 0 ? "E" : "W"}
-        </p>
+        {config.show_coordinates && (
+          <p className="mt-1.5 text-[9px] tracking-[0.12em] opacity-75">
+            {Math.abs(config.lat).toFixed(4)}° {config.lat >= 0 ? "N" : "S"} ·{" "}
+            {Math.abs(config.lon).toFixed(4)}° {config.lon >= 0 ? "E" : "W"}
+          </p>
+        )}
       </div>
 
       {showControls && (

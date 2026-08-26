@@ -31,6 +31,7 @@ export const posterConfigSchema = z.object({
   title: z.string().max(200),
   subtitle: z.string().max(200),
   date_line: z.string().max(100),
+  show_coordinates: z.boolean().default(true),
   format: z.enum(["png", "pdf", "svg"]),
   // Advanced map framing & overlays (all optional with defaults so older
   // clients and cached configs keep validating).

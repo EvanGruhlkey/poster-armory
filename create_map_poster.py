@@ -885,6 +885,8 @@ def create_poster(
     name_label=None,
     display_city=None,
     display_country=None,
+    date_line="",
+    show_coordinates=True,
     fonts=None,
     rotation=0.0,
     no_text=False,
@@ -922,8 +924,8 @@ def create_poster(
     """
     # Handle display names for i18n support
     # Priority: display_city/display_country > name_label/country_label > city/country
-    display_city = display_city or name_label or city
-    display_country = display_country or country_label or country
+    display_city = (name_label or city) if display_city is None else display_city
+    display_country = (country_label or country) if display_country is None else display_country
 
     print(f"\nGenerating map for {city}, {country}...")
 
@@ -1176,16 +1178,17 @@ def create_poster(
             )
 
         # --- BOTTOM TEXT ---
-        ax.text(
-            0.5,
-            0.14,
-            spaced_city,
-            transform=ax.transAxes,
-            color=THEME["text"],
-            ha="center",
-            fontproperties=font_main_adjusted,
-            zorder=11,
-        )
+        if display_city:
+            ax.text(
+                0.5,
+                0.14,
+                spaced_city,
+                transform=ax.transAxes,
+                color=THEME["text"],
+                ha="center",
+                fontproperties=font_main_adjusted,
+                zorder=11,
+            )
 
         # Country: uppercase for Latin, shaped/reordered for RTL.
         if is_latin_script(display_country):
@@ -1193,16 +1196,30 @@ def create_poster(
         else:
             country_text = shape_display_text(display_country)
 
-        ax.text(
-            0.5,
-            0.10,
-            country_text,
-            transform=ax.transAxes,
-            color=THEME["text"],
-            ha="center",
-            fontproperties=font_sub,
-            zorder=11,
-        )
+        if display_country:
+            ax.text(
+                0.5,
+                0.10,
+                country_text,
+                transform=ax.transAxes,
+                color=THEME["text"],
+                ha="center",
+                fontproperties=font_sub,
+                zorder=11,
+            )
+
+        if date_line:
+            ax.text(
+                0.5,
+                0.075,
+                shape_display_text(date_line.upper()),
+                transform=ax.transAxes,
+                color=THEME["text"],
+                alpha=0.8,
+                ha="center",
+                fontproperties=font_coords,
+                zorder=11,
+            )
 
         lat, lon = point
         coords = (
@@ -1213,26 +1230,28 @@ def create_poster(
         if lon < 0:
             coords = coords.replace("E", "W")
 
-        ax.text(
-            0.5,
-            0.07,
-            coords,
-            transform=ax.transAxes,
-            color=THEME["text"],
-            alpha=0.7,
-            ha="center",
-            fontproperties=font_coords,
-            zorder=11,
-        )
+        if show_coordinates:
+            ax.text(
+                0.5,
+                0.045 if date_line else 0.07,
+                coords,
+                transform=ax.transAxes,
+                color=THEME["text"],
+                alpha=0.7,
+                ha="center",
+                fontproperties=font_coords,
+                zorder=11,
+            )
 
-        ax.plot(
-            [0.4, 0.6],
-            [0.125, 0.125],
-            transform=ax.transAxes,
-            color=THEME["text"],
-            linewidth=1 * scale_factor,
-            zorder=11,
-        )
+        if display_city and (display_country or date_line or show_coordinates):
+            ax.plot(
+                [0.4, 0.6],
+                [0.125, 0.125],
+                transform=ax.transAxes,
+                color=THEME["text"],
+                linewidth=1 * scale_factor,
+                zorder=11,
+            )
 
         # --- ATTRIBUTION (bottom right) ---
         if FONTS:
@@ -1457,6 +1476,19 @@ Examples:
         help="Custom display name for country (for i18n support)",
     )
     parser.add_argument(
+        "--date-line",
+        type=str,
+        default="",
+        help="Optional date or dedication line displayed beneath the subtitle",
+    )
+    parser.add_argument(
+        "--hide-coordinates",
+        dest="show_coordinates",
+        action="store_false",
+        default=True,
+        help="Hide the latitude and longitude line",
+    )
+    parser.add_argument(
         "--font-family",
         type=str,
         help='Google Fonts family name (e.g., "Noto Sans JP", "Open Sans"). If not specified, uses local Roboto fonts.',
@@ -1637,6 +1669,8 @@ Examples:
                 country_label=args.country_label,
                 display_city=args.display_city,
                 display_country=args.display_country,
+                date_line=args.date_line,
+                show_coordinates=args.show_coordinates,
                 fonts=custom_fonts,
                 rotation=args.rotation,
                 no_text=args.no_text,

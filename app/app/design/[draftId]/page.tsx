@@ -71,7 +71,6 @@ export default function CustomizePosterPage({
   const country = searchParams.get("country") || "";
   const lat = parseFloat(searchParams.get("lat") || "0");
   const lon = parseFloat(searchParams.get("lon") || "0");
-  const occasion = searchParams.get("occasion") || "";
 
   const [planTier, setPlanTier] = useState<PlanTier>("none");
   // Designing is free and instant. We only need auth/plan state when the
@@ -84,9 +83,10 @@ export default function CustomizePosterPage({
     country,
     lat,
     lon,
-    title: city,
-    subtitle: occasion,
+    title: "",
+    subtitle: "",
     date_line: "",
+    show_coordinates: false,
     style_id: "warm_beige",
     distance: 10000,
     show_labels: true,
@@ -516,6 +516,17 @@ export default function CustomizePosterPage({
                       <div className="space-y-1.5">
                         <Label htmlFor="live-date" className="text-xs">Date line</Label>
                         <Input id="live-date" placeholder="EST. 2026" value={config.date_line} onChange={(event) => updateConfig({ date_line: event.target.value })} />
+                      </div>
+                      <div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2.5">
+                        <div>
+                          <Label htmlFor="show-coordinates" className="text-xs">Coordinates</Label>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">Add latitude and longitude to the poster.</p>
+                        </div>
+                        <Switch
+                          id="show-coordinates"
+                          checked={Boolean(config.show_coordinates)}
+                          onCheckedChange={(value) => updateConfig({ show_coordinates: value })}
+                        />
                       </div>
                     </div>
                   </div>

@@ -65,6 +65,7 @@ export interface PosterConfig {
   title: string;
   subtitle: string;
   date_line: string;
+  show_coordinates: boolean;
   format: "png" | "pdf" | "svg";
   // Advanced map framing & overlays
   rotation: number;
@@ -215,6 +216,7 @@ export const DEFAULT_CONFIG: PosterConfig = {
   title: "",
   subtitle: "",
   date_line: "",
+  show_coordinates: false,
   format: "png",
   rotation: 0,
   offset_x: 0,
