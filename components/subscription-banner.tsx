@@ -14,6 +14,12 @@ export function SubscriptionBanner() {
   useEffect(() => {
     setHasSub(null);
     async function check() {
+      if (
+        !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+        !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      ) {
+        return;
+      }
       try {
         const res = await fetch("/api/subscription");
         if (res.ok) {
@@ -40,7 +46,8 @@ export function SubscriptionBanner() {
     <div className="border-b bg-amber-50">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
         <p className="text-xs text-amber-900 sm:text-sm">
-          <strong>No plan yet.</strong> Choose one to start creating.
+          <strong>Design for free.</strong> Choose a plan when you&apos;re ready
+          to download.
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
           <Button asChild size="sm" className="h-8 text-xs sm:text-sm">

@@ -23,20 +23,27 @@ export function Navbar() {
   const [user, setUser] = useState<SupaUser | null>(null);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
+    let unsubscribe = () => {};
+    try {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data }) => {
+        setUser(data.user);
+        setAuthLoaded(true);
+      }).catch(() => setAuthLoaded(true));
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null);
+        setAuthLoaded(true);
+      });
+      unsubscribe = () => subscription.unsubscribe();
+    } catch {
+      // Public design pages should still work when auth is unavailable.
       setAuthLoaded(true);
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setAuthLoaded(true);
-    });
-    return () => subscription.unsubscribe();
+    }
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
@@ -44,7 +51,11 @@ export function Navbar() {
   }, [pathname]);
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    try {
+      await createClient().auth.signOut();
+    } catch {
+      // Continue to the public landing page if auth is unavailable.
+    }
     router.push("/");
     router.refresh();
   }

@@ -52,7 +52,18 @@ const LAYER_PRESETS: Array<{ id: MapLayerPreset; label: string }> = [
   { id: "transit", label: "Transit" },
 ];
 
-export default function CustomizePosterPage() {
+interface SavedDesignState {
+  config?: PosterConfig;
+  selectedSize?: typeof DEFAULT_SIZE;
+  layerPreset?: MapLayerPreset;
+  pitch?: number;
+}
+
+export default function CustomizePosterPage({
+  params,
+}: {
+  params: { draftId: string };
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -65,7 +76,7 @@ export default function CustomizePosterPage() {
   const [planTier, setPlanTier] = useState<PlanTier>("none");
   // Designing is free and instant. We only need auth/plan state when the
   // user asks for a high-resolution file or a physical print.
-  const [isGuest, setIsGuest] = useState(false);
+  const [isGuest, setIsGuest] = useState(true);
 
   const [config, setConfig] = useState<PosterConfig>({
     ...DEFAULT_CONFIG,
@@ -89,6 +100,38 @@ export default function CustomizePosterPage() {
   const [layerPreset, setLayerPreset] =
     useState<MapLayerPreset>("everything");
   const [pitch, setPitch] = useState(0);
+  const [draftHydrated, setDraftHydrated] = useState(false);
+
+  // Keep the live editor state attached to this draft ID. This preserves the
+  // exact design across refreshes, browser-back from checkout, and auth flows.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(`poster-design-draft:${params.draftId}`);
+      if (raw) {
+        const saved = JSON.parse(raw) as SavedDesignState;
+        if (saved.config) setConfig(saved.config);
+        if (saved.selectedSize) setSelectedSize(saved.selectedSize);
+        if (saved.layerPreset) setLayerPreset(saved.layerPreset);
+        if (typeof saved.pitch === "number") setPitch(saved.pitch);
+      }
+    } catch {
+      // Ignore stale or corrupt browser storage and use URL defaults.
+    } finally {
+      setDraftHydrated(true);
+    }
+  }, [params.draftId]);
+
+  useEffect(() => {
+    if (!draftHydrated) return;
+    try {
+      sessionStorage.setItem(
+        `poster-design-draft:${params.draftId}`,
+        JSON.stringify({ config, selectedSize, layerPreset, pitch })
+      );
+    } catch {
+      // The editor remains usable when browser storage is unavailable.
+    }
+  }, [config, draftHydrated, layerPreset, params.draftId, pitch, selectedSize]);
 
   // Restore a design that the user stashed before being bounced through
   // the sign-up flow (see redirectToSignup). This runs once on mount and
@@ -98,15 +141,15 @@ export default function CustomizePosterPage() {
       const raw = sessionStorage.getItem("poster-design-resume");
       if (!raw) return;
       sessionStorage.removeItem("poster-design-resume");
-      const saved = JSON.parse(raw) as {
-        config?: PosterConfig;
-        selectedSize?: typeof DEFAULT_SIZE;
+      const saved = JSON.parse(raw) as SavedDesignState & {
         city?: string;
         country?: string;
         action?: "download" | "order";
       };
       if (saved.config) setConfig(saved.config);
       if (saved.selectedSize) setSelectedSize(saved.selectedSize);
+      if (saved.layerPreset) setLayerPreset(saved.layerPreset);
+      if (typeof saved.pitch === "number") setPitch(saved.pitch);
       if (saved.action === "download") {
         toast.success("Welcome back — finish your download below.");
       } else if (saved.action === "order") {
@@ -138,7 +181,7 @@ export default function CustomizePosterPage() {
           }
         }
       } catch {
-        // fall through to defaults
+        setIsGuest(true);
       }
     }
     loadPlan();
@@ -163,6 +206,8 @@ export default function CustomizePosterPage() {
           city,
           country,
           action: reason,
+          layerPreset,
+          pitch,
         })
       );
     } catch {
@@ -262,6 +307,8 @@ export default function CustomizePosterPage() {
           },
           city,
           country,
+          layerPreset,
+          pitch,
         })
       );
     } catch {
@@ -535,8 +582,12 @@ export default function CustomizePosterPage() {
               onClick={handleOrderPhysical}
               disabled={!config.city}
             >
-              <Package className="mr-2 h-5 w-5 shrink-0" />
-              Order a Print
+              {isGuest ? (
+                <LogIn className="mr-2 h-5 w-5 shrink-0" />
+              ) : (
+                <Package className="mr-2 h-5 w-5 shrink-0" />
+              )}
+              {isGuest ? "Sign Up to Order" : "Order a Print"}
             </Button>
             <Button
               variant="outline"
@@ -629,9 +680,14 @@ export default function CustomizePosterPage() {
           onClick={handleOrderPhysical}
           disabled={!config.city}
           className="h-11 min-w-0 flex-1 gap-2"
+          aria-label={isGuest ? "Sign up to order a print" : "Order a print"}
         >
-          <Package className="h-5 w-5 shrink-0" />
-          Order
+          {isGuest ? (
+            <LogIn className="h-5 w-5 shrink-0" />
+          ) : (
+            <Package className="h-5 w-5 shrink-0" />
+          )}
+          {isGuest ? "Sign Up" : "Order"}
         </Button>
       </div>
     </div>

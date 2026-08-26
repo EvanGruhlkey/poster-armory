@@ -17,6 +17,17 @@ const REAL_AUTH_PATHS = [
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
+  const requiresRealAuth = REAL_AUTH_PATHS.some((path) =>
+    request.nextUrl.pathname.startsWith(path)
+  );
+
+  // The location picker and live designer are deliberately public. Avoid
+  // touching Supabase on those routes so the free workflow remains available
+  // even when auth is temporarily unavailable or not configured locally.
+  if (!requiresRealAuth && request.nextUrl.pathname !== "/login") {
+    return response;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -46,10 +57,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const requiresRealAuth = REAL_AUTH_PATHS.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
 
   if (requiresRealAuth && !user) {
     const redirectUrl = new URL("/login", request.url);
