@@ -310,7 +310,7 @@ export function LivePosterMap({
         </div>
       )}
 
-      <div className="pointer-events-none absolute bottom-1 left-1.5 text-[6px] font-medium leading-none text-white/40 mix-blend-difference">
+      <div className="pointer-events-none absolute bottom-1 left-1 text-[5px] font-medium leading-none text-white/30 mix-blend-difference">
         © OpenStreetMap contributors · OpenFreeMap
       </div>
     </div>
