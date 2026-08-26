@@ -36,16 +36,16 @@ export async function POST() {
 
     if (!sub) {
       return NextResponse.json(
-        { error: "No active subscription to cancel" },
+        { error: "No active membership to cancel" },
         { status: 404 }
       );
     }
 
-    // The free plan is the permanent fallback every user keeps. Cancelling
-    // it would leave them with no plan at all, so refuse the request.
+    // Free is the permanent fallback every account keeps — designing stays
+    // free forever, so there is nothing to cancel.
     if (sub.plan_slug === "free") {
       return NextResponse.json(
-        { error: "You're on the free plan. Nothing to cancel." },
+        { error: "Designing is already free. There's no membership to cancel." },
         { status: 400 }
       );
     }

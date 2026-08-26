@@ -1,7 +1,6 @@
 {
-  "STRIPE_PRICE_STARTER": "price_1TkxyeAiWsddNgTsSXCVNh26",
-  "STRIPE_PRICE_PRO": "price_1TkxyeAiWsddNgTszEwzGmY5",
-  "STRIPE_PRICE_SINGLE_DOWNLOAD": "price_1TkxyjAiWsddNgTsov5tfUTy",
+  "STRIPE_PRICE_MEMBERSHIP_MONTHLY": "price_1U8ZTSAiWsddNgTsl9wUxKbB",
+  "STRIPE_PRICE_MEMBERSHIP_ANNUAL": "price_1U8ZTSAiWsddNgTsprnDpNMk",
   "NEXT_PUBLIC_APP_URL": "https://posterarmory.com",
-  "note": "Live Stripe v2 catalog created 2026-06-22. Run scripts/setup-stripe-live.mjs to register webhook and verify. Legacy Basic/Pro/Pro+ deactivated in live mode."
+  "note": "Pricing v3 live catalog created 2026-08-26. Product prod_V8rBcgly49XlTv. Both prices grant 20 high-resolution downloads per billing month. Legacy Starter/Pro/Pro+/Basic/Single Download products and leftover v2 prices are archived. Copy these IDs into Vercel production env."
 }

@@ -72,6 +72,41 @@ function usageStatsPeriodBounds(sub: {
   return { start, end };
 }
 
+/**
+ * Mirrors lib/plan-config.ts. Slugs that carry the paid membership, including
+ * pre-014 rows that have not been re-pointed yet.
+ */
+const MEMBERSHIP_SLUGS = new Set([
+  "membership",
+  "starter",
+  "pro",
+  "basic",
+  "pro_plus",
+]);
+
+/**
+ * Settle the download allowance a job reserved when it was created.
+ *
+ * A failed render releases the hold, so a user is never charged a download
+ * for our error. Idempotent on the database side, so a retried callback or a
+ * job with no reservation (previews, physical print renders) is a no-op.
+ */
+async function settleDownloadReservation(
+  jobId: string,
+  succeeded: boolean
+): Promise<void> {
+  const { error } = await supabase.rpc("settle_download_reservation", {
+    p_job_id: jobId,
+    p_succeeded: succeeded,
+  });
+  if (error) {
+    console.error(
+      `  Failed to settle download reservation for ${jobId}:`,
+      error.message
+    );
+  }
+}
+
 const SIZES = [
   { key: "png_24x36", width: 12, height: 18 },
   { key: "png_18x24", width: 9, height: 12 },
@@ -349,6 +384,23 @@ async function recoverStuckJobs(): Promise<void> {
   } catch (err) {
     console.error("Stuck job recovery failed:", err);
   }
+
+  // Hand back allowance held by jobs that can no longer succeed — including
+  // the ones just marked failed above, and any reservation orphaned by a
+  // worker that died mid-render.
+  try {
+    const { data: released, error } = await supabase.rpc(
+      "release_stale_download_reservations",
+      {}
+    );
+    if (error) {
+      console.error("Stale reservation sweep error:", error.message);
+    } else if (released > 0) {
+      console.log(`  Released ${released} stale download reservation(s)`);
+    }
+  } catch (err) {
+    console.error("Stale reservation sweep failed:", err);
+  }
 }
 
 async function processJob(jobId: string): Promise<void> {
@@ -428,10 +480,8 @@ async function processJob(jobId: string): Promise<void> {
         .limit(1)
         .single();
 
-      // SVG export is a Pro-tier perk. The legacy pro_plus slug also
-      // qualifies (grandfathered subscribers keep what they had).
-      const SVG_PLANS = ["pro", "pro_plus"];
-      if (userSub?.plan_slug && SVG_PLANS.includes(userSub.plan_slug)) {
+      // Every membership includes SVG export; there is only one paid plan.
+      if (userSub?.plan_slug && MEMBERSHIP_SLUGS.has(userSub.plan_slug)) {
         const svgFile = path.join(jobDir, "poster.svg");
         await runPythonCli(config, svgFile, "svg", 12, 16);
         const svgPath = `${userId}/${jobId}/poster.svg`;
@@ -476,6 +526,8 @@ async function processJob(jobId: string): Promise<void> {
       })
       .eq("id", jobId);
 
+    await settleDownloadReservation(jobId, true);
+
     console.log(`  Job ${jobId} completed successfully`);
 
     // Notify the web app so it can submit any paid physical order tied to this
@@ -496,6 +548,9 @@ async function processJob(jobId: string): Promise<void> {
         updated_at: new Date().toISOString(),
       })
       .eq("id", jobId);
+
+    // Give the download back — the user must not pay for a render we lost.
+    await settleDownloadReservation(jobId, false);
   } finally {
     currentJobId = null;
     try {

@@ -5,9 +5,8 @@ import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const priceIds = {
-  STRIPE_PRICE_STARTER: process.env.STRIPE_PRICE_STARTER,
-  STRIPE_PRICE_PRO: process.env.STRIPE_PRICE_PRO,
-  STRIPE_PRICE_SINGLE_DOWNLOAD: process.env.STRIPE_PRICE_SINGLE_DOWNLOAD,
+  STRIPE_PRICE_MEMBERSHIP_MONTHLY: process.env.STRIPE_PRICE_MEMBERSHIP_MONTHLY,
+  STRIPE_PRICE_MEMBERSHIP_ANNUAL: process.env.STRIPE_PRICE_MEMBERSHIP_ANNUAL,
 };
 
 const acct = await stripe.accounts.retrieve();

@@ -21,15 +21,8 @@ import {
   XCircle,
   Clock,
   ArrowLeft,
-  Lock,
 } from "lucide-react";
 import type { PosterJobOutput } from "@/lib/types";
-import {
-  type PlanTier,
-  getPlanTier,
-  isFormatAllowed,
-  PLAN_ENTITLEMENTS,
-} from "@/lib/plan-config";
 
 interface JobStatusResponse {
   id: string;
@@ -66,7 +59,6 @@ function DownloadPageInner() {
   const textColor = searchParams.get("tc") || undefined;
   const [job, setJob] = useState<JobStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [planTier, setPlanTier] = useState<PlanTier>("none");
   const [progress, setProgress] = useState(0);
   const startTime = useRef(Date.now());
   const animFrame = useRef<number | null>(null);
@@ -83,17 +75,6 @@ function DownloadPageInner() {
     },
     [jobId]
   );
-
-  useEffect(() => {
-    fetch("/api/subscription")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.active && d.subscription?.plan_slug) {
-          setPlanTier(getPlanTier(d.subscription.plan_slug));
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!jobId) return;
@@ -256,40 +237,28 @@ function DownloadPageInner() {
                       .replace("pdf", "PDF")
                       .replace("svg", "SVG");
                     const Icon = ext === "pdf" ? FileText : Image;
-                    const allowed = isFormatAllowed(planTier, key);
 
                     return (
                       <button
                         key={key}
-                        onClick={() => allowed && triggerDownload(key)}
-                        disabled={!allowed}
-                        className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-                          allowed
-                            ? "hover:bg-muted"
-                            : "cursor-not-allowed opacity-50"
-                        }`}
+                        onClick={() => triggerDownload(key)}
+                        className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted"
                       >
-                        <Icon className="h-5 w-5 text-muted-foreground" />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium capitalize">
-                            {label}
-                          </p>
-                          {!allowed && (
-                            <p className="text-xs text-muted-foreground">
-                              Upgrade to {ext === "svg" ? "Pro+" : "Pro"} to
-                              unlock
-                            </p>
-                          )}
-                        </div>
-                        {allowed ? (
-                          <Download className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Lock className="h-4 w-4 text-muted-foreground" />
-                        )}
+                        <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
+                        <p className="flex-1 text-sm font-medium capitalize">
+                          {label}
+                        </p>
+                        <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
                       </button>
                     );
                   })}
 
+                {/* This download was already counted against the monthly
+                    allowance when the render started. */}
+                <p className="pt-1 text-center text-xs text-muted-foreground">
+                  Every format is included. Re-downloading these files never
+                  uses another download.
+                </p>
               </div>
             )}
 

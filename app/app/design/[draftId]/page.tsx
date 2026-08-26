@@ -14,7 +14,6 @@ import {
 import {
   Loader2,
   Download,
-  Crown,
   Package,
   LogIn,
   Map,
@@ -34,8 +33,13 @@ import {
   LivePosterMap,
   type MapLayerPreset,
 } from "@/components/live-poster-map";
-import { DEFAULT_SIZE, getPlanTier, type PlanTier } from "@/lib/plan-config";
+import {
+  DEFAULT_SIZE,
+  MEMBERSHIP_DOWNLOADS_PER_MONTH,
+  MEMBERSHIP_PRICE_MONTHLY_USD,
+} from "@/lib/plan-config";
 import { useAuth } from "@/components/auth-provider";
+import { useSubscription } from "@/components/subscription-provider";
 type EditorTool = "location" | "layers" | "type" | "style";
 
 const EDITOR_TOOLS = [
@@ -68,17 +72,19 @@ export default function CustomizePosterPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { subscription, refresh: refreshSubscription } = useSubscription();
 
   const city = searchParams.get("city") || "";
   const country = searchParams.get("country") || "";
   const lat = parseFloat(searchParams.get("lat") || "0");
   const lon = parseFloat(searchParams.get("lon") || "0");
 
-  const [planTier, setPlanTier] = useState<PlanTier>("none");
-  const [planLoaded, setPlanLoaded] = useState(false);
-  // Designing is free and instant. We only need auth/plan state when the
-  // user asks for a high-resolution file or a physical print.
+  // Designing is free and instant. Membership state only gates the
+  // high-resolution download; physical prints are bought per order.
   const isGuest = !user;
+  const isMember = subscription.planTier === "membership";
+  const downloadsRemaining = subscription.downloadsRemaining;
+  const outOfDownloads = isMember && downloadsRemaining === 0;
 
   const [config, setConfig] = useState<PosterConfig>({
     ...DEFAULT_CONFIG,
@@ -163,33 +169,6 @@ export default function CustomizePosterPage({
     }
   }, []);
 
-  useEffect(() => {
-    async function loadPlan() {
-      setPlanLoaded(false);
-      if (!user) {
-        setPlanTier("none");
-        setPlanLoaded(true);
-        return;
-      }
-      try {
-        const res = await fetch("/api/subscription");
-        if (res.ok) {
-          const subData = await res.json();
-          if (subData.active && subData.subscription?.plan_slug) {
-            setPlanTier(getPlanTier(subData.subscription.plan_slug));
-          } else {
-            setPlanTier("none");
-          }
-        }
-      } catch {
-        setPlanTier("none");
-      } finally {
-        setPlanLoaded(true);
-      }
-    }
-    loadPlan();
-  }, [user]);
-
   const updateConfig = useCallback(
     (updates: Partial<PosterConfig>) => {
       setConfig((prev) => ({ ...prev, ...updates }));
@@ -236,6 +215,19 @@ export default function CustomizePosterPage({
       redirectToSignup("download");
       return;
     }
+    if (!isMember) {
+      toast.info(
+        `Designing is free. Subscribe for $${MEMBERSHIP_PRICE_MONTHLY_USD}/month to download high-resolution files.`,
+        {
+          action: {
+            label: "See membership",
+            onClick: () => router.push("/app/billing"),
+          },
+          duration: 8000,
+        }
+      );
+      return;
+    }
     setGenerateLoading(true);
     try {
       const submitConfig = {
@@ -252,10 +244,19 @@ export default function CustomizePosterPage({
       if (!res.ok) {
         const err = await res.json();
         if (res.status === 403) {
-          toast.error(err.error || "You need an active plan to generate posters.", {
-            action: { label: "Upgrade", onClick: () => router.push("/app/billing") },
-            duration: 8000,
-          });
+          // Quota or membership state changed server-side — resync so the
+          // UI stops offering an action the backend just refused.
+          void refreshSubscription();
+          toast.error(
+            err.error || "Subscribe to download high-resolution files.",
+            {
+              action: {
+                label: "See membership",
+                onClick: () => router.push("/app/billing"),
+              },
+              duration: 8000,
+            }
+          );
           setGenerateLoading(false);
           return;
         }
@@ -265,11 +266,13 @@ export default function CustomizePosterPage({
       const { jobId, cached, status: cachedStatus } = await res.json();
 
       if (cached && cachedStatus === "done") {
+        // Re-downloading a design you already rendered is always free.
         toast.success("Already generated. Opening your download page.");
       } else if (cached) {
         toast.success("Picking up your in-flight render.");
       } else {
-        toast.success("Poster generation started! Redirecting to download page...");
+        toast.success("Download started. Taking you to your files...");
+        void refreshSubscription();
       }
 
       const params = new URLSearchParams();
@@ -567,7 +570,9 @@ export default function CustomizePosterPage({
               <div>
                 <h2 className="text-sm font-semibold">Choose your output</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Designing is free. Pay only when you download a high-resolution file or order a print.
+                  Designing is free. High-resolution downloads need the
+                  ${MEMBERSHIP_PRICE_MONTHLY_USD}/month membership; physical
+                  prints are sold separately.
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
@@ -607,10 +612,7 @@ export default function CustomizePosterPage({
               variant="outline"
               size="lg"
               onClick={handleDownloadPoster}
-              disabled={
-                generateLoading ||
-                (!isGuest && (!planLoaded || planTier === "none"))
-              }
+              disabled={generateLoading || outOfDownloads}
             >
               {generateLoading ? (
                 <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
@@ -619,15 +621,19 @@ export default function CustomizePosterPage({
               ) : (
                 <Download className="mr-2 h-5 w-5 shrink-0" />
               )}
-              {isGuest ? "Sign Up to Download" : "Download High-Res"}
+              {isGuest
+                ? "Sign Up to Download"
+                : outOfDownloads
+                  ? "No Downloads Left"
+                  : "Download High-Res"}
             </Button>
           </div>
 
           {isGuest && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
               <p className="text-sm text-blue-900">
-                Your live design is free. Create an account only when you are
-                ready to download or order a print.
+                Designing is free. Create an account only when you are ready to
+                download or order a print.
               </p>
               <Button
                 variant="outline"
@@ -641,32 +647,42 @@ export default function CustomizePosterPage({
             </div>
           )}
 
-          {!isGuest && planLoaded && planTier === "free" && (
+          {!isGuest && !isMember && (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
-              Keep designing for free.{" "}
+              Keep designing for free. ${MEMBERSHIP_PRICE_MONTHLY_USD}/month
+              adds {MEMBERSHIP_DOWNLOADS_PER_MONTH} high-resolution downloads
+              per month.{" "}
               <button
                 type="button"
                 className="font-medium underline"
                 onClick={() => router.push("/app/billing")}
               >
-                Upgrade to download
+                See membership
               </button>
             </p>
           )}
 
-          {!isGuest && planLoaded && planTier === "none" && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
-              <p className="text-sm text-amber-900">Choose a plan to get started.</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => router.push("/app/billing")}
-              >
-                <Crown className="mr-2 h-4 w-4" />
-                View Plans
-              </Button>
-            </div>
+          {isMember && downloadsRemaining !== null && (
+            <p
+              className={`rounded-lg border px-3 py-2 text-center text-xs ${
+                outOfDownloads
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-muted bg-muted/40 text-muted-foreground"
+              }`}
+            >
+              {outOfDownloads ? (
+                <>
+                  You&apos;ve used all {MEMBERSHIP_DOWNLOADS_PER_MONTH}{" "}
+                  downloads for this billing period. Designing stays free, and
+                  your allowance resets next period.
+                </>
+              ) : (
+                <>
+                  {downloadsRemaining} of {MEMBERSHIP_DOWNLOADS_PER_MONTH}{" "}
+                  high-resolution downloads left this month.
+                </>
+              )}
+            </p>
           )}
         </div>
 
@@ -681,12 +697,15 @@ export default function CustomizePosterPage({
         <Button
           variant="outline"
           onClick={handleDownloadPoster}
-          disabled={
-            generateLoading ||
-            (!isGuest && (!planLoaded || planTier === "none"))
-          }
+          disabled={generateLoading || outOfDownloads}
           className="h-11 min-w-11 flex-1 px-3"
-          aria-label={isGuest ? "Sign up to download" : "Download"}
+          aria-label={
+            isGuest
+              ? "Sign up to download"
+              : outOfDownloads
+                ? "No downloads left this billing period"
+                : "Download high-resolution poster"
+          }
         >
           {generateLoading ? (
             <Loader2 className="h-5 w-5 shrink-0 animate-spin" />

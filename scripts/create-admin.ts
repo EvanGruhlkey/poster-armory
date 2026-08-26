@@ -1,5 +1,5 @@
 /**
- * Create (or upgrade) an admin test account with Pro+ entitlements.
+ * Create (or upgrade) an admin test account with membership entitlements.
  *
  * Usage:
  *   pnpm admin:create
@@ -53,7 +53,9 @@ async function findUserByEmail(
   return null;
 }
 
-async function grantProPlus(
+// The dev period is rolled forward one month at a time rather than years out,
+// so the quota window the app derives from it matches a real billing month.
+async function grantMembership(
   admin: ReturnType<typeof createClient>,
   userId: string
 ) {
@@ -66,18 +68,18 @@ async function grantProPlus(
     .limit(1)
     .maybeSingle();
 
-  if (existing?.plan_slug === "pro_plus") {
-    console.log("  Already on Pro+ — no subscription change needed.");
+  if (existing?.plan_slug === "membership") {
+    console.log("  Already a member — no subscription change needed.");
     return;
   }
 
   const periodStart = new Date();
-  const periodEnd = new Date();
-  periodEnd.setFullYear(periodEnd.getFullYear() + 10);
+  const periodEnd = new Date(periodStart);
+  periodEnd.setUTCMonth(periodEnd.getUTCMonth() + 1);
 
   const { error } = await admin.from("subscriptions").insert({
     user_id: userId,
-    plan_slug: "pro_plus",
+    plan_slug: "membership",
     status: "active",
     current_period_start: periodStart.toISOString(),
     current_period_end: periodEnd.toISOString(),
@@ -86,10 +88,10 @@ async function grantProPlus(
   });
 
   if (error) {
-    throw new Error(`Failed to grant Pro+: ${error.message}`);
+    throw new Error(`Failed to grant membership: ${error.message}`);
   }
 
-  console.log("  Granted Pro+ subscription (10-year dev period).");
+  console.log("  Granted membership subscription (one-month dev period).");
 }
 
 async function main() {
@@ -111,7 +113,7 @@ async function main() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  console.log("Creating admin account with Pro+...\n");
+  console.log("Creating admin account with a membership...\n");
 
   let userId: string;
 
@@ -129,7 +131,7 @@ async function main() {
       msg.includes("registered") ||
       msg.includes("exists")
     ) {
-      console.log(`  User ${email} already exists — upgrading to Pro+.`);
+      console.log(`  User ${email} already exists — granting membership.`);
       const existing = await findUserByEmail(admin, email);
       if (!existing) {
         throw new Error(`Could not find existing user: ${email}`);
@@ -152,12 +154,12 @@ async function main() {
     console.log(`  Created user ${email}`);
   }
 
-  await grantProPlus(admin, userId);
+  await grantMembership(admin, userId);
 
   console.log("\nAdmin account ready:\n");
   console.log(`  Email:    ${email}`);
   console.log(`  Password: ${password}`);
-  console.log(`  Plan:     Pro+ (unlimited designs & downloads)`);
+  console.log(`  Plan:     Membership (20 high-resolution downloads/month)`);
   console.log(`\n  Sign in at: ${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`);
 }
 

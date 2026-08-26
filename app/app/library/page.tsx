@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { PosterCard } from "@/components/poster-card";
-import { MapPin, Plus, Crown, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Poster, PosterJob } from "@/lib/types";
 
 const PAGE_SIZE = 20;
@@ -27,40 +27,10 @@ export default async function LibraryPage({
     return null;
   }
 
+  // The library lists files this account has already downloaded, so it needs
+  // no plan gate of its own — creating a download already required a
+  // membership. Free accounts simply see the empty state.
   const admin = createAdminClient();
-  const { data: sub } = await admin
-    .from("subscriptions")
-    .select("plan_slug")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-
-  const planSlug = sub?.plan_slug;
-
-  // Library is a paid feature — gate everything except Starter / Pro
-  // (and the legacy "basic" / "pro_plus" subscribers we honour).
-  const LIBRARY_PLANS = ["starter", "pro", "pro_plus"];
-  if (!planSlug || !LIBRARY_PLANS.includes(planSlug)) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
-        <Crown className="mx-auto mb-4 h-12 w-12 text-amber-500" />
-        <h1 className="text-2xl font-bold mb-2">Poster Library</h1>
-        <p className="text-muted-foreground mb-6">
-          Save and revisit your poster designs anytime. The poster library is included with Starter and Pro.
-        </p>
-        <div className="flex justify-center gap-3">
-          <Button asChild variant="outline">
-            <Link href="/app">Create a Poster</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/app/billing">See Plans</Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   const page = Math.max(1, parseInt(searchParams.page || "1", 10) || 1);
   const from = (page - 1) * PAGE_SIZE;
@@ -180,14 +150,15 @@ export default async function LibraryPage({
           )}
         </>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-20">
+        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-20 text-center">
           <MapPin className="mb-4 h-12 w-12 text-muted-foreground/30" />
-          <h3 className="mb-2 text-lg font-semibold">No posters yet</h3>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Create your first map poster to get started.
+          <h3 className="mb-2 text-lg font-semibold">No downloads yet</h3>
+          <p className="mb-4 max-w-sm text-sm text-muted-foreground">
+            Design as many posters as you like for free. Every high-resolution
+            file you download is saved here.
           </p>
           <Button asChild>
-            <Link href="/app">Create Your First Poster</Link>
+            <Link href="/app">Create your first poster</Link>
           </Button>
         </div>
       )}

@@ -13,10 +13,8 @@ if (!key) {
 const stripe = new Stripe(key);
 
 const EXPECTED = {
-  STRIPE_PRICE_STARTER: process.env.STRIPE_PRICE_STARTER || "price_1TkxyeAiWsddNgTsSXCVNh26",
-  STRIPE_PRICE_PRO: process.env.STRIPE_PRICE_PRO || "price_1TkxyeAiWsddNgTszEwzGmY5",
-  STRIPE_PRICE_SINGLE_DOWNLOAD:
-    process.env.STRIPE_PRICE_SINGLE_DOWNLOAD || "price_1TkxyjAiWsddNgTsov5tfUTy",
+  STRIPE_PRICE_MEMBERSHIP_MONTHLY: process.env.STRIPE_PRICE_MEMBERSHIP_MONTHLY,
+  STRIPE_PRICE_MEMBERSHIP_ANNUAL: process.env.STRIPE_PRICE_MEMBERSHIP_ANNUAL,
 };
 
 try {
@@ -32,8 +30,12 @@ try {
   console.log("accounts.retrieve failed:", e.message);
 }
 
-console.log("\nExpected v2 price IDs:");
+console.log("\nExpected membership price IDs:");
 for (const [envKey, priceId] of Object.entries(EXPECTED)) {
+  if (!priceId) {
+    console.log(`  ${envKey}: NOT SET — run: node scripts/setup-stripe-live.mjs`);
+    continue;
+  }
   try {
     const price = await stripe.prices.retrieve(priceId);
     const product =
@@ -65,8 +67,8 @@ console.log("\nActive legacy products (should be empty):");
 const products = await stripe.products.list({ limit: 50, active: true });
 const legacy = products.data.filter(
   (p) =>
-    ["Basic", "Pro +"].includes(p.name) ||
-    (p.name === "Pro" && p.metadata?.pricing_version !== "v2")
+    p.metadata?.pricing_version !== "v3" &&
+    ["Basic", "Pro +", "Pro", "Starter", "Single Download"].includes(p.name)
 );
 for (const p of legacy) {
   console.log(`  WARNING: legacy product still active: ${p.name} (${p.id})`);
