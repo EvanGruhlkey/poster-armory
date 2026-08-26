@@ -1,58 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { useSubscription } from "@/components/subscription-provider";
+import {
+  MEMBERSHIP_DOWNLOADS_PER_MONTH,
+  MEMBERSHIP_PRICE_MONTHLY_USD,
+} from "@/lib/plan-config";
 
+/**
+ * Membership state comes from the server-seeded context, so a reload never
+ * shows a subscriber the "subscribe" prompt before the client catches up.
+ */
 export function SubscriptionBanner() {
   const pathname = usePathname();
-  const [hasSub, setHasSub] = useState<boolean | null>(null);
+  const { subscription } = useSubscription();
   const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    setHasSub(null);
-    async function check() {
-      if (
-        !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-        !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      ) {
-        return;
-      }
-      try {
-        const res = await fetch("/api/subscription");
-        if (res.ok) {
-          const data = await res.json();
-          setHasSub(data.active);
-        }
-      } catch {
-        // ignore
-      }
-    }
-    check();
-  }, [pathname]);
+  const isMember = subscription.planTier === "membership";
+  const outOfDownloads = isMember && subscription.downloadsRemaining === 0;
 
-  if (
-    pathname === "/app/billing" ||
-    hasSub === null ||
-    hasSub === true ||
-    dismissed
-  ) {
-    return null;
-  }
+  if (pathname === "/app/billing" || dismissed) return null;
+  if (isMember && !outOfDownloads) return null;
+
+  const message = outOfDownloads ? (
+    <>
+      <strong>You&apos;ve used all {MEMBERSHIP_DOWNLOADS_PER_MONTH} downloads</strong>{" "}
+      for this billing period. Keep designing free — your allowance resets next
+      period.
+    </>
+  ) : (
+    <>
+      <strong>Design for free.</strong> Subscribe for $
+      {MEMBERSHIP_PRICE_MONTHLY_USD}/month to get{" "}
+      {MEMBERSHIP_DOWNLOADS_PER_MONTH} high-resolution downloads per month.
+    </>
+  );
 
   return (
     <div className="border-b bg-amber-50">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-        <p className="text-xs text-amber-900 sm:text-sm">
-          <strong>Design for free.</strong> Choose a plan when you&apos;re ready
-          to download.
-        </p>
+        <p className="text-xs text-amber-900 sm:text-sm">{message}</p>
         <div className="flex shrink-0 items-center gap-1.5">
-          <Button asChild size="sm" className="h-8 text-xs sm:text-sm">
-            <Link href="/app/billing">View Plans</Link>
-          </Button>
+          {!outOfDownloads && (
+            <Button asChild size="sm" className="h-8 text-xs sm:text-sm">
+              <Link href="/app/billing">Subscribe</Link>
+            </Button>
+          )}
           <button
             onClick={() => setDismissed(true)}
             className="rounded p-1 text-amber-600 hover:bg-amber-100"

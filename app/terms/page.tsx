@@ -88,9 +88,9 @@ export default function TermsPage() {
 
               <h3 className="mt-4">4.1 Plans and Pricing</h3>
               <p className="mt-2">
-                The Service offers a free preview plan, one-time download purchases, and
-                subscription tiers with varying features, download quotas, library access,
-                and usage rights. Current pricing is listed on our{" "}
+                Designing and previewing posters is free. High-resolution downloads require
+                a membership billed monthly or annually. Physical prints are sold separately
+                and priced per order at checkout. Current pricing is listed on our{" "}
                 <Link href="/pricing" className="underline hover:text-foreground">
                   Pricing page
                 </Link>
@@ -125,34 +125,36 @@ export default function TermsPage() {
 
               <h3 className="mt-4">4.3 Recurring Billing</h3>
               <p className="mt-2">
-                Subscriptions are billed on a recurring monthly basis. Your subscription
-                will automatically renew at the end of each billing period unless cancelled
-                before the renewal date.
+                Memberships are billed on a recurring monthly or annual basis, depending
+                on the interval you choose. Your membership will automatically renew at
+                the end of each billing period unless cancelled before the renewal date.
+                The high-resolution download allowance resets each billing month, including
+                for annual memberships.
               </p>
 
               <h3 className="mt-4">4.4 One-Time Downloads</h3>
               <p className="mt-2">
-                One-time download purchases grant a single high-resolution download credit.
-                Download credits are tied to your account and may be used only through the
-                Service. They are not transferable, redeemable for cash, or a subscription.
+                One-time download credits are no longer sold. Unused credits from earlier
+                purchases are retired and are not redeemable for cash. Files you already
+                downloaded remain available in your library.
               </p>
 
               <h3 className="mt-4">4.5 Cancellation</h3>
               <p className="mt-2">
-                You may cancel your subscription at any time from your{" "}
+                You may cancel your membership at any time from your{" "}
                 <Link href="/app/billing" className="underline hover:text-foreground">
                   Billing page
                 </Link>
-                . Upon cancellation, you will retain access to your plan&apos;s features
-                until the end of the current billing period. No prorated refunds are issued
-                for partial months.
+                . Upon cancellation, you keep your remaining downloads until the end of
+                the current billing period. Designing stays free afterwards. No prorated
+                refunds are issued for partial periods.
               </p>
 
-              <h3 className="mt-4">4.6 Plan Changes</h3>
+              <h3 className="mt-4">4.6 Billing Interval Changes</h3>
               <p className="mt-2">
-                You may upgrade or downgrade your plan at any time. When switching plans,
-                your previous subscription is cancelled and the new plan takes effect
-                immediately.
+                You may switch between monthly and annual billing from the Billing page.
+                The new interval takes effect according to Stripe&apos;s checkout and
+                proration rules for the session you complete.
               </p>
             </section>
 
@@ -184,13 +186,15 @@ export default function TermsPage() {
             <section>
               <h2>6. Usage Limits and Fair Use</h2>
               <p className="mt-3">
-                Free accounts may create unlimited poster previews. Paid plans and one-time
-                purchases include the downloads shown on the Pricing page and in your
-                Billing page. Subscription download limits reset based on the applicable
-                subscription billing period.
+                Anyone may design and preview posters for free. A membership includes 20
+                high-resolution downloads per billing month, as shown on the Pricing page
+                and in your Billing page. The allowance resets according to the Stripe
+                billing period, not a calendar-month approximation. Previews, failed
+                renders, and re-downloading a file that already generated do not consume
+                the allowance. Physical print orders are charged separately and never use
+                a download.
               </p>
               <p className="mt-2">
-                Plans advertised as &quot;unlimited&quot; are subject to a fair use policy.
                 Automated, scripted, abusive, or unusually high-volume generation that
                 exceeds reasonable use may result in rate limiting, delayed processing, or
                 account suspension.
@@ -211,11 +215,11 @@ export default function TermsPage() {
 
               <h3 className="mt-4">7.2 Download and Print Rights</h3>
               <p className="mt-2">
-                You may use downloaded files and physical prints for the rights included
-                with your purchase or plan. Single downloads and Starter plans include
-                personal use rights. Pro plans include commercial use rights for downloaded
-                poster files, subject to these Terms and any third-party map-data
-                attribution requirements.
+                Membership downloads and physical prints include personal and commercial
+                use of the generated poster files, subject to these Terms and any
+                third-party map-data attribution requirements. Commercial use does not
+                include reselling the Service itself, redistributing our software, or
+                implying that Poster Armory endorses your work.
               </p>
 
               <h3 className="mt-4">7.3 Map Data</h3>

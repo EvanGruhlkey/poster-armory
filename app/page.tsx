@@ -57,69 +57,73 @@ const GALLERY = [
 const STEPS = [
   {
     title: "Find your place",
-    desc: "Search a city, address, or landmark and set the exact map area you want to feature.",
+    desc: "Search a city, address, or landmark to start your poster.",
     icon: MapPin,
   },
   {
-    title: "Shape the design",
-    desc: "Choose a theme, edit the title and subtitle, preview sizes, and tune map details.",
+    title: "Design it for free",
+    desc: "Every theme, layer and word is free to customize, and the poster updates as you edit.",
     icon: Palette,
   },
   {
     title: "Download or print",
-    desc: "Save high-resolution PNG, PDF, or SVG files, or order a physical poster shipped to you.",
+    desc: "Subscribe for $10/month to download high-resolution files, or order a physical print shipped to you.",
     icon: Download,
   },
 ];
 
 const FAQ_ITEMS = [
   {
-    q: "What do I get when I create a poster?",
-    a: "You get preview designs in the app, then high-resolution downloads (PDF and PNG sizes for your plan) ready to print or send to a professional printer.",
+    q: "What does it cost?",
+    a: "Designing is completely free — create and customize as many posters as you want without paying anything. One membership at $10/month adds 20 high-resolution downloads per month. Physical prints are sold separately and priced per order at checkout.",
+  },
+  {
+    q: "Do I need to pay to design a poster?",
+    a: "No. The full editor, every theme, every map layer and the live preview are free, with no card required and no limit on how many designs you create.",
+  },
+  {
+    q: "What do I get with the membership?",
+    a: "20 high-resolution downloads per month for $10/month, in PNG, PDF and SVG. The allowance resets at the start of each billing month and you can cancel anytime.",
+  },
+  {
+    q: "What happens when I use all 20 downloads?",
+    a: "You keep designing and previewing for free, and your allowance refills at the start of your next billing month. Your billing page always shows how many downloads are left and the exact reset date.",
+  },
+  {
+    q: "Is there a yearly option?",
+    a: "Yes. The same membership is $100/year — two months free — and still includes 20 high-resolution downloads every month.",
+  },
+  {
+    q: "Are physical prints included in the membership?",
+    a: "No. Printed posters are sold separately: you pay per order at checkout, including shipping, and ordering a print never uses one of your monthly downloads.",
   },
   {
     q: "How long does a download take?",
-    a: "Roughly up to five minutes, depending on the map area and theme. We fetch real map data and render high-resolution files. You can click away, use another tab, or leave the app; your poster keeps generating and will show in your library when it is ready.",
+    a: "Roughly up to five minutes, depending on the map area and theme. We fetch real map data and render high-resolution files. You can click away or close the tab; your poster keeps generating and appears in your library when it's ready.",
   },
   {
-    q: "Do I need a subscription?",
-    a: "No. Every account starts on the free plan with unlimited poster previews so you can try every theme and city. Buy a single $9 download when you find one you love, or upgrade to Starter ($10/mo) or Pro ($20/mo) for monthly downloads.",
+    q: "Does re-downloading a poster use another download?",
+    a: "No. A download is counted once, when the high-resolution render starts. Grabbing the PDF after the PNG, retrying, or coming back months later costs nothing extra. Failed renders are never charged.",
   },
   {
     q: "Can I use any location?",
-    a: "Yes. Search for cities worldwide, fine-tune the map area with radius and position, and add your own title and subtitle.",
-  },
-  {
-    q: "Can I preview before I pay?",
-    a: "Yes. You can create unlimited poster previews for free, try different locations and standard themes, and only pay when you want a high-resolution download or print order.",
+    a: "Yes. Search for cities, addresses and landmarks worldwide, then drag, zoom, rotate and tilt the live map to frame it exactly how you want.",
   },
   {
     q: "What can I customize?",
-    a: "You can edit the poster title, subtitle, date line, map theme, label visibility, water and park layers, and the poster size. Starter and Pro plans also unlock fine positioning controls like zoom and rotation.",
-  },
-  {
-    q: "Which file formats are available?",
-    a: "Starter downloads include high-resolution PNG and PDF files. Pro adds SVG export for more flexible editing and production workflows.",
-  },
-  {
-    q: "Can I order a physical print instead of downloading?",
-    a: "Yes. After you create a design, you can choose Order Physical Poster and send it to print without managing files yourself.",
+    a: "Everything, for free: map framing, rotation and tilt, layer presets, labels, water and parks, all 17 themes, the poster size, and the title, subtitle, date line and optional coordinates.",
   },
   {
     q: "Are my designs saved?",
-    a: "Downloaded posters are saved in your library on Starter and Pro plans, so you can revisit designs and access them again later.",
+    a: "Your in-progress design is kept in the editor, and every high-resolution file you download is saved to your library so you can access it again later.",
   },
   {
     q: "Will it look good printed?",
-    a: "Exports are built for print: vector PDF where available and crisp PNGs at standard poster aspect ratios. Use a quality print shop or home printer that supports your chosen size.",
-  },
-  {
-    q: "Can I sell posters I make?",
-    a: "Personal use is included with single downloads and Starter. Pro includes commercial use rights for downloaded files.",
+    a: "Exports are built for print: vector PDF and SVG plus crisp PNGs at standard poster aspect ratios. Use a quality print shop, or let us print and ship it for you.",
   },
   {
     q: "Can I cancel anytime?",
-    a: "Yes. You can cancel from Billing; recurring plans stay active through the period you already paid for. See our Terms for details.",
+    a: "Yes. Cancel from Billing at any time and you keep your downloads through the period you already paid for. Designing stays free afterwards. See our Terms for details.",
   },
   {
     q: "Where do I get help?",
@@ -157,10 +161,10 @@ export default function LandingPage() {
           </p>
           <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-3 sm:mt-10">
             <Button asChild size="lg" className="h-12 w-full px-8 text-base shadow-lg sm:w-auto">
-              <Link href="/app">Create your poster</Link>
+              <Link href="/app">Design for free</Link>
             </Button>
             <p className="text-sm text-muted-foreground">
-              No design skills needed · Arrives ready to frame
+              Free to design · No card required
             </p>
           </div>
         </div>
@@ -257,10 +261,11 @@ export default function LandingPage() {
         <div className="mx-auto max-w-xl px-4 text-center sm:px-6">
           <h2 className="mb-3 text-2xl font-bold sm:text-3xl">Ready to create?</h2>
           <p className="mb-6 text-sm text-muted-foreground sm:text-base">
-            Free to start. No credit card.
+            Design for free. $10/month for 20 high-resolution downloads. Cancel
+            anytime.
           </p>
           <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link href="/app">Start Free</Link>
+            <Link href="/app">Design for free</Link>
           </Button>
         </div>
       </section>

@@ -4,7 +4,13 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/components/auth-provider";
+import { SubscriptionProvider } from "@/components/subscription-provider";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getSubscriptionSummary,
+  SIGNED_OUT_SUMMARY,
+  type SubscriptionSummary,
+} from "@/lib/subscription-summary";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -60,12 +66,26 @@ export default async function RootLayout({
     // Keep public pages available if authentication is not configured.
   }
 
+  // Resolve membership state before the first paint so a reload never flashes
+  // signed-out pricing at a subscriber. Stripe is deliberately not called
+  // here; the provider reconciles those fields client-side.
+  let initialSubscription: SubscriptionSummary = SIGNED_OUT_SUMMARY;
+  if (initialUser && !initialUser.is_anonymous) {
+    try {
+      initialSubscription = await getSubscriptionSummary(initialUser.id);
+    } catch {
+      // Fall back to the signed-out shape rather than failing the render.
+    }
+  }
+
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <AuthProvider initialUser={initialUser}>
-          {children}
-          <Toaster position="bottom-center" richColors />
+          <SubscriptionProvider initialSubscription={initialSubscription}>
+            {children}
+            <Toaster position="bottom-center" richColors />
+          </SubscriptionProvider>
         </AuthProvider>
       </body>
     </html>

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - Poster Armory pricing v3
+
+### Changed
+- One membership: $10/month or $100/year, with 20 high-resolution downloads per billing month
+- Designing and previewing are free for everyone; physical prints stay pay-per-order
+- Download quota is enforced atomically in `download_ledger` against the Stripe billing period
+- Legacy Starter, Pro, Pro+, Basic, and Single Download products are no longer sold
+
+### Added
+- Reversible migration `014_single_membership_plan.sql` (plan re-point, ledger, RPCs)
+- Server-resolved `SubscriptionProvider` so reloads do not flash guest pricing
+
+---
+
 ## [Unreleased] - Community Contributions
 
 ### Added

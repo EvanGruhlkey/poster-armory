@@ -1,26 +1,33 @@
-// Pricing v2 (see supabase/migrations/010_pricing_v2.sql)
+// Pricing (see supabase/migrations/014_single_membership_plan.sql)
 //
-//   free    : full live designer, 0 high-resolution downloads
-//   starter : $10/mo — full designer + 5 downloads/month
-//   pro     : $20/mo — full designer + unlimited downloads + commercial use
+//   free       : full designer, unlimited live previews, 0 high-res downloads
+//   membership : $10/month or $100/year — full designer + 20 high-resolution
+//                downloads per billing month
 //
-// Single Download ($9 one-time) does NOT change planTier — it grants one
-// row in `download_credits` that the worker consumes on demand. The legacy
-// `basic` and `pro_plus` slugs are still honoured for grandfathered DB rows
-// and silently mapped to the closest current tier.
+// There is exactly one paid plan. Physical prints are billed per order at
+// checkout and never touch the download allowance.
+//
+// Migration 014 re-points every legacy slug (starter / pro / basic / pro_plus)
+// onto `membership`. `getPlanTier` still recognises them so a subscription row
+// that has not yet been migrated resolves to the correct entitlements.
 
-export type PlanTier = "free" | "starter" | "pro" | "none";
+export type PlanTier = "free" | "membership" | "none";
 
 export type DownloadFormat = "png" | "pdf" | "svg";
 
+export type BillingInterval = "monthly" | "annual";
+
+/** Canonical slug of the single paid plan. */
+export const MEMBERSHIP_SLUG = "membership";
+
+/** High-resolution downloads included with the membership, per billing month. */
+export const MEMBERSHIP_DOWNLOADS_PER_MONTH = 20;
+
+export const MEMBERSHIP_PRICE_MONTHLY_USD = 10;
+export const MEMBERSHIP_PRICE_ANNUAL_USD = 100;
+
 export interface PlanEntitlements {
-  allThemes: boolean;
-  zoomControls: boolean;
-  rotationControls: boolean;
-  multipleSizes: boolean;
   posterLibrary: boolean;
-  /** Includes commercial use rights for downloaded files. */
-  commercialUse: boolean;
   /** null = unlimited; numeric value enforced by RPC + UI. */
   designsPerMonth: number | null;
   downloadsPerMonth: number | null;
@@ -29,75 +36,45 @@ export interface PlanEntitlements {
 
 export const PLAN_ENTITLEMENTS: Record<PlanTier, PlanEntitlements> = {
   none: {
-    allThemes: true,
-    zoomControls: true,
-    rotationControls: true,
-    multipleSizes: true,
     posterLibrary: false,
-    commercialUse: false,
-    designsPerMonth: 0,
+    designsPerMonth: null,
     downloadsPerMonth: 0,
     formats: [],
   },
   free: {
-    allThemes: true,
-    zoomControls: true,
-    rotationControls: true,
-    multipleSizes: true,
-    posterLibrary: false,
-    commercialUse: false,
+    posterLibrary: true,
     designsPerMonth: null,
     downloadsPerMonth: 0,
     formats: [],
   },
-  starter: {
-    allThemes: true,
-    zoomControls: true,
-    rotationControls: true,
-    multipleSizes: true,
+  membership: {
     posterLibrary: true,
-    commercialUse: false,
     designsPerMonth: null,
-    downloadsPerMonth: 5,
-    formats: ["png", "pdf"],
-  },
-  pro: {
-    allThemes: true,
-    zoomControls: true,
-    rotationControls: true,
-    multipleSizes: true,
-    posterLibrary: true,
-    commercialUse: true,
-    designsPerMonth: null,
-    downloadsPerMonth: null,
+    downloadsPerMonth: MEMBERSHIP_DOWNLOADS_PER_MONTH,
     formats: ["png", "pdf", "svg"],
   },
 };
 
-export const STANDARD_THEMES = ["warm_beige", "terracotta", "noir", "blueprint", "ocean"];
-export const PREMIUM_THEMES = [
-  "midnight_blue", "forest", "sunset", "autumn", "emerald",
-  "copper_patina", "japanese_ink", "pastel_dream", "monochrome_blue",
-  "neon_cyberpunk", "contrast_zones", "gradient_roads",
-];
-
 export const DEFAULT_SIZE = { label: '18"x24"', width: 9, height: 12, key: "png_18x24" };
 
-/**
- * Map a `plans.slug` value (including grandfathered legacy slugs) to the
- * narrow `PlanTier` union the rest of the app consumes.
- *
- * Legacy mapping:
- *   - "basic"    → "starter" (closest equivalent: 5 downloads/month tier)
- *   - "pro_plus" → "pro"     (already unlimited)
- */
+/** Slugs that resolve to the paid membership, including pre-014 rows. */
+const MEMBERSHIP_SLUGS = new Set([
+  MEMBERSHIP_SLUG,
+  "starter",
+  "pro",
+  "basic",
+  "pro_plus",
+]);
+
 export function getPlanTier(planSlug: string | null | undefined): PlanTier {
+  if (!planSlug) return "none";
   if (planSlug === "free") return "free";
-  if (planSlug === "starter") return "starter";
-  if (planSlug === "pro") return "pro";
-  if (planSlug === "basic") return "starter";
-  if (planSlug === "pro_plus") return "pro";
+  if (MEMBERSHIP_SLUGS.has(planSlug)) return "membership";
   return "none";
+}
+
+export function isMembershipSlug(planSlug: string | null | undefined): boolean {
+  return getPlanTier(planSlug) === "membership";
 }
 
 export function fileKeyToFormat(fileKey: string): DownloadFormat {
@@ -107,6 +84,10 @@ export function fileKeyToFormat(fileKey: string): DownloadFormat {
 }
 
 export function isFormatAllowed(planTier: PlanTier, fileKey: string): boolean {
-  const format = fileKeyToFormat(fileKey);
-  return PLAN_ENTITLEMENTS[planTier].formats.includes(format);
+  return PLAN_ENTITLEMENTS[planTier].formats.includes(fileKeyToFormat(fileKey));
+}
+
+/** Downloads included per billing month for a tier. null = unlimited. */
+export function downloadsPerPeriod(planTier: PlanTier): number | null {
+  return PLAN_ENTITLEMENTS[planTier].downloadsPerMonth;
 }

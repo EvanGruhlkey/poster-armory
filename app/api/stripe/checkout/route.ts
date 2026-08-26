@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { stripe, PLAN_PRICE_MAP, SINGLE_DOWNLOAD_PRICE_ID } from "@/lib/stripe";
+import { stripe, membershipPriceId } from "@/lib/stripe";
+import { MEMBERSHIP_SLUG } from "@/lib/plan-config";
 import { z } from "zod";
 import { applyRateLimit } from "@/lib/rate-limit";
 
-// "starter" / "pro" → recurring subscription via PLAN_PRICE_MAP.
-// "single_download" → $9 one-time, fulfilled by webhook → download_credits.
+// One paid plan, two billing cadences. Annual is the same membership with the
+// same 20 downloads per billing month, billed yearly.
 const checkoutSchema = z.object({
-  planSlug: z.enum(["starter", "pro", "single_download"]),
+  interval: z.enum(["monthly", "annual"]).default("monthly"),
 });
 
 export async function POST(request: Request) {
@@ -22,46 +23,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Stripe Checkout creates a Customer; we never want one tied to an
-    // anonymous, expiring Supabase session. Force them to sign up first.
+    // Checkout creates a Stripe Customer; never tie one to an expiring
+    // anonymous Supabase session.
     if (user.is_anonymous) {
       return NextResponse.json(
-        { error: "Sign up to purchase a plan or download." },
+        { error: "Create a free account to subscribe." },
         { status: 401 }
       );
     }
 
-    const limited = applyRateLimit(user.id, "checkout", { windowMs: 60_000, max: 5 });
+    const limited = applyRateLimit(user.id, "checkout", {
+      windowMs: 60_000,
+      max: 5,
+    });
     if (limited) return limited;
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const parsed = checkoutSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid plan" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid billing interval" }, { status: 400 });
     }
 
-    const { planSlug } = parsed.data;
-    const isSingleDownload = planSlug === "single_download";
-    const priceId = isSingleDownload
-      ? SINGLE_DOWNLOAD_PRICE_ID
-      : PLAN_PRICE_MAP[planSlug];
+    const { interval } = parsed.data;
+    const priceId = membershipPriceId(interval);
     if (!priceId) {
       return NextResponse.json(
-        { error: "Stripe price not configured for this plan" },
-        { status: 400 }
+        { error: "Membership checkout is not configured. Please contact support." },
+        { status: 503 }
       );
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-    const price = await stripe.prices.retrieve(priceId);
-    const isRecurring = price.type === "recurring";
-
-    // Reuse existing Stripe customer if one exists
     const admin = createAdminClient();
+
+    // Reuse the existing Stripe customer so billing history stays on one record.
     const { data: existingSub } = await admin
       .from("subscriptions")
       .select("stripe_customer_id")
@@ -69,18 +64,21 @@ export async function POST(request: Request) {
       .not("stripe_customer_id", "is", null)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     const sessionParams: Record<string, unknown> = {
+      mode: "subscription",
       metadata: {
         user_id: user.id,
-        plan_slug: planSlug,
-        // `kind` lets the webhook fan-out: physical_order / single_download /
-        // (absent for legacy subscription flows).
-        ...(isSingleDownload ? { kind: "single_download" } : {}),
+        plan_slug: MEMBERSHIP_SLUG,
+        kind: "membership",
+        interval,
+      },
+      subscription_data: {
+        metadata: { user_id: user.id, plan_slug: MEMBERSHIP_SLUG, interval },
       },
       line_items: [{ price: priceId, quantity: 1 }],
-      mode: isRecurring ? "subscription" : "payment",
+      allow_promotion_codes: true,
       success_url: `${appUrl}/app/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/app/billing?checkout=cancelled`,
     };
@@ -99,7 +97,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("Stripe checkout error:", err);
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: "Failed to start checkout" },
       { status: 500 }
     );
   }

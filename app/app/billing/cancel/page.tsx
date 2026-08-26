@@ -23,13 +23,11 @@ import { toast } from "sonner";
 
 interface SubscriptionPayload {
   active: boolean;
+  planTier: "free" | "membership" | "none";
+  planName: string | null;
   cancelAtPeriodEnd?: boolean;
-  subscription: {
-    plan_slug: string;
-    current_period_end: string | null;
-    stripe_sub_id?: string | null;
-  } | null;
-  plan?: { name: string };
+  renewsAt: string | null;
+  subscription: { stripe_sub_id?: string | null } | null;
 }
 
 export default function CancelSubscriptionPage() {
@@ -49,13 +47,15 @@ export default function CancelSubscriptionPage() {
         }
         const json = (await res.json()) as SubscriptionPayload;
         if (!cancelled) {
-          if (!json.active || !json.subscription) {
-            toast.info("You don't have an active subscription to cancel.");
+          if (!json.active || json.planTier !== "membership") {
+            toast.info("You don't have a membership to cancel.");
             router.replace("/app/billing");
             return;
           }
           if (json.cancelAtPeriodEnd) {
-            toast.info("Your plan is already cancelled and will stay active through the end of the period you paid for.");
+            toast.info(
+              "Your membership is already cancelled and stays active through the period you paid for."
+            );
             router.replace("/app/billing");
             return;
           }
@@ -85,8 +85,8 @@ export default function CancelSubscriptionPage() {
         const recurring = Boolean(data.subscription.stripe_sub_id);
         toast.success(
           recurring
-            ? "Subscription cancelled. You keep access until the end of your billing period."
-            : "Your plan has been cancelled."
+            ? "Membership cancelled. You keep your downloads until the end of the billing period."
+            : "Your membership has been cancelled."
         );
         router.push("/app/billing");
         return;
@@ -94,16 +94,16 @@ export default function CancelSubscriptionPage() {
       toast.error(
         typeof result.error === "string"
           ? result.error
-          : "Failed to cancel subscription."
+          : "Failed to cancel membership."
       );
     } catch {
-      toast.error("Failed to cancel subscription.");
+      toast.error("Failed to cancel membership.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (loading || !data?.subscription || !data.plan) {
+  if (loading || !data?.subscription) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -111,11 +111,10 @@ export default function CancelSubscriptionPage() {
     );
   }
 
-  const sub = data.subscription;
-  const isRecurring = Boolean(sub.stripe_sub_id);
+  const isRecurring = Boolean(data.subscription.stripe_sub_id);
   const endDate =
-    sub.current_period_end &&
-    new Date(sub.current_period_end).toLocaleDateString(undefined, {
+    data.renewsAt &&
+    new Date(data.renewsAt).toLocaleDateString(undefined, {
       month: "long",
       day: "numeric",
       year: "numeric",
@@ -132,25 +131,27 @@ export default function CancelSubscriptionPage() {
       </Link>
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Cancel subscription</h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          Cancel membership
+        </h1>
         <p className="mt-2 text-muted-foreground">
-          Review what happens before you confirm. You can always subscribe again
-          later.
+          Designing stays free either way. Review what changes before you
+          confirm — you can resubscribe anytime.
         </p>
       </div>
 
       <Card className="border-amber-200 bg-amber-50/40">
         <CardHeader>
           <div className="flex items-center gap-2 text-amber-900">
-            <CreditCard className="h-5 w-5" />
+            <CreditCard className="h-5 w-5 shrink-0" />
             <CardTitle className="text-lg">
-              {data.plan.name}
+              {data.planName || "Membership"}
             </CardTitle>
           </div>
           <CardDescription className="text-amber-900/80">
             {isRecurring
-              ? "Recurring plan: cancel stops future charges; your current period stays active."
-              : "This access isn't tied to a recurring Stripe subscription. Cancelling may end access immediately."}
+              ? "Cancelling stops future charges. Your current billing period stays active."
+              : "This membership isn't tied to a recurring Stripe subscription. Cancelling may end access immediately."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -160,7 +161,7 @@ export default function CancelSubscriptionPage() {
                 <li className="flex gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
                   <span>
-                    Your account will show as <strong>cancelled</strong>, with full access until{" "}
+                    You keep your remaining downloads until{" "}
                     {endDate ? (
                       <strong>{endDate}</strong>
                     ) : (
@@ -171,36 +172,38 @@ export default function CancelSubscriptionPage() {
                 </li>
                 <li className="flex gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
-                  <span>
-                    You won&apos;t be charged again unless you start a new subscription or
-                    checkout.
-                  </span>
+                  <span>You won&apos;t be charged again.</span>
                 </li>
                 <li className="flex gap-2">
                   <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <span>
-                    Usage limits apply until that access date; they reset on your normal
-                    billing renewal schedule until then.
+                    After that date the monthly download allowance stops
+                    refilling. Files you already downloaded stay in your library.
                   </span>
                 </li>
               </>
             ) : (
-              <>
-                <li className="flex gap-2">
-                  <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                  <span>
-                    Cancelling this plan may <strong>end access immediately</strong> (no
-                    recurring billing on file).
-                  </span>
-                </li>
-              </>
+              <li className="flex gap-2">
+                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                <span>
+                  Cancelling may <strong>end downloads immediately</strong> (no
+                  recurring billing on file).
+                </span>
+              </li>
             )}
             <li className="flex gap-2">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
               <span>
-                You can resubscribe anytime from{" "}
+                Designing stays free, and physical prints can still be ordered
+                separately.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+              <span>
+                Resubscribe anytime from{" "}
                 <Link href="/app/billing" className="font-medium underline underline-offset-4">
-                  Billing & plans
+                  Billing
                 </Link>
                 .
               </span>
@@ -209,7 +212,7 @@ export default function CancelSubscriptionPage() {
 
           <div className="flex flex-col-reverse gap-3 border-t border-amber-200/80 pt-6 sm:flex-row sm:justify-end">
             <Button variant="outline" asChild disabled={submitting}>
-              <Link href="/app/billing">Keep my plan</Link>
+              <Link href="/app/billing">Keep my membership</Link>
             </Button>
             <Button
               variant="destructive"

@@ -60,9 +60,8 @@ Required variables:
 - `STRIPE_SECRET_KEY` - Stripe secret key
 - `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Stripe publishable key
-- `STRIPE_PRICE_STARTER` - Stripe Price ID for Starter ($10/mo recurring)
-- `STRIPE_PRICE_PRO` - Stripe Price ID for Pro ($20/mo recurring)
-- `STRIPE_PRICE_SINGLE_DOWNLOAD` - Stripe Price ID for the $9 one-time Single Download credit
+- `STRIPE_PRICE_MEMBERSHIP_MONTHLY` - Stripe Price ID for the membership at $10/month
+- `STRIPE_PRICE_MEMBERSHIP_ANNUAL` - Stripe Price ID for the membership at $100/year
 
 Physical fulfillment (Gelato):
 - `GELATO_API_KEY` - Gelato API key (server-only)
@@ -95,12 +94,12 @@ In your Supabase dashboard:
 
 ### 6. Stripe Configuration
 
-1. Create products & prices in Stripe Dashboard (or via `stripe products create`):
-   - Starter: $10/month recurring subscription
-   - Pro: $20/month recurring subscription
-   - Single Download: $9 one-time payment
-2. Copy the Price IDs to `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`,
-   and `STRIPE_PRICE_SINGLE_DOWNLOAD` in `.env.local`
+1. Create one product with two recurring prices (or run
+   `node --env-file=.env.local scripts/setup-stripe-live.mjs` against a test key):
+   - Membership monthly: $10/month
+   - Membership annual: $100/year
+2. Copy the Price IDs to `STRIPE_PRICE_MEMBERSHIP_MONTHLY` and
+   `STRIPE_PRICE_MEMBERSHIP_ANNUAL` in `.env.local`
 3. For local webhook testing:
    ```bash
    stripe listen --forward-to localhost:3000/api/stripe/webhook
@@ -197,19 +196,44 @@ The app will be available at `http://localhost:3000`.
 
 ## Plans & Quotas
 
-Pricing v2 (see `supabase/migrations/010_pricing_v2.sql`):
+Pricing v3 — one free tier and one paid membership
+(see `supabase/migrations/014_single_membership_plan.sql`):
 
-| Tier            | Price          | Previews   | Downloads          | Notes                                |
-|-----------------|----------------|------------|--------------------|--------------------------------------|
-| Free Preview    | $0             | Unlimited  | None               | Auto-granted on signup               |
-| Single Download | $9 one-time    | n/a        | 1 credit, never expires | Adds row to `download_credits`  |
-| Starter         | $10/month      | Unlimited  | 5 / month          | All themes + full editor + library   |
-| Pro             | $20/month      | Unlimited  | Unlimited          | Adds SVG export + commercial license |
-| Physical Poster | Live-quoted    | n/a        | n/a                | Pay-per-order via Gelato             |
+| Tier            | Price                    | Designing  | High-res downloads       |
+|-----------------|--------------------------|------------|--------------------------|
+| Free            | $0                       | Unlimited  | None                     |
+| Membership      | $10/month or $100/year   | Unlimited  | 20 per billing month     |
+| Physical poster | Live-quoted per order    | n/a        | Never uses the allowance |
 
-Single-download credits live in `public.download_credits` and are consumed
-atomically by the `create_job_with_quota_or_credit` RPC when a paid tier's
-monthly download quota is exhausted (or when a free user clicks Download).
+The full editor, every theme and every preview are free for everyone, signed in
+or not. Only high-resolution renders are metered.
+
+### How the allowance is enforced
+
+`public.download_ledger` is the source of truth — one row per reserved or
+consumed download. The previous release counted `poster_jobs` rows, which
+conflated physical print renders, failed jobs and re-renders with paid
+downloads.
+
+- **Reserving** happens inside `create_download_job`, which takes a per-user
+  advisory lock before counting, so concurrent requests cannot both slip past
+  the 20th download.
+- **Settling** happens from the worker via `settle_download_reservation`:
+  `consumed` on success, `released` on failure. Users never pay for a render
+  the platform lost.
+- **Free by design:** previews, physical print renders, failed jobs, duplicate
+  in-flight clicks (deduplicated by `config_hash`) and re-downloading a file
+  that already rendered.
+- **Self-healing:** `release_stale_download_reservations` hands back holds for
+  jobs that failed or stalled, and runs on the worker's recovery sweep as well
+  as before each new reservation.
+
+The billing window comes from Stripe's `current_period_start` /
+`current_period_end`, not a calendar month. Annual members get 20 downloads per
+*monthly sub-window* inside their yearly period rather than 240 up front.
+
+The `$9` single-download credit is retired. Existing `download_credits` rows are
+preserved and marked with `retired_at`; nothing is deleted.
 
 ## Caching
 

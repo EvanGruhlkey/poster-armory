@@ -83,10 +83,13 @@ function val(key, fallback = "") {
   );
 }
 
-/** Legacy env vars to remove from Vercel (pricing v1). */
+/** Legacy env vars to remove from Vercel (pricing v1 and v2 multi-tier). */
 const LEGACY_REMOVE = [
   "STRIPE_PRICE_BASIC",
   "STRIPE_PRICE_PRO_PLUS",
+  "STRIPE_PRICE_STARTER",
+  "STRIPE_PRICE_PRO",
+  "STRIPE_PRICE_SINGLE_DOWNLOAD",
 ];
 
 /** Vars the Next.js web app needs on Vercel (not worker-only). */
@@ -97,12 +100,8 @@ const VARS = {
   STRIPE_SECRET_KEY: val("STRIPE_SECRET_KEY"),
   STRIPE_WEBHOOK_SECRET: val("STRIPE_WEBHOOK_SECRET"),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: val("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"),
-  STRIPE_PRICE_STARTER: val("STRIPE_PRICE_STARTER", "price_1TkxyeAiWsddNgTsSXCVNh26"),
-  STRIPE_PRICE_PRO: val("STRIPE_PRICE_PRO", "price_1TkxyeAiWsddNgTszEwzGmY5"),
-  STRIPE_PRICE_SINGLE_DOWNLOAD: val(
-    "STRIPE_PRICE_SINGLE_DOWNLOAD",
-    "price_1TkxyjAiWsddNgTsov5tfUTy"
-  ),
+  STRIPE_PRICE_MEMBERSHIP_MONTHLY: val("STRIPE_PRICE_MEMBERSHIP_MONTHLY"),
+  STRIPE_PRICE_MEMBERSHIP_ANNUAL: val("STRIPE_PRICE_MEMBERSHIP_ANNUAL"),
   NEXT_PUBLIC_APP_URL: val("NEXT_PUBLIC_APP_URL", "https://posterarmory.com"),
   WORKER_CALLBACK_SECRET: val("WORKER_CALLBACK_SECRET"),
   GELATO_API_KEY: val("GELATO_API_KEY"),
