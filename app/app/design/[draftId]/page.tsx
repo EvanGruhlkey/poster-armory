@@ -35,6 +35,7 @@ import {
   type MapLayerPreset,
 } from "@/components/live-poster-map";
 import { DEFAULT_SIZE, getPlanTier, type PlanTier } from "@/lib/plan-config";
+import { useAuth } from "@/components/auth-provider";
 type EditorTool = "location" | "layers" | "type" | "style";
 
 const EDITOR_TOOLS = [
@@ -66,6 +67,7 @@ export default function CustomizePosterPage({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
 
   const city = searchParams.get("city") || "";
   const country = searchParams.get("country") || "";
@@ -73,9 +75,10 @@ export default function CustomizePosterPage({
   const lon = parseFloat(searchParams.get("lon") || "0");
 
   const [planTier, setPlanTier] = useState<PlanTier>("none");
+  const [planLoaded, setPlanLoaded] = useState(false);
   // Designing is free and instant. We only need auth/plan state when the
   // user asks for a high-resolution file or a physical print.
-  const [isGuest, setIsGuest] = useState(true);
+  const isGuest = !user;
 
   const [config, setConfig] = useState<PosterConfig>({
     ...DEFAULT_CONFIG,
@@ -162,30 +165,30 @@ export default function CustomizePosterPage({
 
   useEffect(() => {
     async function loadPlan() {
+      setPlanLoaded(false);
+      if (!user) {
+        setPlanTier("none");
+        setPlanLoaded(true);
+        return;
+      }
       try {
-        const { createClient } = await import("@/lib/supabase/client");
-        const supabase = createClient();
-        const { data } = await supabase.auth.getUser();
-        const signedIn = !!data.user;
-
-        // Guests can design freely, but downloads and orders require an account.
-        setIsGuest(!signedIn);
-
-        if (signedIn) {
-          const res = await fetch("/api/subscription");
-          if (res.ok) {
-            const subData = await res.json();
-            if (subData.active && subData.subscription?.plan_slug) {
-              setPlanTier(getPlanTier(subData.subscription.plan_slug));
-            }
+        const res = await fetch("/api/subscription");
+        if (res.ok) {
+          const subData = await res.json();
+          if (subData.active && subData.subscription?.plan_slug) {
+            setPlanTier(getPlanTier(subData.subscription.plan_slug));
+          } else {
+            setPlanTier("none");
           }
         }
       } catch {
-        setIsGuest(true);
+        setPlanTier("none");
+      } finally {
+        setPlanLoaded(true);
       }
     }
     loadPlan();
-  }, []);
+  }, [user]);
 
   const updateConfig = useCallback(
     (updates: Partial<PosterConfig>) => {
@@ -604,7 +607,10 @@ export default function CustomizePosterPage({
               variant="outline"
               size="lg"
               onClick={handleDownloadPoster}
-              disabled={generateLoading || (planTier === "none" && !isGuest)}
+              disabled={
+                generateLoading ||
+                (!isGuest && (!planLoaded || planTier === "none"))
+              }
             >
               {generateLoading ? (
                 <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
@@ -635,7 +641,7 @@ export default function CustomizePosterPage({
             </div>
           )}
 
-          {!isGuest && planTier === "free" && (
+          {!isGuest && planLoaded && planTier === "free" && (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
               Keep designing for free.{" "}
               <button
@@ -648,7 +654,7 @@ export default function CustomizePosterPage({
             </p>
           )}
 
-          {!isGuest && planTier === "none" && (
+          {!isGuest && planLoaded && planTier === "none" && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
               <p className="text-sm text-amber-900">Choose a plan to get started.</p>
               <Button
@@ -675,7 +681,10 @@ export default function CustomizePosterPage({
         <Button
           variant="outline"
           onClick={handleDownloadPoster}
-          disabled={generateLoading || (planTier === "none" && !isGuest)}
+          disabled={
+            generateLoading ||
+            (!isGuest && (!planLoaded || planTier === "none"))
+          }
           className="h-11 min-w-11 flex-1 px-3"
           aria-label={isGuest ? "Sign up to download" : "Download"}
         >

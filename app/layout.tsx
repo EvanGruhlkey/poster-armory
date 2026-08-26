@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { AuthProvider } from "@/components/auth-provider";
+import { createClient } from "@/lib/supabase/server";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -43,16 +45,28 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export const dynamic = "force-dynamic";
+
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  let initialUser = null;
+  try {
+    const { data } = await createClient().auth.getUser();
+    initialUser = data.user;
+  } catch {
+    // Keep public pages available if authentication is not configured.
+  }
+
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen bg-background font-sans antialiased">
-        {children}
-        <Toaster position="bottom-center" richColors />
+        <AuthProvider initialUser={initialUser}>
+          {children}
+          <Toaster position="bottom-center" richColors />
+        </AuthProvider>
       </body>
     </html>
   );
