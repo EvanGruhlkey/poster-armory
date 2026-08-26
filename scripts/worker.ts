@@ -107,6 +107,7 @@ interface PosterConfig {
   title: string;
   subtitle: string;
   date_line: string;
+  show_coordinates?: boolean;
   format: string;
   rotation?: number;
   offset_x?: number;
@@ -156,20 +157,16 @@ function runPythonCli(
       args.push("--country", config.country);
     }
 
-    if (config.title && config.title !== config.city) {
-      args.push("--display-city", config.title);
-    }
-    if (config.subtitle) {
-      args.push("--country-label", config.subtitle);
-    }
+    // Pass display copy even when blank so the renderer does not fall back to
+    // the geocoding city/country used to fetch the map.
+    args.push("--display-city", config.title || "");
+    args.push("--display-country", config.subtitle || "");
+    if (config.date_line) args.push("--date-line", config.date_line);
+    if (config.show_coordinates === false) args.push("--hide-coordinates");
 
     // --- Advanced map framing & overlays ---
     if (config.rotation) {
       args.push("--rotation", String(config.rotation));
-    }
-    // show_labels === false maps to the CLI's clean "--no-text" mode.
-    if (config.show_labels === false) {
-      args.push("--no-text");
     }
     if (config.offset_x) {
       args.push("--offset-x", String(config.offset_x));
