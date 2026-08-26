@@ -21,8 +21,12 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Loader2, Package, Truck } from "lucide-react";
 import { toast } from "sonner";
-import { ProtectedImage } from "@/components/protected-image";
-import { PHYSICAL_SIZES } from "@/lib/poster-products";
+import {
+  LivePosterMap,
+  type MapLayerPreset,
+} from "@/components/live-poster-map";
+import { getPhysicalSize, PHYSICAL_SIZES } from "@/lib/poster-products";
+import { STYLE_PRESETS, type PosterConfig } from "@/lib/types";
 
 const COUNTRIES = [
   { code: "US", name: "United States" },
@@ -43,16 +47,12 @@ const COUNTRIES = [
 ];
 
 interface OrderDraft {
-  config: Record<string, unknown> & {
-    orientation?: string;
-    city?: string;
-    country?: string;
-    title?: string;
-  };
-  previewUrl?: string | null;
+  config: PosterConfig;
   style?: { bgColor: string; textColor: string };
   city?: string;
   country?: string;
+  layerPreset?: MapLayerPreset;
+  pitch?: number;
 }
 
 interface Quote {
@@ -240,7 +240,16 @@ export default function OrderPage() {
     );
   }
 
-  const style = draft.style;
+  const style =
+    draft.style ||
+    STYLE_PRESETS[draft.config.style_id] ||
+    STYLE_PRESETS.warm_beige;
+  const physicalSize = getPhysicalSize(sizeKey);
+  const portraitAspect = physicalSize
+    ? physicalSize.inches.w / physicalSize.inches.h
+    : 3 / 4;
+  const previewAspect =
+    orientation === "landscape" ? 1 / portraitAspect : portraitAspect;
   const fmt = (n: number) =>
     `${quote?.currency || "USD"} ${n.toFixed(2)}`;
 
@@ -261,7 +270,7 @@ export default function OrderPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
           {/* Size & quantity */}
           <Card>
@@ -269,7 +278,7 @@ export default function OrderPage() {
               <CardTitle className="text-base">Size &amp; quantity</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="grid grid-cols-3 gap-2.5">
                 {PHYSICAL_SIZES.map((s) => (
                   <button
                     key={s.key}
@@ -407,32 +416,28 @@ export default function OrderPage() {
         </div>
 
         {/* Summary */}
-        <div className="lg:sticky lg:top-20 lg:self-start">
+        <div className="md:sticky md:top-20 md:self-start">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Order summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div
-                className="aspect-[3/4] overflow-hidden rounded-md"
-                style={{ backgroundColor: style?.bgColor || "#f5f0e8" }}
+                className="mx-auto w-full max-w-sm overflow-hidden rounded-md border lg:max-w-none"
+                style={{
+                  aspectRatio: previewAspect,
+                  backgroundColor: style.bgColor,
+                }}
               >
-                {draft.previewUrl ? (
-                  <ProtectedImage
-                    src={draft.previewUrl}
-                    alt="Poster preview"
-                    className="h-full w-full object-cover"
-                    containerClassName="h-full w-full"
-                    textColor={style?.textColor}
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Package
-                      className="h-10 w-10"
-                      style={{ color: `${style?.textColor || "#6b5b4f"}40` }}
-                    />
-                  </div>
-                )}
+                <LivePosterMap
+                  config={draft.config}
+                  bgColor={style.bgColor}
+                  textColor={style.textColor}
+                  layerPreset={draft.layerPreset || "everything"}
+                  pitch={draft.pitch || 0}
+                  interactive={false}
+                  showControls={false}
+                />
               </div>
 
               <div className="text-sm">

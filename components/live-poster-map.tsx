@@ -19,7 +19,9 @@ interface LivePosterMapProps {
   textColor: string;
   layerPreset: MapLayerPreset;
   pitch: number;
-  onViewChange: (updates: Partial<PosterConfig> & { pitch?: number }) => void;
+  onViewChange?: (updates: Partial<PosterConfig> & { pitch?: number }) => void;
+  interactive?: boolean;
+  showControls?: boolean;
 }
 
 const OPEN_FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
@@ -147,6 +149,8 @@ export function LivePosterMap({
   layerPreset,
   pitch,
   onViewChange,
+  interactive = true,
+  showControls = interactive,
 }: LivePosterMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -178,6 +182,7 @@ export function LivePosterMap({
         bearing: config.rotation,
         pitch,
         attributionControl: false,
+        interactive,
       });
 
       mapRef.current = map;
@@ -193,9 +198,9 @@ export function LivePosterMap({
         }
       };
       map.once("style.load", markReady);
-      map.once("load", markReady);
       map.on("error", () => setError(true));
       map.on("moveend", () => {
+        if (!onViewChangeRef.current) return;
         const center = map.getCenter();
         onViewChangeRef.current({
           lat: Number(center.lat.toFixed(6)),
@@ -288,20 +293,22 @@ export function LivePosterMap({
         </p>
       </div>
 
-      <div className="absolute right-2 top-2 flex flex-col overflow-hidden rounded-md border bg-background/90 shadow-sm backdrop-blur">
-        <button type="button" onClick={() => zoomBy(1)} className="grid h-8 w-8 place-items-center hover:bg-muted" aria-label="Zoom in">
-          <Plus className="h-4 w-4" />
-        </button>
-        <button type="button" onClick={() => zoomBy(-1)} className="grid h-8 w-8 place-items-center border-t hover:bg-muted" aria-label="Zoom out">
-          <Minus className="h-4 w-4" />
-        </button>
-        <button type="button" onClick={recenter} className="grid h-8 w-8 place-items-center border-t hover:bg-muted" aria-label="Recenter map">
-          <LocateFixed className="h-4 w-4" />
-        </button>
-        <button type="button" onClick={resetView} className="grid h-8 w-8 place-items-center border-t hover:bg-muted" aria-label="Reset map view">
-          <RotateCcw className="h-4 w-4" />
-        </button>
-      </div>
+      {showControls && (
+        <div className="absolute right-2 top-2 flex flex-col overflow-hidden rounded-md border bg-background/90 shadow-sm backdrop-blur">
+          <button type="button" onClick={() => zoomBy(1)} className="grid h-8 w-8 place-items-center hover:bg-muted" aria-label="Zoom in">
+            <Plus className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={() => zoomBy(-1)} className="grid h-8 w-8 place-items-center border-t hover:bg-muted" aria-label="Zoom out">
+            <Minus className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={recenter} className="grid h-8 w-8 place-items-center border-t hover:bg-muted" aria-label="Recenter map">
+            <LocateFixed className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={resetView} className="grid h-8 w-8 place-items-center border-t hover:bg-muted" aria-label="Reset map view">
+            <RotateCcw className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <div className="pointer-events-none absolute bottom-1.5 left-2 rounded bg-background/75 px-1.5 py-0.5 text-[8px] text-muted-foreground backdrop-blur">
         © OpenStreetMap · OpenFreeMap
