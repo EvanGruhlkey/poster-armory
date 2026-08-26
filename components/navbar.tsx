@@ -15,36 +15,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MapPin, LogOut, Library, CreditCard, Menu, X, Package } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { useEffect, useState } from "react";
-import type { User as SupaUser } from "@supabase/supabase-js";
+import { useAuth } from "@/components/auth-provider";
 
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<SupaUser | null>(null);
-  const [authLoaded, setAuthLoaded] = useState(false);
+  const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    let unsubscribe = () => {};
-    try {
-      const supabase = createClient();
-      supabase.auth.getUser().then(({ data }) => {
-        setUser(data.user);
-        setAuthLoaded(true);
-      }).catch(() => setAuthLoaded(true));
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user ?? null);
-        setAuthLoaded(true);
-      });
-      unsubscribe = () => subscription.unsubscribe();
-    } catch {
-      // Public design pages should still work when auth is unavailable.
-      setAuthLoaded(true);
-    }
-    return unsubscribe;
-  }, []);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -86,9 +63,7 @@ export function Navbar() {
             Pricing
           </Link>
 
-          {!authLoaded ? (
-            <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
-          ) : user ? (
+          {user ? (
             <>
               {isApp && (
                 <>
@@ -167,7 +142,7 @@ export function Navbar() {
 
         {/* Mobile: CTA + menu */}
         <div className="flex items-center gap-2 md:hidden">
-          {!authLoaded ? null : !user ? (
+          {!user ? (
             <Button asChild size="sm">
               <Link href="/login">Start</Link>
             </Button>
@@ -216,7 +191,7 @@ export function Navbar() {
                 </Link>
               </>
             )}
-            {!authLoaded ? null : user ? (
+            {user ? (
               <button
                 onClick={handleSignOut}
                 className="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
