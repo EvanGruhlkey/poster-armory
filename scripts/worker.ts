@@ -573,6 +573,16 @@ async function pollForJobs(): Promise<boolean> {
   }
 
   if (jobId) {
+    const { data: claimed } = await supabase
+      .from("poster_jobs")
+      .select("input")
+      .eq("id", jobId)
+      .single();
+    const engine = (claimed?.input as { render_engine?: string } | null)?.render_engine;
+    if (engine === "webgl") {
+      console.log(`  Skipping client-rendered job ${jobId}`);
+      return false;
+    }
     await processJob(jobId);
     return true;
   }

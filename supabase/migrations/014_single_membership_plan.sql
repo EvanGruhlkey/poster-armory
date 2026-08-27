@@ -223,7 +223,10 @@ BEGIN
     WHERE l.status = 'reserved'
       AND (p_user_id IS NULL OR l.user_id = p_user_id)
       AND (
-        j.status IN ('failed', 'cancelled')
+        -- Cast to text: job_status is ('queued','running','done','failed').
+        -- An enum IN-list would try to cast 'cancelled' and raise 22P02,
+        -- aborting every create_download_job call.
+        j.status::text IN ('failed', 'cancelled')
         OR (j.status <> 'done' AND l.created_at < now() - p_stall_timeout)
       )
   )

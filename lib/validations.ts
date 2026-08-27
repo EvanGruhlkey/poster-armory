@@ -51,6 +51,11 @@ export const posterConfigSchema = z.object({
   // Raw GPX XML embedded directly so the worker can materialize it to a temp
   // file. Capped to keep job payloads and the config hash reasonable.
   gpx_data: z.string().max(500_000).default(""),
+  layer_preset: z
+    .enum(["everything", "city", "nature", "minimal", "transit"])
+    .default("everything"),
+  pitch: z.number().min(0).max(85).default(0),
+  render_engine: z.enum(["webgl", "python"]).optional(),
 });
 
 export const createJobSchema = z.object({

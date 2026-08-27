@@ -35,7 +35,7 @@ export async function GET(
       const admin = createAdminClient();
       const { data: guestJob } = await admin
         .from("poster_jobs")
-        .select("id, status, output, error, created_at, is_preview, user_id")
+        .select("id, status, output, error, created_at, is_preview, user_id, input")
         .eq("id", params.id)
         .single();
 
@@ -54,10 +54,17 @@ export async function GET(
     if (limited) return limited;
 
     // Try own job first; else allow if user has a poster record (cached dedup)
-    let job: { id: string; status: string; output: unknown; error: string | null; created_at: string } | null = null;
+    let job: {
+      id: string;
+      status: string;
+      output: unknown;
+      error: string | null;
+      created_at: string;
+      input?: unknown;
+    } | null = null;
     const { data: ownJob } = await supabase
       .from("poster_jobs")
-      .select("id, status, output, error, created_at")
+      .select("id, status, output, error, created_at, input")
       .eq("id", params.id)
       .eq("user_id", user.id)
       .single();
@@ -77,7 +84,7 @@ export async function GET(
       if (posterLink) {
         const { data: linkedJob, error: linkedError } = await admin
           .from("poster_jobs")
-          .select("id, status, output, error, created_at")
+          .select("id, status, output, error, created_at, input")
           .eq("id", params.id)
           .single();
         if (!linkedError && linkedJob) job = linkedJob;
@@ -104,6 +111,7 @@ async function respondWithSignedUrls(job: {
   output: unknown;
   error: string | null;
   created_at: string;
+  input?: unknown;
 }) {
   let downloadUrls: Record<string, string> | null = null;
 
@@ -131,5 +139,6 @@ async function respondWithSignedUrls(job: {
     error: job.error,
     downloadUrls,
     created_at: job.created_at,
+    input: job.input ?? null,
   });
 }

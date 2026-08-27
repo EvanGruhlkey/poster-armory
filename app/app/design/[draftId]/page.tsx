@@ -234,6 +234,9 @@ export default function CustomizePosterPage({
         ...config,
         width: selectedSize.width,
         height: selectedSize.height,
+        layer_preset: layerPreset,
+        pitch,
+        render_engine: "webgl" as const,
       };
       const res = await fetch("/api/jobs", {
         method: "POST",
@@ -271,7 +274,7 @@ export default function CustomizePosterPage({
       } else if (cached) {
         toast.success("Picking up your in-flight render.");
       } else {
-        toast.success("Download started. Taking you to your files...");
+        toast.success("Preparing your files from the live map...");
         void refreshSubscription();
       }
 
@@ -359,7 +362,7 @@ export default function CustomizePosterPage({
         major_roads_only: true,
       },
     };
-    updateConfig(updates[preset]);
+    updateConfig({ ...updates[preset], layer_preset: preset });
   }
 
   const livePosterPanel = (

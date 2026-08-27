@@ -73,6 +73,12 @@ export interface PosterConfig {
   offset_y: number;
   markers: PosterMarker[];
   gpx_data: string;
+  /** Live MapLibre layer preset used by the editor and WebGL export. */
+  layer_preset?: "everything" | "city" | "nature" | "minimal" | "transit";
+  /** Camera pitch in degrees; only used by the live map / WebGL export. */
+  pitch?: number;
+  /** Digital downloads capture the live map; physical prints still use Python. */
+  render_engine?: "webgl" | "python";
 }
 
 export interface PosterJob {
@@ -223,4 +229,6 @@ export const DEFAULT_CONFIG: PosterConfig = {
   offset_y: 0,
   markers: [],
   gpx_data: "",
+  layer_preset: "everything",
+  pitch: 0,
 };

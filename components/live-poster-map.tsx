@@ -1,17 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { LocateFixed, Minus, Plus, RotateCcw } from "lucide-react";
-import { Map as MapLibre, setWorkerUrl } from "maplibre-gl";
+import { Map as MapLibre } from "maplibre-gl";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { PosterConfig } from "@/lib/types";
+import {
+  OPEN_FREE_MAP_STYLE,
+  applyPosterStyle,
+  distanceToZoom,
+  zoomToDistance,
+  type MapLayerPreset,
+} from "@/lib/live-poster-style";
 
-export type MapLayerPreset =
-  | "everything"
-  | "city"
-  | "nature"
-  | "minimal"
-  | "transit";
+export type { MapLayerPreset };
+
+export interface LivePosterMapHandle {
+  getCanvas: () => HTMLCanvasElement | null;
+  isReady: () => boolean;
+}
 
 interface LivePosterMapProps {
   config: PosterConfig;
@@ -22,139 +29,34 @@ interface LivePosterMapProps {
   onViewChange?: (updates: Partial<PosterConfig> & { pitch?: number }) => void;
   interactive?: boolean;
   showControls?: boolean;
+  onIdle?: () => void;
+  /**
+   * Render the canvas at this long edge in pixels rather than at the device
+   * pixel ratio, so the export is print resolution instead of an upscale.
+   */
+  captureLongEdge?: number;
 }
 
-const OPEN_FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function distanceToZoom(distance: number) {
-  return clamp(13 - Math.log2(Math.max(distance, 1000) / 2500), 3, 17);
-}
-
-function zoomToDistance(zoom: number) {
-  return clamp(Math.round(2500 * 2 ** (13 - zoom)), 1000, 50000);
-}
-
-function mixHex(background: string, foreground: string, amount: number) {
-  const parse = (color: string) => {
-    const normalized = color.replace("#", "");
-    return [0, 2, 4].map((index) => parseInt(normalized.slice(index, index + 2), 16));
-  };
-  const [br, bg, bb] = parse(background);
-  const [fr, fg, fb] = parse(foreground);
-  const channel = (a: number, b: number) =>
-    Math.round(a + (b - a) * amount)
-      .toString(16)
-      .padStart(2, "0");
-  return `#${channel(br, fr)}${channel(bg, fg)}${channel(bb, fb)}`;
-}
-
-function safeSetPaint(
-  map: MapLibreMap,
-  layerId: string,
-  property: string,
-  value: string | number
-) {
-  try {
-    const setPaint = map.setPaintProperty.bind(map) as (
-      id: string,
-      name: string,
-      nextValue: string | number
-    ) => void;
-    setPaint(layerId, property, value);
-  } catch {
-    // Upstream styles expose different paint properties by layer type.
-  }
-}
-
-function safeSetVisibility(map: MapLibreMap, layerId: string, visible: boolean) {
-  try {
-    map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
-  } catch {
-    // Ignore layers that do not support a visibility layout property.
-  }
-}
-
-function applyPosterStyle(
-  map: MapLibreMap,
-  bgColor: string,
-  textColor: string,
-  config: PosterConfig,
-  layerPreset: MapLayerPreset
-) {
-  const style = map.getStyle();
-  if (!style?.layers) return;
-
-  const waterColor = mixHex(bgColor, textColor, 0.12);
-  const parkColor = mixHex(bgColor, textColor, 0.08);
-  const secondaryColor = mixHex(bgColor, textColor, 0.34);
-  const preset = {
-    everything: { labels: true, water: true, parks: true, minorRoads: true },
-    city: { labels: true, water: true, parks: false, minorRoads: true },
-    nature: { labels: false, water: true, parks: true, minorRoads: false },
-    minimal: { labels: false, water: true, parks: false, minorRoads: false },
-    transit: { labels: true, water: true, parks: false, minorRoads: false },
-  }[layerPreset];
-
-  for (const layer of style.layers) {
-    const id = layer.id.toLowerCase();
-    const isWater = /water|ocean|lake|river/.test(id);
-    const isPark = /park|green|wood|forest|grass|landcover/.test(id);
-    const isMinorRoad = /minor|residential|service|path|track|foot|pedestrian/.test(id);
-    const isTransit = /rail|transit|subway|tram|ferry/.test(id);
-    const isLabel = layer.type === "symbol";
-
-    let visible = true;
-    if (isLabel && (!config.show_labels || !preset.labels)) visible = false;
-    if (isWater && (!config.show_water || !preset.water)) visible = false;
-    if (isPark && (!config.show_parks || !preset.parks)) visible = false;
-    if (isMinorRoad && (config.major_roads_only || !preset.minorRoads)) visible = false;
-    if (layerPreset === "transit" && layer.type === "line" && !isTransit && isMinorRoad) {
-      visible = false;
-    }
-    safeSetVisibility(map, layer.id, visible);
-
-    if (layer.type === "background") {
-      safeSetPaint(map, layer.id, "background-color", bgColor);
-    } else if (layer.type === "fill") {
-      safeSetPaint(
-        map,
-        layer.id,
-        "fill-color",
-        isWater ? waterColor : isPark ? parkColor : bgColor
-      );
-      safeSetPaint(map, layer.id, "fill-outline-color", secondaryColor);
-    } else if (layer.type === "line") {
-      safeSetPaint(map, layer.id, "line-color", isWater ? waterColor : textColor);
-      safeSetPaint(map, layer.id, "line-opacity", isMinorRoad ? 0.42 : 0.72);
-    } else if (layer.type === "symbol") {
-      safeSetPaint(map, layer.id, "text-color", textColor);
-      safeSetPaint(map, layer.id, "text-halo-color", bgColor);
-      safeSetPaint(map, layer.id, "text-halo-width", 1.2);
-      safeSetPaint(map, layer.id, "icon-color", textColor);
-    } else if (layer.type === "circle") {
-      safeSetPaint(map, layer.id, "circle-color", textColor);
-      safeSetPaint(map, layer.id, "circle-stroke-color", bgColor);
-    }
-  }
-}
-
-export function LivePosterMap({
-  config,
-  bgColor,
-  textColor,
-  layerPreset,
-  pitch,
-  onViewChange,
-  interactive = true,
-  showControls = interactive,
-}: LivePosterMapProps) {
+export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>(
+  function LivePosterMap(
+    {
+      config,
+      bgColor,
+      textColor,
+      layerPreset,
+      pitch,
+      onViewChange,
+      interactive = true,
+      showControls = interactive,
+      onIdle,
+      captureLongEdge,
+    },
+    ref
+  ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const onViewChangeRef = useRef(onViewChange);
+  const onIdleRef = useRef(onIdle);
   const initialViewRef = useRef({
     lat: config.lat,
     lon: config.lon,
@@ -165,51 +67,85 @@ export function LivePosterMap({
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      getCanvas: () => mapRef.current?.getCanvas() ?? null,
+      isReady: () => !!mapRef.current?.loaded(),
+    }),
+    []
+  );
+
   useEffect(() => {
     onViewChangeRef.current = onViewChange;
   }, [onViewChange]);
 
   useEffect(() => {
+    onIdleRef.current = onIdle;
+  }, [onIdle]);
+
+  useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     let disposed = false;
 
-    setWorkerUrl("/maplibre-gl-worker.mjs");
     const map = new MapLibre({
-        container: containerRef.current,
-        style: OPEN_FREE_MAP_STYLE,
-        center: [config.lon, config.lat],
-        zoom: distanceToZoom(config.distance),
-        bearing: config.rotation,
-        pitch,
-        attributionControl: false,
-        interactive,
-      });
+      container: containerRef.current,
+      style: OPEN_FREE_MAP_STYLE,
+      center: [config.lon, config.lat],
+      zoom: distanceToZoom(config.distance),
+      bearing: config.rotation,
+      pitch,
+      attributionControl: false,
+      interactive,
+      ...(captureLongEdge
+        ? { maxCanvasSize: [captureLongEdge, captureLongEdge] as [number, number] }
+        : {}),
+      // Required to read pixels back off the canvas for the poster export;
+      // MapLibre 5 clears the drawing buffer after each composite otherwise.
+      canvasContextAttributes: { preserveDrawingBuffer: true },
+    });
 
-      mapRef.current = map;
-      const markReady = () => {
-        if (disposed) return;
-        map.resize();
-        map.triggerRepaint();
-        setReady(true);
-        try {
-          applyPosterStyle(map, bgColor, textColor, config, layerPreset);
-        } catch {
-          // Keep the upstream map visible if a style does not accept a customization.
-        }
-      };
-      map.once("style.load", markReady);
-      map.on("error", () => setError(true));
-      map.on("moveend", () => {
-        if (!onViewChangeRef.current) return;
-        const center = map.getCenter();
-        onViewChangeRef.current({
-          lat: Number(center.lat.toFixed(6)),
-          lon: Number(center.lng.toFixed(6)),
-          distance: zoomToDistance(map.getZoom()),
-          rotation: Number(map.getBearing().toFixed(1)),
-          pitch: Number(map.getPitch().toFixed(1)),
-        });
+    mapRef.current = map;
+    let idleNotified = false;
+    const notifyIdle = () => {
+      if (disposed || idleNotified) return;
+      idleNotified = true;
+      onIdleRef.current?.();
+    };
+    const markReady = () => {
+      if (disposed) return;
+      map.resize();
+      setReady(true);
+      try {
+        applyPosterStyle(map, bgColor, textColor, config, layerPreset);
+      } catch {
+        // Keep the upstream map visible if a style does not accept a customization.
+      }
+      if (captureLongEdge && containerRef.current) {
+        const cssLongEdge = Math.max(
+          containerRef.current.clientWidth,
+          containerRef.current.clientHeight
+        );
+        if (cssLongEdge > 0) map.setPixelRatio(captureLongEdge / cssLongEdge);
+      }
+      map.triggerRepaint();
+      map.once("idle", notifyIdle);
+      // Only a safety net: capturing a half-drawn map is worse than waiting.
+      window.setTimeout(notifyIdle, captureLongEdge ? 25_000 : 1_500);
+    };
+    map.once("style.load", markReady);
+    map.on("error", () => setError(true));
+    map.on("moveend", () => {
+      if (!onViewChangeRef.current) return;
+      const center = map.getCenter();
+      onViewChangeRef.current({
+        lat: Number(center.lat.toFixed(6)),
+        lon: Number(center.lng.toFixed(6)),
+        distance: zoomToDistance(map.getZoom()),
+        rotation: Number(map.getBearing().toFixed(1)),
+        pitch: Number(map.getPitch().toFixed(1)),
       });
+    });
 
     return () => {
       disposed = true;
@@ -224,13 +160,33 @@ export function LivePosterMap({
     const map = mapRef.current;
     if (!map || !ready) return;
     applyPosterStyle(map, bgColor, textColor, config, layerPreset);
-  }, [bgColor, textColor, config.show_labels, config.show_water, config.show_parks, config.major_roads_only, layerPreset, ready]);
+  }, [
+    bgColor,
+    textColor,
+    config.show_labels,
+    config.show_water,
+    config.show_parks,
+    config.major_roads_only,
+    layerPreset,
+    ready,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
     map.jumpTo({ bearing: config.rotation, pitch });
   }, [config.rotation, pitch, ready]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || interactive) return;
+    map.jumpTo({
+      center: [config.lon, config.lat],
+      zoom: distanceToZoom(config.distance),
+      bearing: config.rotation,
+      pitch,
+    });
+  }, [config.lat, config.lon, config.distance, config.rotation, pitch, ready, interactive]);
 
   const zoomBy = useCallback((delta: number) => {
     const map = mapRef.current;
@@ -319,4 +275,4 @@ export function LivePosterMap({
       </div>
     </div>
   );
-}
+});
