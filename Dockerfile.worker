@@ -24,7 +24,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && rm -rf /var/lib/apt/lists/*
 
 # ── pnpm + tsx ────────────────────────────────────────────────────────────────
-RUN npm install -g pnpm tsx
+# Pin pnpm 9: v10+ blocks dependency build scripts unless allowlisted, which
+# broke esbuild (needed by tsx) with ERR_PNPM_IGNORED_BUILDS.
+RUN npm install -g pnpm@9.15.9 tsx
 
 WORKDIR /app
 
@@ -35,6 +37,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # ── Node dependencies ─────────────────────────────────────────────────────────
 COPY package.json pnpm-lock.yaml ./
+# package.json pnpm.onlyBuiltDependencies allowlists esbuild for pnpm 10+.
 RUN pnpm install --frozen-lockfile --prefer-offline
 
 # ── Application source ────────────────────────────────────────────────────────
