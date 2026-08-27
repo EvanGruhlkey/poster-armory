@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { LocateFixed, Minus, Plus, RotateCcw } from "lucide-react";
-import { Map as MapLibre } from "maplibre-gl";
+import { Map as MapLibre, setWorkerUrl } from "maplibre-gl";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { PosterConfig } from "@/lib/types";
 import {
@@ -88,6 +88,8 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     if (!containerRef.current || mapRef.current) return;
     let disposed = false;
 
+    // Served from /public by scripts/copy-maplibre-worker.mjs.
+    setWorkerUrl("/maplibre-gl-worker.mjs");
     const map = new MapLibre({
       container: containerRef.current,
       style: OPEN_FREE_MAP_STYLE,

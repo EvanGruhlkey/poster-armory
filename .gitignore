@@ -38,6 +38,10 @@ htmlcov/
 .next/
 out/
 
+# Copied from node_modules by scripts/copy-maplibre-worker.mjs
+public/maplibre-gl-worker.mjs
+public/maplibre-gl-shared.mjs
+
 # Node
 node_modules/
 *.tsbuildinfo
