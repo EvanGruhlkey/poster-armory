@@ -7,6 +7,7 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import type { PosterConfig } from "@/lib/types";
 import { getPosterMapStyle } from "@/lib/poster-renderer/adapter";
 import { zoomForExportWidth } from "@/lib/poster-renderer/export";
+import { resolvePosterTypography } from "@/lib/poster-typography";
 import {
   distanceToZoom,
   zoomToDistance,
@@ -219,10 +220,15 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
 
   const posterTitle = config.title.trim() || config.city;
   const posterSubtitle = config.subtitle.trim() || config.country;
+  const typography = resolvePosterTypography(config);
 
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor, color: textColor, containerType: "inline-size" }}>
-      <div className="absolute inset-x-[6%] bottom-[23%] top-[5%] overflow-hidden border" style={{ borderColor: `${textColor}33` }}>
+      <div className="absolute inset-x-[6%] bottom-[23%] top-[5%] overflow-hidden" style={{
+        boxShadow: typography.frameStyle === "none" ? "none" : typography.frameStyle === "double"
+          ? `inset 0 0 0 0.1cqw ${textColor}55, inset 0 0 0 0.7cqw ${bgColor}, inset 0 0 0 0.8cqw ${textColor}55`
+          : `inset 0 0 0 0.1cqw ${textColor}55`,
+      }}>
       <div ref={containerRef} className="absolute inset-0" />
 
       {!ready && !error && (
@@ -263,7 +269,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       </div>
 
       <div className="pointer-events-none absolute inset-x-[6%] bottom-[4%] top-[79%] flex flex-col items-center justify-center text-center">
-        <p className="max-w-full truncate font-semibold uppercase" style={{ fontSize: "5cqw", letterSpacing: "0.7cqw" }}>{posterTitle}</p>
+        <p className="max-w-full truncate uppercase" style={{ fontFamily: `"${typography.titleFont}", sans-serif`, fontWeight: typography.titleWeight, fontSize: `${typography.titleSize}cqw`, letterSpacing: `${typography.titleTracking}em` }}>{posterTitle}</p>
         {posterSubtitle && <p className="mt-1 max-w-full truncate uppercase opacity-75" style={{ fontSize: "2.4cqw", letterSpacing: "0.5cqw" }}>{posterSubtitle}</p>}
         {config.date_line && <p className="mt-1 max-w-full truncate uppercase opacity-70" style={{ fontSize: "1.9cqw", letterSpacing: "0.7cqw" }}>{config.date_line}</p>}
         {config.show_coordinates && (

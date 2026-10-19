@@ -3,6 +3,8 @@ import { STYLE_PRESETS } from "@/lib/types";
 import { jpegToPdf } from "@/lib/jpeg-pdf";
 import { getPosterPalette } from "@/lib/poster-renderer/adapter";
 import { getPosterMapDimensions, renderPosterMapCanvas } from "@/lib/poster-renderer/export";
+import { getPosterFrameStrokes } from "@/lib/poster-frame";
+import { resolvePosterTypography } from "@/lib/poster-typography";
 
 /** Long edge of a high-resolution digital poster, in pixels. */
 export const EXPORT_LONG_EDGE = 4800;
@@ -47,18 +49,20 @@ function drawPosterCopy(
   ctx.textBaseline = "middle";
 
   const cx = width / 2;
-  const titleSize = Math.round(width * 0.05);
+  const typography = resolvePosterTypography(config);
+  const titleSize = Math.round(width * typography.titleSize / 100);
   const subSize = Math.round(width * 0.024);
   const metaSize = Math.round(width * 0.019);
-  const lines: Array<{ text: string; size: number; tracking: number; weight: string }> =
+  const lines: Array<{ text: string; size: number; tracking: number; weight: string; font: string }> =
     [];
 
   if (config.title?.trim() || config.city) {
     lines.push({
       text: (config.title.trim() || config.city).toUpperCase(),
       size: titleSize,
-      tracking: width * 0.007,
-      weight: "600",
+      tracking: titleSize * typography.titleTracking,
+      weight: String(typography.titleWeight),
+      font: typography.titleFont,
     });
   }
   if (config.subtitle?.trim() || config.country) {
@@ -67,6 +71,7 @@ function drawPosterCopy(
       size: subSize,
       tracking: width * 0.005,
       weight: "500",
+      font: "Inter",
     });
   }
   if (config.date_line?.trim()) {
@@ -75,6 +80,7 @@ function drawPosterCopy(
       size: metaSize,
       tracking: width * 0.007,
       weight: "500",
+      font: "Inter",
     });
   }
   if (config.show_coordinates) {
@@ -85,6 +91,7 @@ function drawPosterCopy(
       size: metaSize,
       tracking: width * 0.006,
       weight: "500",
+      font: "Inter",
     });
   }
 
@@ -93,7 +100,7 @@ function drawPosterCopy(
   let y = height * 0.875 - block / 2;
 
   for (const line of lines) {
-    ctx.font = `${line.weight} ${line.size}px Inter, ui-sans-serif, system-ui, sans-serif`;
+    ctx.font = `${line.weight} ${line.size}px "${line.font}", sans-serif`;
     if ("letterSpacing" in ctx) {
       (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
         `${Math.round(line.tracking)}px`;
@@ -146,6 +153,9 @@ export async function composeLivePosterFiles(
 }
 
 export async function renderPosterPNG(config: PosterConfig, width: number, height: number): Promise<Blob> {
+  const typography = resolvePosterTypography(config);
+  await document.fonts?.load(`${typography.titleWeight} 24px "${typography.titleFont}"`).catch(() => undefined);
+  await document.fonts?.load('500 24px "Inter"').catch(() => undefined);
   const out = document.createElement("canvas");
   out.width = width;
   out.height = height;
@@ -159,9 +169,11 @@ export async function renderPosterPNG(config: PosterConfig, width: number, heigh
   const printMap = await renderPosterMapCanvas(config, mapWidth, mapHeight);
   ctx.drawImage(printMap, mapX, mapY);
   const textColor = getPosterPalette(config).text;
-  ctx.strokeStyle = `${textColor}33`;
-  ctx.lineWidth = Math.max(1, width * 0.001);
-  ctx.strokeRect(mapX, mapY, mapWidth, mapHeight);
+  ctx.strokeStyle = `${textColor}55`;
+  for (const stroke of getPosterFrameStrokes(typography.frameStyle, width, height)) {
+    ctx.lineWidth = stroke.lineWidth;
+    ctx.strokeRect(stroke.x, stroke.y, stroke.width, stroke.height);
+  }
   drawPosterCopy(ctx, width, height, config, textColor);
 
   return canvasToBlob(out, "image/png");
