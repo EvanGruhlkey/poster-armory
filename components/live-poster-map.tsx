@@ -5,9 +5,8 @@ import { LocateFixed, Minus, Plus, RotateCcw } from "lucide-react";
 import { Map as MapLibre, setWorkerUrl } from "maplibre-gl";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { PosterConfig } from "@/lib/types";
+import { getPosterMapStyle } from "@/lib/poster-renderer/adapter";
 import {
-  OPEN_FREE_MAP_STYLE,
-  applyPosterStyle,
   distanceToZoom,
   zoomToDistance,
   type MapLayerPreset,
@@ -92,7 +91,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     setWorkerUrl("/maplibre-gl-worker.mjs");
     const map = new MapLibre({
       container: containerRef.current,
-      style: OPEN_FREE_MAP_STYLE,
+      style: getPosterMapStyle(config),
       center: [config.lon, config.lat],
       zoom: distanceToZoom(config.distance),
       bearing: config.rotation,
@@ -118,11 +117,6 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       if (disposed) return;
       map.resize();
       setReady(true);
-      try {
-        applyPosterStyle(map, bgColor, textColor, config, layerPreset);
-      } catch {
-        // Keep the upstream map visible if a style does not accept a customization.
-      }
       if (captureLongEdge && containerRef.current) {
         const cssLongEdge = Math.max(
           containerRef.current.clientWidth,
@@ -161,15 +155,12 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    applyPosterStyle(map, bgColor, textColor, config, layerPreset);
+    map.setStyle(getPosterMapStyle(config));
   }, [
-    bgColor,
-    textColor,
+    config.style_id,
     config.show_labels,
     config.show_water,
     config.show_parks,
-    config.major_roads_only,
-    layerPreset,
     ready,
   ]);
 
@@ -211,8 +202,12 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     mapRef.current?.easeTo({ center: [config.lon, config.lat], duration: 350 });
   }, [config.lat, config.lon]);
 
+  const posterTitle = config.title.trim() || config.city;
+  const posterSubtitle = config.subtitle.trim() || config.country;
+
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor }}>
+    <div className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor, color: textColor }}>
+      <div className="absolute inset-x-[6%] bottom-[23%] top-[5%] overflow-hidden border" style={{ borderColor: `${textColor}33` }}>
       <div ref={containerRef} className="absolute inset-0" />
 
       {!ready && !error && (
@@ -229,31 +224,6 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
           <p className="text-xs">The live map could not load. Try refreshing—the design settings are safe.</p>
         </div>
       )}
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-6 bottom-7 text-center text-white drop-shadow-md sm:inset-x-8 sm:bottom-9">
-        {config.title && (
-          <p className="text-base font-bold tracking-[0.2em] sm:text-xl">
-            {config.title.toUpperCase()}
-          </p>
-        )}
-        {config.subtitle && (
-          <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.16em] opacity-90 sm:text-xs">
-            {config.subtitle}
-          </p>
-        )}
-        {config.date_line && (
-          <p className="mt-1 text-[9px] font-medium uppercase tracking-[0.14em] opacity-80">
-            {config.date_line}
-          </p>
-        )}
-        {config.show_coordinates && (
-          <p className="mt-1.5 text-[9px] tracking-[0.12em] opacity-75">
-            {Math.abs(config.lat).toFixed(4)}° {config.lat >= 0 ? "N" : "S"} ·{" "}
-            {Math.abs(config.lon).toFixed(4)}° {config.lon >= 0 ? "E" : "W"}
-          </p>
-        )}
-      </div>
 
       {showControls && (
         <div className="absolute right-2 top-2 flex flex-col overflow-hidden rounded-md border bg-background/90 shadow-sm backdrop-blur">
@@ -272,8 +242,21 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
         </div>
       )}
 
-      <div className="pointer-events-none absolute bottom-1 left-1 text-[5px] font-medium leading-none text-white/30 mix-blend-difference">
+      <div className="pointer-events-none absolute bottom-1 left-1 right-1 w-fit max-w-[98%] px-1 py-0.5 text-[7px] font-medium leading-tight text-white/60 mix-blend-difference">
         © OpenStreetMap contributors · OpenFreeMap
+      </div>
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-[6%] bottom-[4%] top-[79%] flex flex-col items-center justify-center text-center">
+        <p className="max-w-full truncate text-base font-semibold uppercase tracking-[0.15em] sm:text-xl">{posterTitle}</p>
+        {posterSubtitle && <p className="mt-1 max-w-full truncate text-[10px] uppercase tracking-[0.16em] opacity-75 sm:text-xs">{posterSubtitle}</p>}
+        {config.date_line && <p className="mt-1 max-w-full truncate text-[9px] uppercase tracking-[0.12em] opacity-70">{config.date_line}</p>}
+        {config.show_coordinates && (
+          <p className="mt-1 text-[9px] tracking-[0.1em] opacity-65">
+            {Math.abs(config.lat).toFixed(4)}° {config.lat >= 0 ? "N" : "S"} ·{" "}
+            {Math.abs(config.lon).toFixed(4)}° {config.lon >= 0 ? "E" : "W"}
+          </p>
+        )}
       </div>
     </div>
   );

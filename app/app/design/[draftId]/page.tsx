@@ -23,6 +23,7 @@ import {
   Rotate3D,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getPosterPalette } from "@/lib/poster-renderer/adapter";
 import {
   STYLE_PRESETS,
   POSTER_SIZES,
@@ -45,16 +46,8 @@ type EditorTool = "location" | "layers" | "type" | "style";
 const EDITOR_TOOLS = [
   { id: "location" as const, label: "Location", icon: Map },
   { id: "layers" as const, label: "Layers", icon: Layers3 },
-  { id: "type" as const, label: "Words", icon: Type },
-  { id: "style" as const, label: "Style", icon: Palette },
-];
-
-const LAYER_PRESETS: Array<{ id: MapLayerPreset; label: string }> = [
-  { id: "everything", label: "Everything" },
-  { id: "city", label: "City life" },
-  { id: "nature", label: "Nature" },
-  { id: "minimal", label: "Minimal" },
-  { id: "transit", label: "Transit" },
+  { id: "type" as const, label: "Text", icon: Type },
+  { id: "style" as const, label: "Colors", icon: Palette },
 ];
 
 interface SavedDesignState {
@@ -97,17 +90,17 @@ export default function CustomizePosterPage({
     date_line: "",
     show_coordinates: false,
     style_id: "warm_beige",
-    distance: 10000,
-    show_labels: true,
+    distance: 1500,
+    show_labels: false,
     show_water: true,
-    show_parks: true,
+    show_parks: false,
   });
 
   const [selectedSize, setSelectedSize] = useState(DEFAULT_SIZE);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [activeTool, setActiveTool] = useState<EditorTool>("location");
   const [layerPreset, setLayerPreset] =
-    useState<MapLayerPreset>("everything");
+    useState<MapLayerPreset>("minimal");
   const [pitch, setPitch] = useState(0);
   const [draftHydrated, setDraftHydrated] = useState(false);
 
@@ -304,6 +297,8 @@ export default function CustomizePosterPage({
       ...config,
       width: selectedSize.width,
       height: selectedSize.height,
+      pitch,
+      layer_preset: layerPreset,
     };
     try {
       sessionStorage.setItem(
@@ -326,50 +321,14 @@ export default function CustomizePosterPage({
     router.push("/app/order");
   }
 
-  const currentStyle = STYLE_PRESETS[config.style_id] || STYLE_PRESETS.warm_beige;
-
-  function chooseLayerPreset(preset: MapLayerPreset) {
-    setLayerPreset(preset);
-    const updates: Record<MapLayerPreset, Partial<PosterConfig>> = {
-      everything: {
-        show_labels: true,
-        show_water: true,
-        show_parks: true,
-        major_roads_only: false,
-      },
-      city: {
-        show_labels: true,
-        show_water: true,
-        show_parks: false,
-        major_roads_only: false,
-      },
-      nature: {
-        show_labels: false,
-        show_water: true,
-        show_parks: true,
-        major_roads_only: true,
-      },
-      minimal: {
-        show_labels: false,
-        show_water: true,
-        show_parks: false,
-        major_roads_only: true,
-      },
-      transit: {
-        show_labels: true,
-        show_water: true,
-        show_parks: false,
-        major_roads_only: true,
-      },
-    };
-    updateConfig({ ...updates[preset], layer_preset: preset });
-  }
+  const posterPalette = getPosterPalette(config);
+  const currentStyle = { bgColor: posterPalette.background, textColor: posterPalette.text };
 
   const livePosterPanel = (
     <Card className="overflow-hidden">
       <div
-        className="aspect-[3/4] flex items-center justify-center"
-        style={{ backgroundColor: currentStyle.bgColor }}
+        className="flex items-center justify-center"
+        style={{ backgroundColor: currentStyle.bgColor, aspectRatio: `${selectedSize.width} / ${selectedSize.height}` }}
       >
         <LivePosterMap
           config={config}
@@ -389,8 +348,9 @@ export default function CustomizePosterPage({
   return (
     <div className="mx-auto max-w-6xl px-4 py-5 pb-32 sm:px-6 sm:py-8 sm:pb-8 lg:px-8">
       <div className="mb-5 sm:mb-8">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step 2 of 2</p>
         <h1 className="text-xl font-bold sm:text-2xl lg:text-3xl">
-          Customize poster
+          Customize your poster
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {city}
@@ -402,20 +362,21 @@ export default function CustomizePosterPage({
         {/* Controls */}
         <div className="order-2 space-y-4 lg:order-1">
           <Card className="overflow-hidden">
-            <div className="grid grid-cols-[76px_1fr] sm:grid-cols-[92px_1fr]">
-              <nav className="space-y-1 border-r bg-muted/20 p-2" aria-label="Editor tools">
+            <div>
+              <nav className="grid grid-cols-4 gap-1 border-b bg-muted/20 p-2" aria-label="Editor tools">
                 {EDITOR_TOOLS.map((tool) => (
                   <button
                     key={tool.id}
                     type="button"
                     onClick={() => setActiveTool(tool.id)}
-                    className={`flex w-full flex-col items-center gap-1 rounded-md px-1 py-2 text-[10px] font-medium transition-colors sm:text-xs ${
+                    aria-pressed={activeTool === tool.id}
+                    className={`flex w-full items-center justify-center gap-1.5 rounded-md px-1 py-2.5 text-xs font-medium transition-colors ${
                       activeTool === tool.id
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
-                    <tool.icon className="h-4 w-4" aria-hidden="true" />
+                    <tool.icon className="hidden h-4 w-4 sm:block" aria-hidden="true" />
                     {tool.label}
                   </button>
                 ))}
@@ -426,9 +387,7 @@ export default function CustomizePosterPage({
                   <div className="space-y-4">
                     <div>
                       <h2 className="text-sm font-semibold">Frame your map</h2>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        Drag the live map to reposition it. Use the controls on the poster to zoom.
-                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Drag the preview to move the map. Zoom on the preview.</p>
                     </div>
                     <div className="rounded-lg bg-muted/50 p-3 text-xs">
                       <p className="text-muted-foreground">Center</p>
@@ -454,7 +413,7 @@ export default function CustomizePosterPage({
                         </div>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="font-medium">Tilt</span>
+                            <span className="font-medium">3D angle</span>
                             <span className="tabular-nums text-muted-foreground">{Math.round(pitch)}°</span>
                           </div>
                           <Slider value={[pitch]} onValueChange={([value]) => setPitch(value)} min={0} max={60} step={1} />
@@ -465,27 +424,7 @@ export default function CustomizePosterPage({
 
                 {activeTool === "layers" && (
                   <div className="space-y-4">
-                    <div>
-                      <h2 className="text-sm font-semibold">Map layers</h2>
-                      <p className="mt-1 text-xs text-muted-foreground">Start with a preset, then fine-tune the details.</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {LAYER_PRESETS.map((preset) => (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() => chooseLayerPreset(preset.id)}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                            layerPreset === preset.id
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "hover:bg-muted"
-                          }`}
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="space-y-3 border-t pt-4">
+                    <div className="space-y-3">
                         {[
                           ["show_labels", "Map labels", config.show_labels],
                           ["show_water", "Water", config.show_water],
@@ -510,13 +449,12 @@ export default function CustomizePosterPage({
                 {activeTool === "type" && (
                   <div className="space-y-4">
                     <div>
-                      <h2 className="text-sm font-semibold">Poster words</h2>
-                      <p className="mt-1 text-xs text-muted-foreground">Changes appear instantly on the live poster.</p>
+                      <h2 className="text-sm font-semibold">Poster text</h2>
                     </div>
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="live-title" className="text-xs">Title</Label>
-                        <Input id="live-title" value={config.title} onChange={(event) => updateConfig({ title: event.target.value })} />
+                        <Input id="live-title" placeholder={config.city} value={config.title} onChange={(event) => updateConfig({ title: event.target.value })} />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="live-subtitle" className="text-xs">Subtitle or dedication</Label>
@@ -544,8 +482,7 @@ export default function CustomizePosterPage({
                 {activeTool === "style" && (
                   <div className="space-y-4">
                     <div>
-                      <h2 className="text-sm font-semibold">Poster style</h2>
-                      <p className="mt-1 text-xs text-muted-foreground">Choose a palette and watch the WebGL map redraw.</p>
+                      <h2 className="text-sm font-semibold">Colors</h2>
                     </div>
                     <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                       {Object.entries(STYLE_PRESETS).map(([id, preset]) => (
@@ -560,7 +497,7 @@ export default function CustomizePosterPage({
                               <span className="mx-auto mb-1 block h-7 w-7 rounded" style={{ backgroundColor: preset.bgColor }} />
                               <span className="block truncate text-[10px] font-medium">{preset.name}</span>
                             </button>
-                          ))}
+                      ))}
                     </div>
                   </div>
                 )}
@@ -571,11 +508,9 @@ export default function CustomizePosterPage({
           <Card>
             <CardContent className="space-y-4 p-4 sm:p-5">
               <div>
-                <h2 className="text-sm font-semibold">Choose your output</h2>
+                <h2 className="text-sm font-semibold">Poster size</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Designing is free. High-resolution downloads need the
-                  ${MEMBERSHIP_PRICE_MONTHLY_USD}/month membership; physical
-                  prints are sold separately.
+                  Choose a size before ordering or downloading.
                 </p>
               </div>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
@@ -701,7 +636,7 @@ export default function CustomizePosterPage({
           variant="outline"
           onClick={handleDownloadPoster}
           disabled={generateLoading || outOfDownloads}
-          className="h-11 min-w-11 flex-1 px-3"
+          className="h-11 min-w-0 flex-1 gap-1.5 px-2 text-xs"
           aria-label={
             isGuest
               ? "Sign up to download"
@@ -717,11 +652,12 @@ export default function CustomizePosterPage({
           ) : (
             <Download className="h-5 w-5 shrink-0" />
           )}
+          Download
         </Button>
         <Button
           onClick={handleOrderPhysical}
           disabled={!config.city}
-          className="h-11 min-w-0 flex-1 gap-2"
+          className="h-11 min-w-0 flex-1 gap-1.5 px-2 text-xs"
           aria-label={isGuest ? "Sign up to order a print" : "Order a print"}
         >
           {isGuest ? (
@@ -729,7 +665,7 @@ export default function CustomizePosterPage({
           ) : (
             <Package className="h-5 w-5 shrink-0" />
           )}
-          {isGuest ? "Sign Up" : "Order"}
+          Order print
         </Button>
       </div>
     </div>

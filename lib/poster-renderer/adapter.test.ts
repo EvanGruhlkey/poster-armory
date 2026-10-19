@@ -31,3 +31,9 @@ test("maps a saved design into a renderable style without losing location or cop
 test("unknown old style falls back to an available poster style", () => {
   assert.ok(toRendererConfig({ ...saved, style_id: "unknown" }).style.mapStyle.layers.length > 10);
 });
+
+test("chosen palette recolors the imported road hierarchy", () => {
+  const motorway = getPosterMapStyle(saved).layers.find((layer) => layer.id === "road-motorway");
+  assert.equal(motorway?.type, "line");
+  if (motorway?.type === "line") assert.equal(motorway.paint?.["line-color"], "#0F2840");
+});

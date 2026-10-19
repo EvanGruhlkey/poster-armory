@@ -26,6 +26,25 @@ function selectPalette(style: PosterStyle, config: PosterConfig): ColorPalette {
   return style.palettes.find((palette) => palette.id === preferred[config.style_id]) ?? style.defaultPalette;
 }
 
+function recolorStyle(mapStyle: StyleSpecification, from: ColorPalette, to: ColorPalette) {
+  const colors = new Map<string, string>();
+  for (const key of ["background", "text", "border", "water", "waterLine", "greenSpace", "landuse", "buildings", "accent", "contour", "hillshade"] as const) {
+    if (from[key] && to[key]) colors.set(from[key]!.toLowerCase(), to[key]!);
+  }
+  for (const key of ["motorway", "trunk", "primary", "secondary", "tertiary", "residential", "service", "railroad"] as const) {
+    if (from.roads[key] && to.roads[key]) colors.set(from.roads[key]!.toLowerCase(), to.roads[key]!);
+  }
+  const replace = (value: unknown): unknown => {
+    if (typeof value === "string") return colors.get(value.toLowerCase()) ?? value;
+    if (Array.isArray(value)) return value.map(replace);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, replace(child)]));
+    return value;
+  };
+  for (const layer of mapStyle.layers) {
+    if ("paint" in layer && layer.paint) layer.paint = replace(layer.paint) as typeof layer.paint;
+  }
+}
+
 export function getPosterPalette(config: PosterConfig): ColorPalette {
   return selectPalette(selectStyle(config), config);
 }
@@ -34,6 +53,7 @@ export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
   const style = selectStyle(config);
   const palette = selectPalette(style, config);
   const mapStyle = structuredClone(style.mapStyle) as StyleSpecification;
+  recolorStyle(mapStyle, style.defaultPalette, palette);
   mapStyle.sources = { ...mapStyle.sources };
   // These optional sources require upstream-only routes or protocols.
   delete mapStyle.sources.contours;
