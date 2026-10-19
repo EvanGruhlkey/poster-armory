@@ -6,7 +6,7 @@ Replace Poster Armory's poster artwork with CartoArt-derived rendering code whil
 
 ## Source and license
 
-Copy only the CartoArt modules needed for map styling, palettes, terrain, typography, and high-resolution export from `kkingsbe/carto-art`, recording the exact upstream commit. Preserve copyright and AGPL notices, include the upstream license, and provide the corresponding source for deployed modified code as required by the AGPL. A separate permission from the rights holder can supersede these terms only when its scope and conditions are clear; this implementation assumes the repository's published license.
+Copy only the modules needed for map styling, palettes, terrain, typography, and high-resolution export from the user-provided CartoArt source, recording the exact source version. The user supplied an additional MIT grant for this code with `Copyright (c) 2026 Kyle Kingsberry`. Include that copyright and the full MIT permission notice in copies or substantial portions, as the grant requires. Check imported modules for third-party code not covered by this grant. Do not put CartoArt branding in the app UI.
 
 ## Design
 
@@ -21,7 +21,7 @@ Copy only the CartoArt modules needed for map styling, palettes, terrain, typogr
 - CartoArt's dependencies and tile endpoints may differ from Poster Armory's. Pin compatible versions and check tile usage terms and attribution before release.
 - Large print sizes can exceed GPU texture limits or worker memory. Use the imported tiled export path where needed and test the largest offered size.
 - Saved designs must continue to load; test old config mapping, preview/download/print parity, and a physical-order job without changing checkout behavior.
-- Do not deploy copied code without the required license notice and source-access path.
+- Do not deploy copied code without the supplied MIT copyright and permission notice. Confirm that every imported file falls within the grant and that any third-party components retain their own required notices.
 
 ## Out of scope
 
