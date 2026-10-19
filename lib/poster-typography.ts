@@ -16,6 +16,10 @@ export const POSTER_TYPOGRAPHY_PRESETS: Record<TypographyPreset, Omit<ResolvedPo
   modern: { titleFont: "Oswald", titleSize: 5.5, titleTracking: 0.12, frameStyle: "none", titleWeight: 600 },
 };
 
+export function fitTitleScale(textWidth: number, maxWidth: number): number {
+  return textWidth > 0 ? Math.min(1, maxWidth / textWidth) : 1;
+}
+
 export function resolvePosterTypography(config: PosterConfig): ResolvedPosterTypography {
   const preset = config.typography_preset ?? "gallery";
   const base = POSTER_TYPOGRAPHY_PRESETS[preset === "custom" ? "gallery" : preset];

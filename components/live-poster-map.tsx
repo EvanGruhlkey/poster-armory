@@ -7,7 +7,7 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 import type { PosterConfig } from "@/lib/types";
 import { getPosterMapStyle } from "@/lib/poster-renderer/adapter";
 import { zoomForExportWidth } from "@/lib/poster-renderer/export";
-import { resolvePosterTypography } from "@/lib/poster-typography";
+import { fitTitleScale, resolvePosterTypography } from "@/lib/poster-typography";
 import {
   distanceToZoom,
   zoomToDistance,
@@ -67,6 +67,9 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   });
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
+  const titleBoxRef = useRef<HTMLDivElement | null>(null);
+  const titleTextRef = useRef<HTMLSpanElement | null>(null);
+  const [titleScale, setTitleScale] = useState(1);
   const viewportWidth = () => containerRef.current?.clientWidth || 330;
   const previewZoom = (distance: number) => zoomForExportWidth(distanceToZoom(distance), viewportWidth());
   const previewDistance = (zoom: number) => zoomToDistance(zoom - Math.log2(viewportWidth() / 330));
@@ -222,6 +225,19 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   const posterSubtitle = config.subtitle.trim() || config.country;
   const typography = resolvePosterTypography(config);
 
+  useEffect(() => {
+    const box = titleBoxRef.current;
+    const title = titleTextRef.current;
+    if (!box || !title) return;
+    const measure = () => setTitleScale(fitTitleScale(title.offsetWidth, box.clientWidth));
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    observer.observe(title);
+    void document.fonts?.ready.then(measure);
+    measure();
+    return () => observer.disconnect();
+  }, [posterTitle, typography.titleFont, typography.titleSize, typography.titleTracking]);
+
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor, color: textColor, containerType: "inline-size" }}>
       <div className="absolute inset-x-[6%] bottom-[23%] top-[5%] overflow-hidden" style={{
@@ -269,7 +285,9 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       </div>
 
       <div className="pointer-events-none absolute inset-x-[6%] bottom-[4%] top-[79%] flex flex-col items-center justify-center text-center">
-        <p className="max-w-full truncate uppercase" style={{ fontFamily: `"${typography.titleFont}", sans-serif`, fontWeight: typography.titleWeight, fontSize: `${typography.titleSize}cqw`, letterSpacing: `${typography.titleTracking}em` }}>{posterTitle}</p>
+        <div ref={titleBoxRef} className="flex justify-center overflow-hidden whitespace-nowrap" style={{ width: "97.7%" }}>
+          <span ref={titleTextRef} className="inline-block shrink-0 uppercase" style={{ fontFamily: `"${typography.titleFont}", sans-serif`, fontWeight: typography.titleWeight, fontSize: `${typography.titleSize}cqw`, letterSpacing: `${typography.titleTracking}em`, transform: `scaleX(${titleScale})`, transformOrigin: "center" }}>{posterTitle}</span>
+        </div>
         {posterSubtitle && <p className="mt-1 max-w-full truncate uppercase opacity-75" style={{ fontSize: "2.4cqw", letterSpacing: "0.5cqw" }}>{posterSubtitle}</p>}
         {config.date_line && <p className="mt-1 max-w-full truncate uppercase opacity-70" style={{ fontSize: "1.9cqw", letterSpacing: "0.7cqw" }}>{config.date_line}</p>}
         {config.show_coordinates && (

@@ -25,6 +25,12 @@ import {
 import { toast } from "sonner";
 import { getPosterPalette } from "@/lib/poster-renderer/adapter";
 import {
+  applyTypographyCustomization,
+  applyTypographyPreset,
+  resolvePosterTypography,
+  type TypographyPreset,
+} from "@/lib/poster-typography";
+import {
   STYLE_PRESETS,
   POSTER_SIZES,
   type PosterConfig,
@@ -102,6 +108,7 @@ export default function CustomizePosterPage({
   const [layerPreset, setLayerPreset] =
     useState<MapLayerPreset>("minimal");
   const [pitch, setPitch] = useState(0);
+  const typography = resolvePosterTypography(config);
   const [draftHydrated, setDraftHydrated] = useState(false);
 
   // Keep the live editor state attached to this draft ID. This preserves the
@@ -451,6 +458,24 @@ export default function CustomizePosterPage({
                     <div>
                       <h2 className="text-sm font-semibold">Poster text</h2>
                     </div>
+                    <div className="grid grid-cols-3 gap-2" aria-label="Text styles">
+                      {([
+                        ["gallery", "Gallery", "Inter"],
+                        ["editorial", "Editorial", "Playfair Display"],
+                        ["modern", "Modern", "Oswald"],
+                      ] as const).map(([preset, label, font]) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          aria-pressed={typography.preset === preset}
+                          onClick={() => updateConfig(applyTypographyPreset(config, preset as TypographyPreset))}
+                          className={`rounded-md border px-2 py-3 text-center transition-colors ${typography.preset === preset ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted"}`}
+                        >
+                          <span className="block text-lg leading-none" style={{ fontFamily: `"${font}", sans-serif` }}>Aa</span>
+                          <span className="mt-2 block text-[11px] font-medium">{label}</span>
+                        </button>
+                      ))}
+                    </div>
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="live-title" className="text-xs">Title</Label>
@@ -476,6 +501,41 @@ export default function CustomizePosterPage({
                         />
                       </div>
                     </div>
+                    <details className="rounded-md border px-3 py-2.5">
+                      <summary className="cursor-pointer text-xs font-medium">Customize{typography.preset === "custom" ? " · Custom" : ""}</summary>
+                      <div className="space-y-4 pt-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="title-font" className="text-xs">Title font</Label>
+                          <select id="title-font" value={typography.titleFont}
+                            onChange={(event) => updateConfig(applyTypographyCustomization(config, { title_font: event.target.value as PosterConfig["title_font"] }))}
+                            className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                            <option value="Inter">Inter</option>
+                            <option value="Playfair Display">Playfair Display</option>
+                            <option value="Oswald">Oswald</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="title-size" className="text-xs">Title size · {typography.titleSize.toFixed(1)}%</Label>
+                          <Slider id="title-size" value={[typography.titleSize]} min={3.5} max={7} step={0.1}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_size: value }))} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="title-spacing" className="text-xs">Letter spacing · {typography.titleTracking.toFixed(2)}</Label>
+                          <Slider id="title-spacing" value={[typography.titleTracking]} min={0} max={0.25} step={0.01}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_tracking: value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="frame-style" className="text-xs">Frame</Label>
+                          <select id="frame-style" value={typography.frameStyle}
+                            onChange={(event) => updateConfig(applyTypographyCustomization(config, { frame_style: event.target.value as PosterConfig["frame_style"] }))}
+                            className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                            <option value="none">None</option>
+                            <option value="fine">Fine</option>
+                            <option value="double">Double</option>
+                          </select>
+                        </div>
+                      </div>
+                    </details>
                   </div>
                 )}
 

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_CONFIG } from "./types";
 import { posterConfigSchema } from "./validations";
-import { applyTypographyCustomization, applyTypographyPreset, resolvePosterTypography } from "./poster-typography";
+import { applyTypographyCustomization, applyTypographyPreset, fitTitleScale, resolvePosterTypography } from "./poster-typography";
 
 test("old poster configs use Gallery typography", () => {
   const typography = resolvePosterTypography(DEFAULT_CONFIG);
@@ -37,4 +37,9 @@ test("poster validation rejects unknown fonts and extreme type sizes", () => {
   assert.equal(posterConfigSchema.safeParse({ ...config, title_font: "Unknown" }).success, false);
   assert.equal(posterConfigSchema.safeParse({ ...config, title_size: 12 }).success, false);
   assert.equal(posterConfigSchema.safeParse({ ...config, title_tracking: 0.5 }).success, false);
+});
+
+test("long titles fit the same maximum width as canvas output", () => {
+  assert.equal(fitTitleScale(400, 300), 0.75);
+  assert.equal(fitTitleScale(200, 300), 1);
 });
