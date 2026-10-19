@@ -9,6 +9,11 @@ export const locationSchema = z.object({
 });
 
 export const posterConfigSchema = z.object({
+  typography_preset: z.enum(["gallery", "editorial", "modern", "custom"]).optional(),
+  title_font: z.enum(["Inter", "Playfair Display", "Oswald"]).optional(),
+  title_size: z.number().min(3.5).max(7).optional(),
+  title_tracking: z.number().min(0).max(0.25).optional(),
+  frame_style: z.enum(["none", "fine", "double"]).optional(),
   style_id: z.enum([
     "warm_beige", "terracotta", "noir", "blueprint", "midnight_blue",
     "ocean", "forest", "sunset", "autumn", "emerald",

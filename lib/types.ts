@@ -48,6 +48,11 @@ export interface PosterMarker {
 }
 
 export interface PosterConfig {
+  typography_preset?: "gallery" | "editorial" | "modern" | "custom";
+  title_font?: "Inter" | "Playfair Display" | "Oswald";
+  title_size?: number;
+  title_tracking?: number;
+  frame_style?: "none" | "fine" | "double";
   style_id: string;
   city: string;
   country: string;
