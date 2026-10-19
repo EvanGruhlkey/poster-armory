@@ -65,6 +65,7 @@ export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
     if (!config.show_water && /water|river|lake/.test(layer.id)) return false;
     if (!config.show_parks && /park|green|forest|landcover/.test(layer.id)) return false;
     if (!config.show_labels && /labels|street-name/.test(layer.id)) return false;
+    if (config.major_roads_only && /^(road|bridge)-(service|residential|tertiary|secondary)(-|$)/.test(layer.id)) return false;
     return true;
   });
   // Preserve the imported layer ordering and road hierarchy while using its palette.

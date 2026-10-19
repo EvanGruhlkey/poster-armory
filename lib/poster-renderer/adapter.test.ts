@@ -37,3 +37,10 @@ test("chosen palette recolors the imported road hierarchy", () => {
   assert.equal(motorway?.type, "line");
   if (motorway?.type === "line") assert.equal(motorway.paint?.["line-color"], "#0F2840");
 });
+
+test("major roads only hides residential and service streets", () => {
+  const ids = getPosterMapStyle({ ...saved, major_roads_only: true }).layers.map((layer) => layer.id);
+  assert.ok(ids.includes("road-motorway"));
+  assert.ok(!ids.includes("road-residential"));
+  assert.ok(!ids.includes("road-service"));
+});

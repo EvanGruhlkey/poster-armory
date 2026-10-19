@@ -6,6 +6,7 @@ import { Map as MapLibre, setWorkerUrl } from "maplibre-gl";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { PosterConfig } from "@/lib/types";
 import { getPosterMapStyle } from "@/lib/poster-renderer/adapter";
+import { zoomForExportWidth } from "@/lib/poster-renderer/export";
 import {
   distanceToZoom,
   zoomToDistance,
@@ -65,6 +66,9 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   });
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
+  const viewportWidth = () => containerRef.current?.clientWidth || 330;
+  const previewZoom = (distance: number) => zoomForExportWidth(distanceToZoom(distance), viewportWidth());
+  const previewDistance = (zoom: number) => zoomToDistance(zoom - Math.log2(viewportWidth() / 330));
 
   useImperativeHandle(
     ref,
@@ -93,7 +97,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       container: containerRef.current,
       style: getPosterMapStyle(config),
       center: [config.lon, config.lat],
-      zoom: distanceToZoom(config.distance),
+      zoom: previewZoom(config.distance),
       bearing: config.rotation,
       pitch,
       attributionControl: false,
@@ -107,6 +111,15 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     });
 
     mapRef.current = map;
+    let previousWidth = containerRef.current.clientWidth || 330;
+    const resizeObserver = new ResizeObserver(() => {
+      const oldWidth = previousWidth;
+      map.resize();
+      const newWidth = map.getContainer().clientWidth || 330;
+      if (Math.abs(newWidth - oldWidth) > 1) map.setZoom(map.getZoom() + Math.log2(newWidth / oldWidth));
+      previousWidth = newWidth;
+    });
+    resizeObserver.observe(containerRef.current);
     let idleNotified = false;
     const notifyIdle = () => {
       if (disposed || idleNotified) return;
@@ -137,7 +150,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       onViewChangeRef.current({
         lat: Number(center.lat.toFixed(6)),
         lon: Number(center.lng.toFixed(6)),
-        distance: zoomToDistance(map.getZoom()),
+        distance: previewDistance(map.getZoom()),
         rotation: Number(map.getBearing().toFixed(1)),
         pitch: Number(map.getPitch().toFixed(1)),
       });
@@ -145,6 +158,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
 
     return () => {
       disposed = true;
+      resizeObserver.disconnect();
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -161,6 +175,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     config.show_labels,
     config.show_water,
     config.show_parks,
+    config.major_roads_only,
     ready,
   ]);
 
@@ -175,7 +190,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     if (!map || !ready || interactive) return;
     map.jumpTo({
       center: [config.lon, config.lat],
-      zoom: distanceToZoom(config.distance),
+      zoom: previewZoom(config.distance),
       bearing: config.rotation,
       pitch,
     });
@@ -191,7 +206,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     const initial = initialViewRef.current;
     mapRef.current?.easeTo({
       center: [initial.lon, initial.lat],
-      zoom: distanceToZoom(initial.distance),
+      zoom: previewZoom(initial.distance),
       bearing: initial.rotation,
       pitch: initial.pitch,
       duration: 450,
@@ -206,7 +221,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   const posterSubtitle = config.subtitle.trim() || config.country;
 
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor, color: textColor }}>
+    <div className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor, color: textColor, containerType: "inline-size" }}>
       <div className="absolute inset-x-[6%] bottom-[23%] top-[5%] overflow-hidden border" style={{ borderColor: `${textColor}33` }}>
       <div ref={containerRef} className="absolute inset-0" />
 
@@ -248,11 +263,11 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       </div>
 
       <div className="pointer-events-none absolute inset-x-[6%] bottom-[4%] top-[79%] flex flex-col items-center justify-center text-center">
-        <p className="max-w-full truncate text-base font-semibold uppercase tracking-[0.15em] sm:text-xl">{posterTitle}</p>
-        {posterSubtitle && <p className="mt-1 max-w-full truncate text-[10px] uppercase tracking-[0.16em] opacity-75 sm:text-xs">{posterSubtitle}</p>}
-        {config.date_line && <p className="mt-1 max-w-full truncate text-[9px] uppercase tracking-[0.12em] opacity-70">{config.date_line}</p>}
+        <p className="max-w-full truncate font-semibold uppercase" style={{ fontSize: "5cqw", letterSpacing: "0.7cqw" }}>{posterTitle}</p>
+        {posterSubtitle && <p className="mt-1 max-w-full truncate uppercase opacity-75" style={{ fontSize: "2.4cqw", letterSpacing: "0.5cqw" }}>{posterSubtitle}</p>}
+        {config.date_line && <p className="mt-1 max-w-full truncate uppercase opacity-70" style={{ fontSize: "1.9cqw", letterSpacing: "0.7cqw" }}>{config.date_line}</p>}
         {config.show_coordinates && (
-          <p className="mt-1 text-[9px] tracking-[0.1em] opacity-65">
+          <p className="mt-1 opacity-65" style={{ fontSize: "1.9cqw", letterSpacing: "0.6cqw" }}>
             {Math.abs(config.lat).toFixed(4)}° {config.lat >= 0 ? "N" : "S"} ·{" "}
             {Math.abs(config.lon).toFixed(4)}° {config.lon >= 0 ? "E" : "W"}
           </p>

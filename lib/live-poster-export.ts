@@ -141,7 +141,7 @@ export async function composeLivePosterFiles(
   pdfCanvas.getContext("2d")?.drawImage(bitmap, 0, 0);
   bitmap.close();
   const jpeg = await canvasToBlob(pdfCanvas, "image/jpeg", 0.92);
-  const pdf = jpegToPdf(await blobToBytes(jpeg), width, height);
+  const pdf = jpegToPdf(await blobToBytes(jpeg), width, height, config.width * 2, config.height * 2);
   return { png, pdf, width, height };
 }
 
