@@ -66,11 +66,20 @@ export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
   const mapStyle = structuredClone(style.mapStyle) as StyleSpecification;
   recolorStyle(mapStyle, style.defaultPalette, palette);
   mapStyle.sources = { ...mapStyle.sources };
+  if ((config.pitch ?? 0) > 0 && config.map_layers?.terrain !== false && mapStyle.sources.terrain) {
+    mapStyle.terrain = { source: "terrain", exaggeration: config.terrain_exaggeration ?? 1.5 };
+  } else {
+    delete mapStyle.terrain;
+  }
   // These optional sources require upstream-only routes or protocols.
   delete mapStyle.sources.contours;
   delete mapStyle.sources.population;
   delete mapStyle.sources.spaceports;
+  const hiddenLayerIds = new Set(style.layerToggles
+    .filter((toggle) => config.map_layers?.[toggle.id] === false)
+    .flatMap((toggle) => toggle.layerIds));
   mapStyle.layers = mapStyle.layers.filter((layer) => {
+    if (hiddenLayerIds.has(layer.id)) return false;
     const source = "source" in layer ? layer.source : undefined;
     if (source === "contours" || source === "population" || source === "spaceports") return false;
     if (!config.show_water && /water|river|lake/.test(layer.id)) return false;
@@ -82,6 +91,23 @@ export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
   // Preserve the imported layer ordering and road hierarchy while using its palette.
   const background = mapStyle.layers.find((layer) => layer.id === "background");
   if (background?.type === "background") background.paint = { ...background.paint, "background-color": palette.background };
+  for (const layer of mapStyle.layers) {
+    if (layer.type === "line" && /^(road|bridge)-/.test(layer.id) && config.road_weight && config.road_weight !== 1) {
+      const width = layer.paint?.["line-width"];
+      if (width !== undefined && (typeof width === "number" || Array.isArray(width))) {
+        layer.paint = { ...layer.paint, "line-width": ["*", width, config.road_weight] as unknown as typeof width };
+      }
+    }
+    if (layer.type === "hillshade" && config.terrain_exaggeration !== undefined) {
+      layer.paint = { ...layer.paint, "hillshade-exaggeration": config.terrain_exaggeration };
+    }
+    if (layer.type === "fill-extrusion" && layer.id === "buildings-3d") {
+      const height = layer.paint?.["fill-extrusion-height"];
+      if (height !== undefined && config.building_height_scale !== undefined && (typeof height === "number" || Array.isArray(height))) {
+        layer.paint = { ...layer.paint, "fill-extrusion-height": ["*", height, config.building_height_scale] as unknown as typeof height };
+      }
+    }
+  }
   return mapStyle;
 }
 

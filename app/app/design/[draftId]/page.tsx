@@ -26,6 +26,7 @@ import {
 } from "@/lib/poster-typography";
 import { PosterTextChoices } from "@/components/poster-text-choices";
 import { PosterColorControls } from "@/components/poster-color-controls";
+import { PosterMapControls } from "@/components/poster-map-controls";
 import { PosterEditorSidebar, type PosterEditorTool } from "@/components/poster-editor-sidebar";
 import {
   POSTER_SIZES,
@@ -390,38 +391,13 @@ export default function CustomizePosterPage({
                             <span className="font-medium">3D angle</span>
                             <span className="tabular-nums text-muted-foreground">{Math.round(pitch)}°</span>
                           </div>
-                          <Slider value={[pitch]} onValueChange={([value]) => setPitch(value)} min={0} max={60} step={1} />
+                          <Slider value={[pitch]} onValueChange={([value]) => { setPitch(value); updateConfig({ pitch: value }); }} min={0} max={60} step={1} />
                         </div>
                       </div>
                   </div>
                 )}
 
-                {activeTool === "map" && (
-                  <details className="rounded-md border px-3 py-2.5">
-                    <summary className="cursor-pointer text-xs font-medium">More options</summary>
-                    <div className="space-y-4 pt-4">
-                    <div className="space-y-3">
-                        {[
-                          ["show_labels", "Map labels", config.show_labels],
-                          ["show_water", "Water", config.show_water],
-                          ["show_parks", "Parks & green areas", config.show_parks],
-                          ["major_roads_only", "Major roads only", config.major_roads_only],
-                        ].map(([key, label, checked]) => (
-                          <div key={String(key)} className="flex items-center justify-between gap-4">
-                            <Label htmlFor={`layer-${String(key)}`} className="text-xs font-normal">{String(label)}</Label>
-                            <Switch
-                              id={`layer-${String(key)}`}
-                              checked={Boolean(checked)}
-                              onCheckedChange={(value) =>
-                                updateConfig({ [String(key)]: value } as Partial<PosterConfig>)
-                              }
-                            />
-                          </div>
-                        ))}
-                    </div>
-                    </div>
-                  </details>
-                )}
+                {activeTool === "map" && <PosterMapControls config={config} pitch={pitch} onChange={updateConfig} onPitchChange={setPitch} />}
 
                 {activeTool === "type" && (
                   <div className="space-y-4">

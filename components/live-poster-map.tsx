@@ -58,6 +58,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   const containerRef = useRef<HTMLDivElement | null>(null);
   const posterRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const applyingViewRef = useRef(false);
   const onViewChangeRef = useRef(onViewChange);
   const onIdleRef = useRef(onIdle);
   const initialViewRef = useRef({
@@ -165,6 +166,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     map.once("style.load", markReady);
     map.on("error", () => setError(true));
     map.on("moveend", () => {
+      if (applyingViewRef.current) return;
       if (!onViewChangeRef.current) return;
       const center = map.getCenter();
       onViewChangeRef.current({
@@ -192,6 +194,13 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     map.setStyle(getPosterMapStyle(config));
   }, [
     config.style_id,
+    config.palette_id,
+    config.custom_colors,
+    config.map_layers,
+    config.road_weight,
+    config.terrain_exaggeration,
+    config.building_height_scale,
+    config.pitch,
     config.show_labels,
     config.show_water,
     config.show_parks,
@@ -202,18 +211,22 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    map.jumpTo({ bearing: config.rotation, pitch });
+    applyingViewRef.current = true;
+    try { map.jumpTo({ bearing: config.rotation, pitch }); }
+    finally { applyingViewRef.current = false; }
   }, [config.rotation, pitch, ready]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready || interactive) return;
-    map.jumpTo({
+    applyingViewRef.current = true;
+    try { map.jumpTo({
       center: [config.lon, config.lat],
       zoom: previewZoom(config.distance),
       bearing: config.rotation,
       pitch,
-    });
+    }); }
+    finally { applyingViewRef.current = false; }
   }, [config.lat, config.lon, config.distance, config.rotation, pitch, ready, interactive]);
 
   const zoomBy = useCallback((delta: number) => {

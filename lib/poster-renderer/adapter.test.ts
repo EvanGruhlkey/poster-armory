@@ -52,3 +52,24 @@ test("major roads only hides residential and service streets", () => {
   assert.ok(!ids.includes("road-residential"));
   assert.ok(!ids.includes("road-service"));
 });
+
+test("individual imported layers can be hidden without removing roads", () => {
+  const ids = getPosterMapStyle({ ...saved, map_layers: { railroads: false, buildings: false } }).layers.map((layer) => layer.id);
+  assert.ok(!ids.includes("railroad-main"));
+  assert.ok(!ids.includes("buildings"));
+  assert.ok(ids.includes("road-primary"));
+});
+
+test("road weight changes generated street paint", () => {
+  const normal = getPosterMapStyle(saved).layers.find((item) => item.id === "road-primary");
+  const wide = getPosterMapStyle({ ...saved, road_weight: 2 }).layers.find((item) => item.id === "road-primary");
+  assert.notDeepEqual(wide, normal);
+});
+
+test("tilted view raises terrain while flat view remains top down", () => {
+  const flat = getPosterMapStyle({ ...saved, pitch: 0 });
+  const tilted = getPosterMapStyle({ ...saved, pitch: 45, terrain_exaggeration: 2 });
+  assert.equal(flat.terrain, undefined);
+  assert.equal(tilted.terrain?.source, "terrain");
+  assert.equal(tilted.terrain?.exaggeration, 2);
+});
