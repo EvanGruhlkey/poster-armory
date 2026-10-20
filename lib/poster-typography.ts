@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Kyle Kingsberry. MIT license: see lib/poster-renderer/LICENSE.
 import type { PosterConfig } from "./types";
 
 export type TypographyPreset = Exclude<NonNullable<PosterConfig["typography_preset"]>, "custom">;
