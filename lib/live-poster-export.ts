@@ -5,6 +5,7 @@ import { getPosterPalette } from "@/lib/poster-renderer/adapter";
 import { getPosterMapDimensions, renderPosterMapCanvas } from "@/lib/poster-renderer/export";
 import { getPosterFrameStrokes } from "@/lib/poster-frame";
 import { resolvePosterTypography } from "@/lib/poster-typography";
+import { getPosterTextBackdrop, getPosterTextLayout, getPosterTextMetrics } from "@/lib/poster-text-layout";
 
 /** Long edge of a high-resolution digital poster, in pixels. */
 export const EXPORT_LONG_EDGE = 4800;
@@ -44,21 +45,40 @@ function drawPosterCopy(
   config: PosterConfig,
   textColor: string
 ) {
+  const typography = resolvePosterTypography(config);
+  const layout = getPosterTextLayout(config, width, height);
+  const metrics = getPosterTextMetrics(config, width, height);
+  const backdrop = getPosterTextBackdrop(config);
+  const paper = getPosterPalette(config).background;
+  if (backdrop.kind === "strong") {
+    ctx.globalAlpha = backdrop.alpha;
+    ctx.fillStyle = paper;
+    ctx.fillRect(layout.text.x, layout.text.y, layout.text.width, layout.text.height);
+    ctx.globalAlpha = 1;
+  } else if (backdrop.kind === "gradient") {
+    const fade = ctx.createLinearGradient(0, layout.text.y, 0, layout.text.y + layout.text.height);
+    fade.addColorStop(0, "transparent");
+    fade.addColorStop(0.5, paper);
+    fade.addColorStop(1, "transparent");
+    ctx.globalAlpha = backdrop.alpha;
+    ctx.fillStyle = fade;
+    ctx.fillRect(layout.text.x, layout.text.y, layout.text.width, layout.text.height);
+    ctx.globalAlpha = 1;
+  }
   ctx.fillStyle = textColor;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
   const cx = width / 2;
-  const typography = resolvePosterTypography(config);
-  const titleSize = Math.round(width * typography.titleSize / 100);
-  const subSize = Math.round(width * 0.024);
-  const metaSize = Math.round(width * 0.019);
+  const titleSize = metrics.titleSize;
+  const subSize = metrics.subtitleSize;
+  const metaSize = metrics.metaSize;
   const lines: Array<{ text: string; size: number; tracking: number; weight: string; font: string }> =
     [];
 
   if (config.title?.trim() || config.city) {
     lines.push({
-      text: (config.title.trim() || config.city).toUpperCase(),
+      text: typography.titleAllCaps ? (config.title.trim() || config.city).toUpperCase() : (config.title.trim() || config.city),
       size: titleSize,
       tracking: titleSize * typography.titleTracking,
       weight: String(typography.titleWeight),
@@ -69,9 +89,9 @@ function drawPosterCopy(
     lines.push({
       text: (config.subtitle.trim() || config.country).toUpperCase(),
       size: subSize,
-      tracking: width * 0.005,
-      weight: "500",
-      font: "Inter",
+      tracking: subSize * typography.subtitleTracking,
+      weight: String(typography.subtitleWeight),
+      font: typography.subtitleFont,
     });
   }
   if (config.date_line?.trim()) {
@@ -95,9 +115,12 @@ function drawPosterCopy(
     });
   }
 
-  const gap = Math.round(height * 0.009);
-  const block = lines.reduce((sum, line) => sum + line.size + gap, 0) - gap;
-  let y = height * 0.875 - block / 2;
+  const gap = metrics.gap;
+  let y = layout.text.y + (layout.text.height - metrics.blockHeight) / 2;
+  if (backdrop.kind === "subtle") {
+    ctx.shadowColor = paper;
+    ctx.shadowBlur = Math.max(2, titleSize * 0.2);
+  }
 
   for (const line of lines) {
     ctx.font = `${line.weight} ${line.size}px "${line.font}", sans-serif`;
@@ -105,9 +128,10 @@ function drawPosterCopy(
       (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
         `${Math.round(line.tracking)}px`;
     }
-    ctx.fillText(line.text, cx, y, width * 0.86);
+    ctx.fillText(line.text, cx, y + line.size / 2, layout.maxTextWidth);
     y += line.size + gap;
   }
+  ctx.shadowBlur = 0;
 
   ctx.textAlign = "left";
   ctx.textBaseline = "bottom";
@@ -155,6 +179,7 @@ export async function composeLivePosterFiles(
 export async function renderPosterPNG(config: PosterConfig, width: number, height: number): Promise<Blob> {
   const typography = resolvePosterTypography(config);
   await document.fonts?.load(`${typography.titleWeight} 24px "${typography.titleFont}"`).catch(() => undefined);
+  await document.fonts?.load(`${typography.subtitleWeight} 24px "${typography.subtitleFont}"`).catch(() => undefined);
   await document.fonts?.load('500 24px "Inter"').catch(() => undefined);
   const out = document.createElement("canvas");
   out.width = width;

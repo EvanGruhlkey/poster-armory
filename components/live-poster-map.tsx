@@ -8,6 +8,7 @@ import type { PosterConfig } from "@/lib/types";
 import { getPosterMapStyle } from "@/lib/poster-renderer/adapter";
 import { zoomForExportWidth } from "@/lib/poster-renderer/export";
 import { fitTitleScale, resolvePosterTypography } from "@/lib/poster-typography";
+import { getPosterTextBackdrop, getPosterTextLayout, getPosterTextMetrics } from "@/lib/poster-text-layout";
 import {
   distanceToZoom,
   zoomToDistance,
@@ -55,6 +56,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     ref
   ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const posterRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const onViewChangeRef = useRef(onViewChange);
   const onIdleRef = useRef(onIdle);
@@ -70,6 +72,17 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   const titleBoxRef = useRef<HTMLDivElement | null>(null);
   const titleTextRef = useRef<HTMLSpanElement | null>(null);
   const [titleScale, setTitleScale] = useState(1);
+  const [posterSize, setPosterSize] = useState({ width: 330, height: 440 });
+
+  useEffect(() => {
+    const element = posterRef.current;
+    if (!element) return;
+    const measure = () => setPosterSize({ width: element.clientWidth, height: element.clientHeight });
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    measure();
+    return () => observer.disconnect();
+  }, []);
   const viewportWidth = () => containerRef.current?.clientWidth || 330;
   const previewZoom = (distance: number) => zoomForExportWidth(distanceToZoom(distance), viewportWidth());
   const previewDistance = (zoom: number) => zoomToDistance(zoom - Math.log2(viewportWidth() / 330));
@@ -224,6 +237,10 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   const posterTitle = config.title.trim() || config.city;
   const posterSubtitle = config.subtitle.trim() || config.country;
   const typography = resolvePosterTypography(config);
+  const layout = getPosterTextLayout(config, posterSize.width, posterSize.height);
+  const metrics = getPosterTextMetrics(config, posterSize.width, posterSize.height);
+  const backdrop = getPosterTextBackdrop(config);
+  const titleShadow = backdrop.kind === "subtle" ? `0 0 ${Math.max(2, metrics.titleSize * 0.2)}px ${bgColor}` : undefined;
 
   useEffect(() => {
     const box = titleBoxRef.current;
@@ -236,10 +253,10 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     void document.fonts?.ready.then(measure);
     measure();
     return () => observer.disconnect();
-  }, [posterTitle, typography.titleFont, typography.titleSize, typography.titleTracking]);
+  }, [posterTitle, typography.titleFont, typography.titleSize, typography.titleTracking, typography.titleAllCaps, metrics.titleSize]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor, color: textColor, containerType: "inline-size" }}>
+    <div ref={posterRef} className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor, color: textColor, containerType: "inline-size" }}>
       <div className="absolute inset-x-[6%] bottom-[23%] top-[5%] overflow-hidden">
       <div ref={containerRef} className="absolute inset-0" />
       {typography.frameStyle !== "none" && (
@@ -287,14 +304,19 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-[6%] bottom-[4%] top-[79%] flex flex-col items-center justify-center text-center">
-        <div ref={titleBoxRef} className="flex justify-center overflow-hidden whitespace-nowrap" style={{ width: "97.7%" }}>
-          <span ref={titleTextRef} className="inline-block shrink-0 uppercase" style={{ fontFamily: `"${typography.titleFont}", sans-serif`, fontWeight: typography.titleWeight, fontSize: `${typography.titleSize}cqw`, letterSpacing: `${typography.titleTracking}em`, transform: `scaleX(${titleScale})`, transformOrigin: "center" }}>{posterTitle}</span>
+      <div className="pointer-events-none absolute flex flex-col items-center justify-center text-center" style={{
+        left: layout.text.x, top: layout.text.y, width: layout.text.width, height: layout.text.height,
+        gap: metrics.gap,
+      }}>
+        {backdrop.kind === "strong" && <div className="absolute inset-0" style={{ backgroundColor: bgColor, opacity: backdrop.alpha }} />}
+        {backdrop.kind === "gradient" && <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent, ${bgColor}c7, transparent)` }} />}
+        <div ref={titleBoxRef} className="relative flex justify-center overflow-hidden whitespace-nowrap" style={{ width: "98%" }}>
+          <span ref={titleTextRef} className="inline-block shrink-0" style={{ fontFamily: `"${typography.titleFont}", sans-serif`, fontWeight: typography.titleWeight, fontSize: metrics.titleSize, lineHeight: 1, letterSpacing: `${typography.titleTracking}em`, textTransform: typography.titleAllCaps ? "uppercase" : "none", textShadow: titleShadow, transform: `scaleX(${titleScale})`, transformOrigin: "center" }}>{posterTitle}</span>
         </div>
-        {posterSubtitle && <p className="mt-1 max-w-full truncate uppercase opacity-75" style={{ fontSize: "2.4cqw", letterSpacing: "0.5cqw" }}>{posterSubtitle}</p>}
-        {config.date_line && <p className="mt-1 max-w-full truncate uppercase opacity-70" style={{ fontSize: "1.9cqw", letterSpacing: "0.7cqw" }}>{config.date_line}</p>}
+        {posterSubtitle && <p className="relative max-w-full truncate uppercase opacity-75" style={{ fontFamily: `"${typography.subtitleFont}", sans-serif`, fontWeight: typography.subtitleWeight, fontSize: metrics.subtitleSize, lineHeight: 1, letterSpacing: `${typography.subtitleTracking}em`, textShadow: titleShadow }}>{posterSubtitle}</p>}
+        {config.date_line && <p className="relative max-w-full truncate uppercase opacity-70" style={{ fontSize: metrics.metaSize, lineHeight: 1, letterSpacing: "0.7cqw", textShadow: titleShadow }}>{config.date_line}</p>}
         {config.show_coordinates && (
-          <p className="mt-1 opacity-65" style={{ fontSize: "1.9cqw", letterSpacing: "0.6cqw" }}>
+          <p className="relative opacity-65" style={{ fontSize: metrics.metaSize, lineHeight: 1, letterSpacing: "0.6cqw", textShadow: titleShadow }}>
             {Math.abs(config.lat).toFixed(4)}° {config.lat >= 0 ? "N" : "S"} ·{" "}
             {Math.abs(config.lon).toFixed(4)}° {config.lon >= 0 ? "E" : "W"}
           </p>
