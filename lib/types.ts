@@ -48,6 +48,15 @@ export interface PosterMarker {
 }
 
 export interface PosterConfig {
+  palette_id?: string;
+  custom_colors?: Record<string, string>;
+  map_layers?: Record<string, boolean>;
+  road_weight?: number;
+  terrain_exaggeration?: number;
+  terrain_light_azimuth?: number;
+  terrain_light_altitude?: number;
+  building_height_scale?: number;
+  building_default_height?: number;
   typography_preset?: "gallery" | "editorial" | "modern" | "custom" | "modern-bold" | "classic-serif" | "minimal-clean" | "editorial-strong" | "vintage-elegant" | "technical-mono" | "geometric-modern" | "condensed-impact";
   text_placement?: "below" | "top" | "center" | "bottom";
   title_font?: "Inter" | "Playfair Display" | "Oswald" | "Montserrat" | "Crimson Text" | "JetBrains Mono" | "Poppins";

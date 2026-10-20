@@ -23,7 +23,18 @@ function selectPalette(style: PosterStyle, config: PosterConfig): ColorPalette {
     ocean: "minimal-navy",
     japanese_ink: "minimal-ink",
   };
-  return style.palettes.find((palette) => palette.id === preferred[config.style_id]) ?? style.defaultPalette;
+  const selected = style.palettes.find((palette) => palette.id === config.palette_id)
+    ?? style.palettes.find((palette) => palette.id === preferred[config.style_id])
+    ?? style.defaultPalette;
+  const colors = config.custom_colors ?? {};
+  const palette = structuredClone(selected);
+  for (const key of ["background", "text", "border", "water", "waterLine", "greenSpace", "landuse", "buildings", "accent", "contour", "hillshade"] as const) {
+    if (colors[key]) (palette as unknown as Record<string, string>)[key] = colors[key];
+  }
+  for (const key of ["motorway", "trunk", "primary", "secondary", "tertiary", "residential", "service", "railroad"] as const) {
+    if (colors[`roads.${key}`]) palette.roads[key] = colors[`roads.${key}`];
+  }
+  return palette;
 }
 
 function recolorStyle(mapStyle: StyleSpecification, from: ColorPalette, to: ColorPalette) {

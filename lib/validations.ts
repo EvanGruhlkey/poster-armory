@@ -9,6 +9,15 @@ export const locationSchema = z.object({
 });
 
 export const posterConfigSchema = z.object({
+  palette_id: z.string().max(100).optional(),
+  custom_colors: z.record(z.string().regex(/^#[0-9a-fA-F]{6}$/)).optional(),
+  map_layers: z.record(z.boolean()).optional(),
+  road_weight: z.number().min(0.5).max(3).optional(),
+  terrain_exaggeration: z.number().min(0).max(5).optional(),
+  terrain_light_azimuth: z.number().min(0).max(360).optional(),
+  terrain_light_altitude: z.number().min(0).max(90).optional(),
+  building_height_scale: z.number().min(0.5).max(3).optional(),
+  building_default_height: z.number().min(0).max(30).optional(),
   typography_preset: z.enum(["gallery", "editorial", "modern", "custom", "modern-bold", "classic-serif", "minimal-clean", "editorial-strong", "vintage-elegant", "technical-mono", "geometric-modern", "condensed-impact"]).optional(),
   text_placement: z.enum(["below", "top", "center", "bottom"]).optional(),
   title_font: z.enum(["Inter", "Playfair Display", "Oswald", "Montserrat", "Crimson Text", "JetBrains Mono", "Poppins"]).optional(),
