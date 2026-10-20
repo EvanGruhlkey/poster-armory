@@ -56,6 +56,19 @@ function recolorStyle(mapStyle: StyleSpecification, from: ColorPalette, to: Colo
   }
 }
 
+function scaleZoomStops(value: unknown, factor: number): unknown {
+  if (typeof value === "number") return value * factor;
+  if (!Array.isArray(value) || !Array.isArray(value[2]) || value[2][0] !== "zoom") return value;
+  if (value[0] !== "interpolate" && value[0] !== "step") return value;
+  const scaled = [...value];
+  for (let index = value[0] === "step" ? 2 : 4; index < scaled.length; index += 2) {
+    scaled[index] = typeof scaled[index] === "number"
+      ? scaled[index] * factor
+      : ["*", scaled[index], factor];
+  }
+  return scaled;
+}
+
 export function getPosterPalette(config: PosterConfig): ColorPalette {
   return selectPalette(selectStyle(config), config);
 }
@@ -94,8 +107,8 @@ export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
   for (const layer of mapStyle.layers) {
     if (layer.type === "line" && /^(road|bridge)-/.test(layer.id) && config.road_weight && config.road_weight !== 1) {
       const width = layer.paint?.["line-width"];
-      if (width !== undefined && (typeof width === "number" || Array.isArray(width))) {
-        layer.paint = { ...layer.paint, "line-width": ["*", width, config.road_weight] as unknown as typeof width };
+      if (width !== undefined) {
+        layer.paint = { ...layer.paint, "line-width": scaleZoomStops(width, config.road_weight) as typeof width };
       }
     }
     if (layer.type === "hillshade" && config.terrain_exaggeration !== undefined) {
@@ -103,8 +116,8 @@ export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
     }
     if (layer.type === "fill-extrusion" && layer.id === "buildings-3d") {
       const height = layer.paint?.["fill-extrusion-height"];
-      if (height !== undefined && config.building_height_scale !== undefined && (typeof height === "number" || Array.isArray(height))) {
-        layer.paint = { ...layer.paint, "fill-extrusion-height": ["*", height, config.building_height_scale] as unknown as typeof height };
+      if (height !== undefined && config.building_height_scale !== undefined) {
+        layer.paint = { ...layer.paint, "fill-extrusion-height": scaleZoomStops(height, config.building_height_scale) as typeof height };
       }
     }
   }

@@ -63,7 +63,12 @@ test("individual imported layers can be hidden without removing roads", () => {
 test("road weight changes generated street paint", () => {
   const normal = getPosterMapStyle(saved).layers.find((item) => item.id === "road-primary");
   const wide = getPosterMapStyle({ ...saved, road_weight: 2 }).layers.find((item) => item.id === "road-primary");
-  assert.notDeepEqual(wide, normal);
+  assert.equal(wide?.type, "line");
+  if (wide?.type !== "line" || normal?.type !== "line") return;
+  const baseWidth = normal.paint?.["line-width"] as unknown[];
+  const wideWidth = wide.paint?.["line-width"] as unknown[];
+  assert.equal(wideWidth[0], "interpolate");
+  assert.equal(wideWidth[4], Number(baseWidth[4]) * 2);
 });
 
 test("tilted view raises terrain while flat view remains top down", () => {
