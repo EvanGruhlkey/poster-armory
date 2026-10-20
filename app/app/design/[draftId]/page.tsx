@@ -26,10 +26,9 @@ import { toast } from "sonner";
 import { getPosterPalette } from "@/lib/poster-renderer/adapter";
 import {
   applyTypographyCustomization,
-  applyTypographyPreset,
   resolvePosterTypography,
-  type TypographyPreset,
 } from "@/lib/poster-typography";
+import { PosterTextChoices } from "@/components/poster-text-choices";
 import {
   STYLE_PRESETS,
   POSTER_SIZES,
@@ -365,10 +364,10 @@ export default function CustomizePosterPage({
         </p>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_340px] lg:gap-8 xl:grid-cols-[1fr_380px]">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
         {/* Controls */}
-        <div className="order-2 space-y-4 lg:order-1">
-          <Card className="overflow-hidden">
+        <div className="order-2 min-w-0 space-y-4 lg:order-1">
+          <Card className="min-w-0 overflow-hidden">
             <div>
               <nav className="grid grid-cols-4 gap-1 border-b bg-muted/20 p-2" aria-label="Editor tools">
                 {EDITOR_TOOLS.map((tool) => (
@@ -458,24 +457,7 @@ export default function CustomizePosterPage({
                     <div>
                       <h2 className="text-sm font-semibold">Poster text</h2>
                     </div>
-                    <div className="grid grid-cols-3 gap-2" aria-label="Text styles">
-                      {([
-                        ["gallery", "Gallery", "Inter"],
-                        ["editorial", "Editorial", "Playfair Display"],
-                        ["modern", "Modern", "Oswald"],
-                      ] as const).map(([preset, label, font]) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          aria-pressed={typography.preset === preset}
-                          onClick={() => updateConfig(applyTypographyPreset(config, preset as TypographyPreset))}
-                          className={`rounded-md border px-2 py-3 text-center transition-colors ${typography.preset === preset ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted"}`}
-                        >
-                          <span className="block text-lg leading-none" style={{ fontFamily: `"${font}", sans-serif` }}>Aa</span>
-                          <span className="mt-2 block text-[11px] font-medium">{label}</span>
-                        </button>
-                      ))}
-                    </div>
+                    <PosterTextChoices config={config} onChange={updateConfig} />
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="live-title" className="text-xs">Title</Label>
@@ -512,17 +494,65 @@ export default function CustomizePosterPage({
                             <option value="Inter">Inter</option>
                             <option value="Playfair Display">Playfair Display</option>
                             <option value="Oswald">Oswald</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Crimson Text">Crimson Text</option>
+                            <option value="JetBrains Mono">JetBrains Mono</option>
+                            <option value="Poppins">Poppins</option>
                           </select>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="title-size" className="text-xs">Title size · {typography.titleSize.toFixed(1)}%</Label>
-                          <Slider id="title-size" value={[typography.titleSize]} min={3.5} max={7} step={0.1}
+                          <Slider id="title-size" value={[typography.titleSize]} min={3.5} max={10} step={0.1}
                             onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_size: value }))} />
                         </div>
                         <div className="space-y-2">
+                          <Label htmlFor="title-weight" className="text-xs">Title weight · {typography.titleWeight}</Label>
+                          <Slider id="title-weight" value={[typography.titleWeight]} min={300} max={900} step={100}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_weight: value }))} />
+                        </div>
+                        <div className="space-y-2">
                           <Label htmlFor="title-spacing" className="text-xs">Letter spacing · {typography.titleTracking.toFixed(2)}</Label>
-                          <Slider id="title-spacing" value={[typography.titleTracking]} min={0} max={0.25} step={0.01}
+                          <Slider id="title-spacing" value={[typography.titleTracking]} min={-0.1} max={0.25} step={0.01}
                             onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_tracking: value }))} />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="title-caps" className="text-xs">All caps title</Label>
+                          <Switch id="title-caps" checked={typography.titleAllCaps}
+                            onCheckedChange={(value) => updateConfig(applyTypographyCustomization(config, { title_all_caps: value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="subtitle-font" className="text-xs">Subtitle font</Label>
+                          <select id="subtitle-font" value={typography.subtitleFont}
+                            onChange={(event) => updateConfig(applyTypographyCustomization(config, { subtitle_font: event.target.value as PosterConfig["subtitle_font"] }))}
+                            className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                            {["Inter", "Playfair Display", "Oswald", "Montserrat", "Crimson Text", "JetBrains Mono", "Poppins"].map((font) => <option key={font} value={font}>{font}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="subtitle-size" className="text-xs">Subtitle size · {typography.subtitleSize.toFixed(1)}%</Label>
+                          <Slider id="subtitle-size" value={[typography.subtitleSize]} min={1.2} max={5} step={0.1}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { subtitle_size: value }))} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="subtitle-weight" className="text-xs">Subtitle weight · {typography.subtitleWeight}</Label>
+                          <Slider id="subtitle-weight" value={[typography.subtitleWeight]} min={300} max={900} step={100}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { subtitle_weight: value }))} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="subtitle-spacing" className="text-xs">Subtitle spacing · {typography.subtitleTracking.toFixed(2)}</Label>
+                          <Slider id="subtitle-spacing" value={[typography.subtitleTracking]} min={-0.1} max={0.25} step={0.01}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { subtitle_tracking: value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="text-backdrop" className="text-xs">Text backing</Label>
+                          <select id="text-backdrop" value={typography.textBackdrop}
+                            onChange={(event) => updateConfig(applyTypographyCustomization(config, { text_backdrop: event.target.value as PosterConfig["text_backdrop"] }))}
+                            className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                            <option value="none">None</option>
+                            <option value="subtle">Soft glow</option>
+                            <option value="strong">Solid</option>
+                            <option value="gradient">Fade</option>
+                          </select>
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="frame-style" className="text-xs">Frame</Label>
