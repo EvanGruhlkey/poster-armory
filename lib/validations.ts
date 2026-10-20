@@ -36,6 +36,8 @@ export const posterConfigSchema = z.object({
     "ocean", "forest", "sunset", "autumn", "emerald",
     "copper_patina", "japanese_ink", "pastel_dream", "monochrome_blue",
     "neon_cyberpunk", "contrast_zones", "gradient_roads",
+    "minimal", "dark-mode", "midnight", "vintage", "topographic",
+    "watercolor", "abstract", "atmospheric", "organic", "retro",
   ]),
   city: z.string().min(1).max(200),
   country: z.string().max(200).default(""),

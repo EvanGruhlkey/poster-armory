@@ -29,3 +29,7 @@ export function resolvePosterCustomization(config: PosterConfig): ResolvedPoster
 export function applyPosterPalette(_config: PosterConfig, paletteId: string): Partial<PosterConfig> {
   return { palette_id: paletteId, custom_colors: {} };
 }
+
+export function applyPosterStyle(_config: PosterConfig, styleId: string): Partial<PosterConfig> {
+  return { style_id: styleId, palette_id: undefined, custom_colors: {} };
+}

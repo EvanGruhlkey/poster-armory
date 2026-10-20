@@ -25,9 +25,9 @@ import {
   resolvePosterTypography,
 } from "@/lib/poster-typography";
 import { PosterTextChoices } from "@/components/poster-text-choices";
+import { PosterColorControls } from "@/components/poster-color-controls";
 import { PosterEditorSidebar, type PosterEditorTool } from "@/components/poster-editor-sidebar";
 import {
-  STYLE_PRESETS,
   POSTER_SIZES,
   type PosterConfig,
   DEFAULT_CONFIG,
@@ -542,24 +542,7 @@ export default function CustomizePosterPage({
 
                 {activeTool === "style" && (
                   <div className="space-y-4">
-                    <div>
-                      <h2 className="text-sm font-semibold">Colors</h2>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                      {Object.entries(STYLE_PRESETS).map(([id, preset]) => (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={() => updateConfig({ style_id: id })}
-                              className={`relative rounded-md border p-2 text-center ${
-                                config.style_id === id ? "border-primary ring-2 ring-primary/15" : "hover:bg-muted"
-                              }`}
-                            >
-                              <span className="mx-auto mb-1 block h-7 w-7 rounded" style={{ backgroundColor: preset.bgColor }} />
-                              <span className="block truncate text-[10px] font-medium">{preset.name}</span>
-                            </button>
-                      ))}
-                    </div>
+                    <PosterColorControls config={config} onChange={updateConfig} />
                   </div>
                 )}
           </PosterEditorSidebar>

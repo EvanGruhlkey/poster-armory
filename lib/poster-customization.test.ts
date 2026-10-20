@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_CONFIG } from "./types";
 import { posterConfigSchema } from "./validations";
-import { applyPosterPalette, resolvePosterCustomization } from "./poster-customization";
+import { applyPosterPalette, applyPosterStyle, resolvePosterCustomization } from "./poster-customization";
 
 test("old configs resolve to their existing palette and map defaults", () => {
   const resolved = resolvePosterCustomization(DEFAULT_CONFIG);
@@ -25,4 +25,13 @@ test("custom colors and map detail ranges are validated", () => {
   assert.equal(posterConfigSchema.safeParse({ ...base, custom_colors: { water: "oops" } }).success, false);
   assert.equal(posterConfigSchema.safeParse({ ...base, road_weight: 9 }).success, false);
   assert.equal(posterConfigSchema.safeParse({ ...base, terrain_exaggeration: -1 }).success, false);
+});
+
+test("changing style clears its palette but preserves poster copy", () => {
+  const config = { ...DEFAULT_CONFIG, city: "Chicago", title: "Home", palette_id: "minimal-navy" };
+  const updated = { ...config, ...applyPosterStyle(config, "retro") };
+  assert.equal(updated.title, "Home");
+  assert.equal(updated.style_id, "retro");
+  assert.equal(updated.palette_id, undefined);
+  assert.equal(posterConfigSchema.safeParse(updated).success, true);
 });
