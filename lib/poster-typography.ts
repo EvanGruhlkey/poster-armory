@@ -30,7 +30,7 @@ const base = (values: Partial<PresetValues>): PresetValues => ({
 });
 
 export const POSTER_TYPOGRAPHY_PRESETS: Record<TypographyPreset, PresetValues> = {
-  gallery: base({}),
+  gallery: base({ subtitleTracking: 0.5 / 2.4 }),
   editorial: base({ titleFont: "Playfair Display", titleSize: 5.5, titleWeight: 700, titleTracking: 0.06, frameStyle: "double" }),
   modern: base({ titleFont: "Oswald", titleSize: 5.5, titleWeight: 600, titleTracking: 0.12, frameStyle: "none" }),
   "modern-bold": base({ titleFont: "Inter", titleSize: 8, titleWeight: 700, titleTracking: -0.02, subtitleFont: "Inter", subtitleSize: 2.5, subtitleWeight: 400, subtitleTracking: 0.05, textBackdrop: "subtle" }),
@@ -65,7 +65,7 @@ export function resolvePosterTypography(config: PosterConfig): ResolvedPosterTyp
     preset, textPlacement: config.text_placement ?? "below",
     titleFont: config.title_font ?? values.titleFont,
     titleSize: config.title_size ?? values.titleSize,
-    titleWeight: config.title_weight ?? values.titleWeight,
+    titleWeight: config.title_weight ?? (preset === "custom" && config.title_font === "Playfair Display" ? 700 : values.titleWeight),
     titleTracking: config.title_tracking ?? values.titleTracking,
     titleAllCaps: config.title_all_caps ?? values.titleAllCaps,
     subtitleFont: config.subtitle_font ?? values.subtitleFont,

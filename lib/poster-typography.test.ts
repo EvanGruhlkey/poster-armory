@@ -9,6 +9,12 @@ test("old poster configs use Gallery typography", () => {
   assert.equal(typography.preset, "gallery");
   assert.equal(typography.titleFont, "Inter");
   assert.equal(typography.frameStyle, "fine");
+  assert.equal(typography.subtitleSize * typography.subtitleTracking, 0.5);
+});
+
+test("saved custom Playfair posters retain their original title weight", () => {
+  const typography = resolvePosterTypography({ ...DEFAULT_CONFIG, typography_preset: "custom", title_font: "Playfair Display" });
+  assert.equal(typography.titleWeight, 700);
 });
 
 test("presets set a complete look without changing poster words", () => {

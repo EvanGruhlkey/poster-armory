@@ -72,6 +72,9 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   const titleBoxRef = useRef<HTMLDivElement | null>(null);
   const titleTextRef = useRef<HTMLSpanElement | null>(null);
   const [titleScale, setTitleScale] = useState(1);
+  const subtitleBoxRef = useRef<HTMLDivElement | null>(null);
+  const subtitleTextRef = useRef<HTMLSpanElement | null>(null);
+  const [subtitleScale, setSubtitleScale] = useState(1);
   const [posterSize, setPosterSize] = useState({ width: 330, height: 440 });
 
   useEffect(() => {
@@ -255,6 +258,19 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     return () => observer.disconnect();
   }, [posterTitle, typography.titleFont, typography.titleSize, typography.titleTracking, typography.titleAllCaps, metrics.titleSize]);
 
+  useEffect(() => {
+    const box = subtitleBoxRef.current;
+    const subtitle = subtitleTextRef.current;
+    if (!box || !subtitle) return;
+    const measure = () => setSubtitleScale(fitTitleScale(subtitle.offsetWidth, box.clientWidth));
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    observer.observe(subtitle);
+    void document.fonts?.ready.then(measure);
+    measure();
+    return () => observer.disconnect();
+  }, [posterSubtitle, typography.subtitleFont, typography.subtitleSize, typography.subtitleTracking, metrics.subtitleSize]);
+
   return (
     <div ref={posterRef} className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor, color: textColor, containerType: "inline-size" }}>
       <div className="absolute inset-x-[6%] bottom-[23%] top-[5%] overflow-hidden">
@@ -310,10 +326,12 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       }}>
         {backdrop.kind === "strong" && <div className="absolute inset-0" style={{ backgroundColor: bgColor, opacity: backdrop.alpha }} />}
         {backdrop.kind === "gradient" && <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent, ${bgColor}c7, transparent)` }} />}
-        <div ref={titleBoxRef} className="relative flex justify-center overflow-hidden whitespace-nowrap" style={{ width: "98%" }}>
+        <div ref={titleBoxRef} className="relative flex justify-center overflow-x-clip overflow-y-visible whitespace-nowrap" style={{ width: "98%" }}>
           <span ref={titleTextRef} className="inline-block shrink-0" style={{ fontFamily: `"${typography.titleFont}", sans-serif`, fontWeight: typography.titleWeight, fontSize: metrics.titleSize, lineHeight: 1, letterSpacing: `${typography.titleTracking}em`, textTransform: typography.titleAllCaps ? "uppercase" : "none", textShadow: titleShadow, transform: `scaleX(${titleScale})`, transformOrigin: "center" }}>{posterTitle}</span>
         </div>
-        {posterSubtitle && <p className="relative max-w-full truncate uppercase opacity-75" style={{ fontFamily: `"${typography.subtitleFont}", sans-serif`, fontWeight: typography.subtitleWeight, fontSize: metrics.subtitleSize, lineHeight: 1, letterSpacing: `${typography.subtitleTracking}em`, textShadow: titleShadow }}>{posterSubtitle}</p>}
+        {posterSubtitle && <div ref={subtitleBoxRef} className="relative flex justify-center overflow-x-clip overflow-y-visible whitespace-nowrap opacity-75" style={{ width: "98%" }}>
+          <span ref={subtitleTextRef} className="inline-block shrink-0 uppercase" style={{ fontFamily: `"${typography.subtitleFont}", sans-serif`, fontWeight: typography.subtitleWeight, fontSize: metrics.subtitleSize, lineHeight: 1, letterSpacing: `${typography.subtitleTracking}em`, textShadow: titleShadow, transform: `scaleX(${subtitleScale})`, transformOrigin: "center" }}>{posterSubtitle}</span>
+        </div>}
         {config.date_line && <p className="relative max-w-full truncate uppercase opacity-70" style={{ fontSize: metrics.metaSize, lineHeight: 1, letterSpacing: "0.7cqw", textShadow: titleShadow }}>{config.date_line}</p>}
         {config.show_coordinates && (
           <p className="relative opacity-65" style={{ fontSize: metrics.metaSize, lineHeight: 1, letterSpacing: "0.6cqw", textShadow: titleShadow }}>
