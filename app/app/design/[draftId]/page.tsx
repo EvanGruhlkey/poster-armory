@@ -16,10 +16,6 @@ import {
   Download,
   Package,
   LogIn,
-  Map,
-  Layers3,
-  Type,
-  Palette,
   Rotate3D,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +25,7 @@ import {
   resolvePosterTypography,
 } from "@/lib/poster-typography";
 import { PosterTextChoices } from "@/components/poster-text-choices";
+import { PosterEditorSidebar, type PosterEditorTool } from "@/components/poster-editor-sidebar";
 import {
   STYLE_PRESETS,
   POSTER_SIZES,
@@ -46,14 +43,6 @@ import {
 } from "@/lib/plan-config";
 import { useAuth } from "@/components/auth-provider";
 import { useSubscription } from "@/components/subscription-provider";
-type EditorTool = "location" | "layers" | "type" | "style";
-
-const EDITOR_TOOLS = [
-  { id: "location" as const, label: "Location", icon: Map },
-  { id: "layers" as const, label: "Layers", icon: Layers3 },
-  { id: "type" as const, label: "Text", icon: Type },
-  { id: "style" as const, label: "Colors", icon: Palette },
-];
 
 interface SavedDesignState {
   config?: PosterConfig;
@@ -103,7 +92,7 @@ export default function CustomizePosterPage({
 
   const [selectedSize, setSelectedSize] = useState(DEFAULT_SIZE);
   const [generateLoading, setGenerateLoading] = useState(false);
-  const [activeTool, setActiveTool] = useState<EditorTool>("location");
+  const [activeTool, setActiveTool] = useState<PosterEditorTool>("map");
   const [layerPreset, setLayerPreset] =
     useState<MapLayerPreset>("minimal");
   const [pitch, setPitch] = useState(0);
@@ -352,7 +341,7 @@ export default function CustomizePosterPage({
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-5 pb-32 sm:px-6 sm:py-8 sm:pb-8 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-5 pb-32 sm:px-6 sm:py-8 sm:pb-8 lg:px-8">
       <div className="mb-5 sm:mb-8">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step 2 of 2</p>
         <h1 className="text-xl font-bold sm:text-2xl lg:text-3xl">
@@ -364,32 +353,11 @@ export default function CustomizePosterPage({
         </p>
       </div>
 
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-8">
         {/* Controls */}
-        <div className="order-2 min-w-0 space-y-4 lg:order-1">
-          <Card className="min-w-0 overflow-hidden">
-            <div>
-              <nav className="grid grid-cols-4 gap-1 border-b bg-muted/20 p-2" aria-label="Editor tools">
-                {EDITOR_TOOLS.map((tool) => (
-                  <button
-                    key={tool.id}
-                    type="button"
-                    onClick={() => setActiveTool(tool.id)}
-                    aria-pressed={activeTool === tool.id}
-                    className={`flex w-full items-center justify-center gap-1.5 rounded-md px-1 py-2.5 text-xs font-medium transition-colors ${
-                      activeTool === tool.id
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    <tool.icon className="hidden h-4 w-4 sm:block" aria-hidden="true" />
-                    {tool.label}
-                  </button>
-                ))}
-              </nav>
-
-              <div className="min-w-0 p-4 sm:p-5">
-                {activeTool === "location" && (
+        <div className="order-2 min-w-0 space-y-4 lg:order-2 lg:max-w-[360px]">
+          <PosterEditorSidebar activeTool={activeTool} onToolChange={setActiveTool}>
+                {activeTool === "map" && (
                   <div className="space-y-4">
                     <div>
                       <h2 className="text-sm font-semibold">Frame your map</h2>
@@ -428,8 +396,10 @@ export default function CustomizePosterPage({
                   </div>
                 )}
 
-                {activeTool === "layers" && (
-                  <div className="space-y-4">
+                {activeTool === "map" && (
+                  <details className="rounded-md border px-3 py-2.5">
+                    <summary className="cursor-pointer text-xs font-medium">More options</summary>
+                    <div className="space-y-4 pt-4">
                     <div className="space-y-3">
                         {[
                           ["show_labels", "Map labels", config.show_labels],
@@ -449,7 +419,8 @@ export default function CustomizePosterPage({
                           </div>
                         ))}
                     </div>
-                  </div>
+                    </div>
+                  </details>
                 )}
 
                 {activeTool === "type" && (
@@ -484,7 +455,7 @@ export default function CustomizePosterPage({
                       </div>
                     </div>
                     <details className="rounded-md border px-3 py-2.5">
-                      <summary className="cursor-pointer text-xs font-medium">Customize{typography.preset === "custom" ? " · Custom" : ""}</summary>
+                      <summary className="cursor-pointer text-xs font-medium">More options{typography.preset === "custom" ? " · Custom" : ""}</summary>
                       <div className="space-y-4 pt-4">
                         <div className="space-y-1.5">
                           <Label htmlFor="title-font" className="text-xs">Title font</Label>
@@ -591,11 +562,9 @@ export default function CustomizePosterPage({
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
-          </Card>
+          </PosterEditorSidebar>
 
-          <Card>
+          {activeTool === "finish" && <Card>
             <CardContent className="space-y-4 p-4 sm:p-5">
               <div>
                 <h2 className="text-sm font-semibold">Poster size</h2>
@@ -620,7 +589,7 @@ export default function CustomizePosterPage({
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Desktop actions */}
           <div className="hidden grid-cols-2 gap-3 sm:grid">
@@ -715,7 +684,7 @@ export default function CustomizePosterPage({
         </div>
 
         {/* Automatic live poster — above controls on mobile, sticky on desktop */}
-        <div className="order-1 mx-auto w-full max-w-sm lg:sticky lg:top-20 lg:order-2 lg:max-w-none">
+        <div className="order-1 mx-auto w-full max-w-sm lg:sticky lg:top-20 lg:order-1 lg:max-w-none lg:self-start">
           {livePosterPanel}
         </div>
       </div>
