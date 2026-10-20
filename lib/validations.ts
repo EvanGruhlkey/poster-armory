@@ -9,10 +9,18 @@ export const locationSchema = z.object({
 });
 
 export const posterConfigSchema = z.object({
-  typography_preset: z.enum(["gallery", "editorial", "modern", "custom"]).optional(),
-  title_font: z.enum(["Inter", "Playfair Display", "Oswald"]).optional(),
-  title_size: z.number().min(3.5).max(7).optional(),
-  title_tracking: z.number().min(0).max(0.25).optional(),
+  typography_preset: z.enum(["gallery", "editorial", "modern", "custom", "modern-bold", "classic-serif", "minimal-clean", "editorial-strong", "vintage-elegant", "technical-mono", "geometric-modern", "condensed-impact"]).optional(),
+  text_placement: z.enum(["below", "top", "center", "bottom"]).optional(),
+  title_font: z.enum(["Inter", "Playfair Display", "Oswald", "Montserrat", "Crimson Text", "JetBrains Mono", "Poppins"]).optional(),
+  title_size: z.number().min(3.5).max(10).optional(),
+  title_weight: z.number().int().min(300).max(900).optional(),
+  title_tracking: z.number().min(-0.1).max(0.25).optional(),
+  title_all_caps: z.boolean().optional(),
+  subtitle_font: z.enum(["Inter", "Playfair Display", "Oswald", "Montserrat", "Crimson Text", "JetBrains Mono", "Poppins"]).optional(),
+  subtitle_size: z.number().min(1.2).max(5).optional(),
+  subtitle_weight: z.number().int().min(300).max(900).optional(),
+  subtitle_tracking: z.number().min(-0.1).max(0.25).optional(),
+  text_backdrop: z.enum(["none", "subtle", "strong", "gradient"]).optional(),
   frame_style: z.enum(["none", "fine", "double"]).optional(),
   style_id: z.enum([
     "warm_beige", "terracotta", "noir", "blueprint", "midnight_blue",

@@ -48,10 +48,18 @@ export interface PosterMarker {
 }
 
 export interface PosterConfig {
-  typography_preset?: "gallery" | "editorial" | "modern" | "custom";
-  title_font?: "Inter" | "Playfair Display" | "Oswald";
+  typography_preset?: "gallery" | "editorial" | "modern" | "custom" | "modern-bold" | "classic-serif" | "minimal-clean" | "editorial-strong" | "vintage-elegant" | "technical-mono" | "geometric-modern" | "condensed-impact";
+  text_placement?: "below" | "top" | "center" | "bottom";
+  title_font?: "Inter" | "Playfair Display" | "Oswald" | "Montserrat" | "Crimson Text" | "JetBrains Mono" | "Poppins";
   title_size?: number;
+  title_weight?: number;
   title_tracking?: number;
+  title_all_caps?: boolean;
+  subtitle_font?: PosterConfig["title_font"];
+  subtitle_size?: number;
+  subtitle_weight?: number;
+  subtitle_tracking?: number;
+  text_backdrop?: "none" | "subtle" | "strong" | "gradient";
   frame_style?: "none" | "fine" | "double";
   style_id: string;
   city: string;
