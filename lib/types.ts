@@ -57,6 +57,15 @@ export interface PosterConfig {
   terrain_light_altitude?: number;
   building_height_scale?: number;
   building_default_height?: number;
+  label_admin?: boolean;
+  label_cities?: boolean;
+  label_streets?: boolean;
+  label_size?: number;
+  label_style?: "standard" | "elevated" | "glass" | "vintage";
+  show_scale?: boolean;
+  show_grid?: boolean;
+  grid_density?: 1 | 2 | 5 | 10 | 15 | 20 | 30;
+  grid_weight?: number;
   typography_preset?: "gallery" | "editorial" | "modern" | "custom" | "modern-bold" | "classic-serif" | "minimal-clean" | "editorial-strong" | "vintage-elegant" | "technical-mono" | "geometric-modern" | "condensed-impact";
   text_placement?: "below" | "top" | "center" | "bottom";
   title_font?: "Inter" | "Playfair Display" | "Oswald" | "Montserrat" | "Crimson Text" | "JetBrains Mono" | "Poppins";

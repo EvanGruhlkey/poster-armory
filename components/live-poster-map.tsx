@@ -9,6 +9,7 @@ import { getPosterMapStyle } from "@/lib/poster-renderer/adapter";
 import { zoomForExportWidth } from "@/lib/poster-renderer/export";
 import { fitTitleScale, resolvePosterTypography } from "@/lib/poster-typography";
 import { getPosterTextBackdrop, getPosterTextLayout, getPosterTextMetrics } from "@/lib/poster-text-layout";
+import { getPosterScaleBar } from "@/lib/poster-labels";
 import {
   distanceToZoom,
   zoomToDistance,
@@ -205,6 +206,16 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     config.show_water,
     config.show_parks,
     config.major_roads_only,
+    config.label_admin,
+    config.label_cities,
+    config.label_streets,
+    config.label_size,
+    config.label_style,
+    config.show_grid,
+    config.grid_density,
+    config.grid_weight,
+    config.lat,
+    config.lon,
     ready,
   ]);
 
@@ -331,6 +342,13 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       <div className="pointer-events-none absolute bottom-1 left-1 right-1 w-fit max-w-[98%] px-1 py-0.5 text-[7px] font-medium leading-tight text-white/60 mix-blend-difference">
         © OpenStreetMap contributors · OpenFreeMap
       </div>
+      {config.show_scale && (() => {
+        const scale = getPosterScaleBar(config, posterSize.width * 0.88);
+        return <div className="pointer-events-none absolute bottom-2 right-3 rounded bg-background/80 px-1.5 py-1 text-right text-[9px] font-medium shadow-sm" style={{ color: textColor }}>
+          <span>{scale.label}</span>
+          <div className="mt-0.5 border-b-2 border-x-2" style={{ width: scale.widthPx, height: 5, borderColor: textColor }} />
+        </div>;
+      })()}
       </div>
 
       <div className="pointer-events-none absolute flex flex-col items-center justify-center text-center" style={{

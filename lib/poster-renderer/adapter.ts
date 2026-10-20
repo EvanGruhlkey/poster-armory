@@ -2,6 +2,7 @@ import type { StyleSpecification } from "maplibre-gl";
 import type { PosterConfig } from "@/lib/types";
 import type { PosterConfig as RendererConfig, PosterStyle, ColorPalette } from "./types";
 import { getDefaultStyle, getStyleById } from "./styles";
+import { getPosterGrid, resolvePosterLabels } from "../poster-labels";
 
 const STYLE_MAP: Record<string, string> = {
   warm_beige: "minimal", terracotta: "vintage", noir: "dark-mode",
@@ -75,6 +76,7 @@ export function getPosterPalette(config: PosterConfig): ColorPalette {
 
 export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
   const style = selectStyle(config);
+  const labels = resolvePosterLabels(config);
   const palette = selectPalette(style, config);
   const mapStyle = structuredClone(style.mapStyle) as StyleSpecification;
   recolorStyle(mapStyle, style.defaultPalette, palette);
@@ -83,6 +85,13 @@ export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
     mapStyle.terrain = { source: "terrain", exaggeration: config.terrain_exaggeration ?? 1.5 };
   } else {
     delete mapStyle.terrain;
+  }
+  if (labels.grid) {
+    mapStyle.sources["poster-grid"] = { type: "geojson", data: getPosterGrid(config) };
+    mapStyle.layers.push({
+      id: "poster-grid-lines", type: "line", source: "poster-grid",
+      paint: { "line-color": palette.border, "line-width": labels.gridWeight, "line-opacity": 0.28 },
+    });
   }
   // These optional sources require upstream-only routes or protocols.
   delete mapStyle.sources.contours;
@@ -98,6 +107,9 @@ export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
     if (!config.show_water && /water|river|lake/.test(layer.id)) return false;
     if (!config.show_parks && /park|green|forest|landcover/.test(layer.id)) return false;
     if (!config.show_labels && /labels|street-name/.test(layer.id)) return false;
+    if (labels.show && !labels.admin && /^labels-(country|state)$/.test(layer.id)) return false;
+    if (labels.show && !labels.cities && layer.id === "labels-city") return false;
+    if (labels.show && !labels.streets && /labels-street|street-name/.test(layer.id)) return false;
     if (config.major_roads_only && /^(road|bridge)-(service|residential|tertiary|secondary)(-|$)/.test(layer.id)) return false;
     return true;
   });
@@ -105,6 +117,16 @@ export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
   const background = mapStyle.layers.find((layer) => layer.id === "background");
   if (background?.type === "background") background.paint = { ...background.paint, "background-color": palette.background };
   for (const layer of mapStyle.layers) {
+    if (layer.type === "symbol" && /labels|street-name/.test(layer.id) && labels.size !== 16) {
+      const textSize = layer.layout?.["text-size"];
+      if (textSize !== undefined) layer.layout = { ...layer.layout, "text-size": scaleZoomStops(textSize, labels.size / 16) as typeof textSize };
+    }
+    if (layer.type === "symbol" && /labels|street-name/.test(layer.id) && labels.style !== "standard") {
+      layer.paint = { ...layer.paint,
+        "text-halo-color": palette.background,
+        "text-halo-width": labels.style === "glass" ? 3 : labels.style === "elevated" ? 2 : 1.5,
+      };
+    }
     if (layer.type === "line" && /^(road|bridge)-/.test(layer.id) && config.road_weight && config.road_weight !== 1) {
       const width = layer.paint?.["line-width"];
       if (width !== undefined) {

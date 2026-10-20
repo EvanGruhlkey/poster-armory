@@ -6,6 +6,7 @@ import { getPosterMapDimensions, renderPosterMapCanvas } from "@/lib/poster-rend
 import { getPosterFrameStrokes } from "@/lib/poster-frame";
 import { resolvePosterTypography } from "@/lib/poster-typography";
 import { getPosterTextBackdrop, getPosterTextLayout, getPosterTextMetrics } from "@/lib/poster-text-layout";
+import { getPosterScaleBar } from "@/lib/poster-labels";
 
 /** Long edge of a high-resolution digital poster, in pixels. */
 export const EXPORT_LONG_EDGE = 4800;
@@ -193,6 +194,25 @@ export async function renderPosterPNG(config: PosterConfig, width: number, heigh
   const { x: mapX, y: mapY, width: mapWidth, height: mapHeight } = getPosterMapDimensions(width, height);
   const printMap = await renderPosterMapCanvas(config, mapWidth, mapHeight);
   ctx.drawImage(printMap, mapX, mapY);
+  if (config.show_scale) {
+    const scale = getPosterScaleBar(config, mapWidth);
+    const right = mapX + mapWidth - mapWidth * 0.035;
+    const bottom = mapY + mapHeight - mapWidth * 0.035;
+    ctx.save();
+    ctx.strokeStyle = getPosterPalette(config).text;
+    ctx.fillStyle = getPosterPalette(config).text;
+    ctx.lineWidth = Math.max(1, mapWidth * 0.003);
+    ctx.textAlign = "right";
+    ctx.font = `${Math.max(8, mapWidth * 0.018)}px Inter, sans-serif`;
+    ctx.fillText(scale.label, right, bottom - mapWidth * 0.012);
+    ctx.beginPath();
+    ctx.moveTo(right - scale.widthPx, bottom - mapWidth * 0.008);
+    ctx.lineTo(right - scale.widthPx, bottom);
+    ctx.lineTo(right, bottom);
+    ctx.lineTo(right, bottom - mapWidth * 0.008);
+    ctx.stroke();
+    ctx.restore();
+  }
   const textColor = getPosterPalette(config).text;
   ctx.strokeStyle = `${textColor}55`;
   for (const stroke of getPosterFrameStrokes(typography.frameStyle, width, height)) {
