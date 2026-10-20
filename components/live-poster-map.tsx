@@ -240,12 +240,15 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
 
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor, color: textColor, containerType: "inline-size" }}>
-      <div className="absolute inset-x-[6%] bottom-[23%] top-[5%] overflow-hidden" style={{
-        boxShadow: typography.frameStyle === "none" ? "none" : typography.frameStyle === "double"
-          ? `inset 0 0 0 0.1cqw ${textColor}55, inset 0 0 0 0.7cqw ${bgColor}, inset 0 0 0 0.8cqw ${textColor}55`
-          : `inset 0 0 0 0.1cqw ${textColor}55`,
-      }}>
+      <div className="absolute inset-x-[6%] bottom-[23%] top-[5%] overflow-hidden">
       <div ref={containerRef} className="absolute inset-0" />
+      {typography.frameStyle !== "none" && (
+        <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true" style={{
+          boxShadow: typography.frameStyle === "double"
+            ? `inset 0 0 0 0.1cqw ${textColor}55, inset 0 0 0 0.7cqw ${bgColor}, inset 0 0 0 0.8cqw ${textColor}55`
+            : `inset 0 0 0 0.1cqw ${textColor}55`,
+        }} />
+      )}
 
       {!ready && !error && (
         <div className="absolute inset-0 grid place-items-center" style={{ color: textColor }}>
