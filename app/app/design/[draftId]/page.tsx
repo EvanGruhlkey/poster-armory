@@ -109,10 +109,11 @@ export default function CustomizePosterPage({
 
   useEffect(() => {
     const measure = () => {
-      if (editorRef.current) setEditorHeight(Math.max(320, window.innerHeight - editorRef.current.getBoundingClientRect().top));
+      if (editorRef.current) setEditorHeight(Math.max(0, window.innerHeight - editorRef.current.getBoundingClientRect().top));
       if (stageRef.current) {
         const { width, height } = stageRef.current.getBoundingClientRect();
-        setStageSize({ width, height });
+        const bottomInset = Number.parseFloat(getComputedStyle(stageRef.current).paddingBottom) || 0;
+        setStageSize({ width, height: height - bottomInset });
       }
     };
     measure();
@@ -651,7 +652,7 @@ export default function CustomizePosterPage({
         </div>
 
         <div ref={stageRef} data-testid="poster-stage"
-          className={`flex min-h-0 min-w-0 flex-1 items-center justify-center transition-[width,padding] duration-200 motion-reduce:transition-none ${activeTool ? "lg:mr-[440px]" : "lg:mr-20"} pb-20 lg:pb-0`}
+          className={`flex min-h-0 min-w-0 flex-1 items-center justify-center transition-[width,padding] duration-200 motion-reduce:transition-none ${activeTool ? "pb-[50dvh] lg:mr-[440px]" : "pb-20 lg:mr-20"} lg:pb-0`}
         >
           <PosterRoomStage mode={viewMode} onModeChange={setViewMode}>
             <div data-testid="poster-preview" style={{ width: posterFit.width, height: posterFit.height }} className="shrink-0 shadow-[0_16px_35px_rgba(39,31,23,0.16)]">

@@ -60,6 +60,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   const posterRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const applyingViewRef = useRef(false);
+  const userMoveRef = useRef(false);
   const onViewChangeRef = useRef(onViewChange);
   const onIdleRef = useRef(onIdle);
   const initialViewRef = useRef({
@@ -133,13 +134,12 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     });
 
     mapRef.current = map;
-    let previousWidth = containerRef.current.clientWidth || 330;
+    const armUserMove = () => { userMoveRef.current = true; };
+    map.getCanvas().addEventListener("pointerdown", armUserMove);
+    map.getCanvas().addEventListener("wheel", armUserMove);
+    map.getCanvas().addEventListener("keydown", armUserMove);
     const resizeObserver = new ResizeObserver(() => {
-      const oldWidth = previousWidth;
       map.resize();
-      const newWidth = map.getContainer().clientWidth || 330;
-      if (Math.abs(newWidth - oldWidth) > 1) map.setZoom(map.getZoom() + Math.log2(newWidth / oldWidth));
-      previousWidth = newWidth;
     });
     resizeObserver.observe(containerRef.current);
     let idleNotified = false;
@@ -167,7 +167,8 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     map.once("style.load", markReady);
     map.on("error", () => setError(true));
     map.on("moveend", () => {
-      if (applyingViewRef.current) return;
+      if (applyingViewRef.current || !userMoveRef.current) return;
+      userMoveRef.current = false;
       if (!onViewChangeRef.current) return;
       const center = map.getCenter();
       onViewChangeRef.current({
@@ -182,6 +183,9 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     return () => {
       disposed = true;
       resizeObserver.disconnect();
+      map.getCanvas().removeEventListener("pointerdown", armUserMove);
+      map.getCanvas().removeEventListener("wheel", armUserMove);
+      map.getCanvas().removeEventListener("keydown", armUserMove);
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -251,11 +255,13 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   const zoomBy = useCallback((delta: number) => {
     const map = mapRef.current;
     if (!map) return;
+    userMoveRef.current = true;
     map.easeTo({ zoom: map.getZoom() + delta, duration: 220 });
   }, []);
 
   const resetView = useCallback(() => {
     const initial = initialViewRef.current;
+    userMoveRef.current = true;
     mapRef.current?.easeTo({
       center: [initial.lon, initial.lat],
       zoom: previewZoom(initial.distance),
@@ -266,6 +272,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   }, []);
 
   const recenter = useCallback(() => {
+    userMoveRef.current = true;
     mapRef.current?.easeTo({ center: [config.lon, config.lat], duration: 350 });
   }, [config.lat, config.lon]);
 
