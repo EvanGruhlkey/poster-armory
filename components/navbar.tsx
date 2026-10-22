@@ -39,6 +39,8 @@ export function Navbar() {
 
   const isApp = pathname.startsWith("/app");
 
+  if (/^\/app\/design\/[^/]+/.test(pathname)) return null;
+
   const navLinkClass = (href: string) =>
     `block rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted ${
       pathname === href ? "text-foreground" : "text-muted-foreground"

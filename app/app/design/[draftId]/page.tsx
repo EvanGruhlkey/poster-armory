@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/logo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -368,19 +370,19 @@ export default function CustomizePosterPage({
 
   return (
     <div ref={editorRef} className="flex w-full flex-col overflow-hidden bg-[#eee9e1]" style={{ height: editorHeight }}>
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#ded6cb] bg-[#faf8f5] px-4 sm:px-7">
-        <div className="min-w-0 text-sm font-medium text-[#18344b]">
-          <span className="truncate">{city}{country ? `, ${country}` : ""}</span>
-          <span className="ml-2 hidden text-xs font-normal text-slate-500 sm:inline">Poster editor</span>
-        </div>
+      <header data-testid="poster-editor-header" className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[#ded6cb] bg-[#faf8f5] px-3 sm:h-16 sm:px-7">
+        <Link href="/" className="flex min-w-0 items-center gap-2 text-sm font-bold text-[#18344b] sm:text-lg" aria-label="Poster Armory home">
+          <Logo className="h-6 w-6 shrink-0" />
+          <span className="hidden truncate min-[380px]:inline">Poster Armory</span>
+        </Link>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="hidden sm:inline-flex" onClick={() => {
+          <Button variant="outline" size="sm" className="px-3" onClick={() => {
             try { sessionStorage.setItem(`poster-design-draft:${params.draftId}`, JSON.stringify({ config, selectedSize, layerPreset, pitch })); toast.success("Design saved"); }
             catch { toast.error("Could not save this design"); }
           }}>Save</Button>
-          <Button size="sm" className="hidden bg-[#18344b] text-white hover:bg-[#10283a] sm:inline-flex" onClick={handleOrderPhysical} disabled={!config.city}>Order Print →</Button>
+          <Button size="sm" className="bg-[#18344b] px-3 text-white hover:bg-[#10283a]" onClick={handleOrderPhysical} disabled={!config.city}>Order Print →</Button>
         </div>
-      </div>
+      </header>
 
       <div className="relative flex min-h-0 flex-1">
         <div className="contents">
