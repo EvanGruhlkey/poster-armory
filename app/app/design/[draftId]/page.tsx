@@ -354,7 +354,7 @@ export default function CustomizePosterPage({
       >
         <LivePosterMap
           config={config}
-          showControls={viewMode === "map"}
+          showControls={false}
           bgColor={currentStyle.bgColor}
           textColor={currentStyle.textColor}
           layerPreset={layerPreset}

@@ -8,49 +8,36 @@ import { HeroMapAnimation } from "@/components/hero-map-animation";
 import { Button } from "@/components/ui/button";
 import { MapPin, Palette, Download, ChevronDown, Truck } from "lucide-react";
 
-const GH_RAW =
-  "https://raw.githubusercontent.com/EvanGruhlkey/poster-forge/main/posters";
-
 const GALLERY = [
   {
-    src: `${GH_RAW}/marrakech_terracotta_20260118_143253.png`,
-    city: "Marrakech",
-    theme: "Terracotta",
+    src: "/images/gallery/chicago.jpg",
+    city: "Chicago",
+    theme: "Classic",
   },
   {
-    src: `${GH_RAW}/venice_blueprint_20260118_140505.png`,
+    src: "/images/gallery/tokyo.jpg",
+    city: "Tokyo",
+    theme: "Noir",
+  },
+  {
+    src: "/images/gallery/paris.jpg",
+    city: "Paris",
+    theme: "Watercolor",
+  },
+  {
+    src: "/images/gallery/venice.jpg",
     city: "Venice",
+    theme: "Vintage",
+  },
+  {
+    src: "/images/gallery/new-york.jpg",
+    city: "New York",
     theme: "Blueprint",
   },
   {
-    src: `${GH_RAW}/dubai_midnight_blue_20260118_140807.png`,
-    city: "Dubai",
-    theme: "Midnight Blue",
-  },
-  {
-    src: `${GH_RAW}/tokyo_japanese_ink_20260118_142446.png`,
-    city: "Tokyo",
-    theme: "Japanese Ink",
-  },
-  {
-    src: `${GH_RAW}/san_francisco_sunset_20260118_144726.png`,
-    city: "San Francisco",
-    theme: "Sunset",
-  },
-  {
-    src: `${GH_RAW}/singapore_neon_cyberpunk_20260118_153328.png`,
-    city: "Singapore",
-    theme: "Neon Cyberpunk",
-  },
-  {
-    src: `${GH_RAW}/seattle_emerald_20260124_162244.png`,
+    src: "/images/gallery/seattle.jpg",
     city: "Seattle",
-    theme: "Emerald",
-  },
-  {
-    src: `${GH_RAW}/london_noir_20260118_150259.png`,
-    city: "London",
-    theme: "Noir",
+    theme: "Organic",
   },
 ];
 
@@ -200,10 +187,10 @@ export default function LandingPage() {
             Example posters
           </h2>
           <p className="mb-8 text-center text-sm text-muted-foreground sm:text-base">
-            17 themes. Any city.
+            Made in the editor. Make one yours.
           </p>
 
-          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0">
             {GALLERY.map((poster) => (
               <div
                 key={poster.city}
@@ -218,10 +205,7 @@ export default function LandingPage() {
                     sizes="(max-width: 640px) 42vw, (max-width: 1024px) 33vw, 25vw"
                   />
                 </div>
-                <div className="p-2 text-center">
-                  <p className="text-sm font-medium">{poster.city}</p>
-                  <p className="text-xs text-muted-foreground">{poster.theme}</p>
-                </div>
+                <p className="p-2 text-center text-xs text-muted-foreground">{poster.theme}</p>
               </div>
             ))}
           </div>
