@@ -241,16 +241,25 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready || interactive) return;
+    if (!map || !ready) return;
+    const center = map.getCenter();
+    const zoom = previewZoom(config.distance);
+    if (
+      Math.abs(center.lat - config.lat) < 0.00001 &&
+      Math.abs(center.lng - config.lon) < 0.00001 &&
+      Math.abs(map.getZoom() - zoom) < 0.01 &&
+      Math.abs(map.getBearing() - config.rotation) < 0.1 &&
+      Math.abs(map.getPitch() - pitch) < 0.1
+    ) return;
     applyingViewRef.current = true;
     try { map.jumpTo({
       center: [config.lon, config.lat],
-      zoom: previewZoom(config.distance),
+      zoom,
       bearing: config.rotation,
       pitch,
     }); }
     finally { applyingViewRef.current = false; }
-  }, [config.lat, config.lon, config.distance, config.rotation, pitch, ready, interactive]);
+  }, [config.lat, config.lon, config.distance, config.rotation, pitch, ready]);
 
   const zoomBy = useCallback((delta: number) => {
     const map = mapRef.current;

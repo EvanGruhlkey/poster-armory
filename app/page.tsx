@@ -4,9 +4,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { HeroMapAnimation } from "@/components/hero-map-animation";
+import { HeroLocationForm } from "@/components/hero-location-form";
 import { Button } from "@/components/ui/button";
-import { MapPin, Palette, Download, ChevronDown, Truck } from "lucide-react";
+import { MapPin, Palette, Download, ChevronDown } from "lucide-react";
 
 const GALLERY = [
   {
@@ -124,35 +124,20 @@ export default function LandingPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <HeroMapAnimation />
-
-        {/* Light vignette: map visible at edges, copy readable in center */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/50" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_45%_at_50%_48%,hsl(var(--background)/0.92)_0%,hsl(var(--background)/0.55)_45%,transparent_72%)]" />
-
-        <div className="relative z-10 mx-auto flex min-h-[min(88vh,760px)] max-w-3xl flex-col items-center justify-center px-4 py-16 text-center sm:px-6 sm:py-20">
-          <p className="mb-4 inline-flex items-center gap-2 rounded-full border bg-background/80 px-4 py-1.5 text-xs font-medium tracking-wide text-muted-foreground backdrop-blur-sm sm:text-sm">
-            <Truck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            Premium map posters, shipped to your door
-          </p>
-          <h1 className="text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
-            Turn a place you love
-            <br />
-            <span className="text-primary">into a poster</span>
-          </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:mt-6 sm:text-lg">
-            Choose any city, neighborhood, or memory. We&apos;ll turn it into a
-            custom map poster, print it on premium paper, and ship it straight
-            to you.
-          </p>
-          <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-3 sm:mt-10">
-            <Button asChild size="lg" className="h-12 w-full px-8 text-base shadow-lg sm:w-auto">
-              <Link href="/app">Design for free</Link>
-            </Button>
-            <p className="text-sm text-muted-foreground">
-              Free to design · No card required
-            </p>
+      <section data-testid="home-hero" className="grid overflow-hidden border-b lg:min-h-[calc(100svh-4rem)] lg:grid-cols-2">
+        <div className="relative flex items-center bg-[#fbfaf8] px-6 py-16 sm:px-12 lg:px-[clamp(3rem,6vw,8rem)] lg:py-20" style={{ backgroundImage: "linear-gradient(to right, rgba(24,52,75,.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(24,52,75,.045) 1px, transparent 1px)", backgroundSize: "28px 28px" }}>
+          <div className="relative mx-auto w-full max-w-[560px] lg:ml-auto lg:mr-0">
+            <h1 className="text-[clamp(2.75rem,3.5vw,4.25rem)] font-bold leading-[1.06] tracking-tight text-[#18344b]">
+              Your favorite place.<br />On your wall.
+            </h1>
+            <p className="mt-5 text-xl text-slate-500 sm:text-2xl">Custom map posters.</p>
+            <HeroLocationForm />
+          </div>
+        </div>
+        <div data-testid="hero-room" className="relative min-h-[520px] overflow-hidden bg-[#d4c5ad] sm:min-h-[650px] lg:min-h-full">
+          <Image src="/images/hero-room-portrait.png" alt="" fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
+          <div className="absolute left-1/2 top-[7%] w-[min(57%,430px)] -translate-x-1/2 border-[7px] border-[#8a6241] bg-[#8a6241] p-[2px] shadow-[0_18px_35px_rgba(43,26,13,0.32),0_2px_4px_rgba(43,26,13,0.3)] sm:border-[9px]">
+            <Image src="/images/hero-san-francisco.jpg" alt="San Francisco custom map poster in a wood frame" width={900} height={1200} priority className="block h-auto w-full" sizes="(max-width: 1024px) 57vw, 29vw" />
           </div>
         </div>
       </section>

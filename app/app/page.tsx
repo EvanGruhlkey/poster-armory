@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,11 @@ export default function PickLocationPage() {
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [found, setFound] = useState(false);
+
+  useEffect(() => {
+    const place = new URLSearchParams(window.location.search).get("place");
+    if (place) setLocationText(place);
+  }, []);
 
   async function reverseGeocode(latitude: string, longitude: string) {
     const res = await fetch(
