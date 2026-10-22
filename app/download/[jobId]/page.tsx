@@ -24,8 +24,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import type { PosterConfig, PosterJobOutput } from "@/lib/types";
-import { STYLE_PRESETS } from "@/lib/types";
-import { EXPORT_LONG_EDGE, composeLivePosterFiles } from "@/lib/live-poster-export";
+import { getPosterPalette } from "@/lib/poster-renderer/adapter";
+import { composeLivePosterFiles } from "@/lib/live-poster-export";
 import type { MapLayerPreset } from "@/lib/live-poster-style";
 
 interface JobStatusResponse {
@@ -156,7 +156,7 @@ function DownloadPageInner() {
     liveExportStarted.current = true;
 
     const config = current.input;
-    const style = STYLE_PRESETS[config.style_id] || STYLE_PRESETS.warm_beige;
+    const palette = getPosterPalette(config);
 
     try {
       setProgress((prev) => Math.max(prev, 15));
@@ -164,7 +164,7 @@ function DownloadPageInner() {
       if (!canvas || canvas.width < 64 || canvas.height < 64) {
         throw new Error("The live map is not ready to capture yet.");
       }
-      const files = await composeLivePosterFiles(canvas, config, style.bgColor);
+      const files = await composeLivePosterFiles(canvas, config, palette.background);
       setProgress((prev) => Math.max(prev, 70));
 
       const urlsRes = await fetch(`/api/jobs/${current.id}/export-urls`, {
@@ -296,8 +296,8 @@ function DownloadPageInner() {
   const ui = STATUS_UI[status] || STATUS_UI.queued;
   const live = isLiveMapJob(job);
   const liveConfig = job?.input;
-  const liveStyle =
-    (liveConfig && STYLE_PRESETS[liveConfig.style_id]) || STYLE_PRESETS.warm_beige;
+  const livePalette = liveConfig ? getPosterPalette(liveConfig) : null;
+  const liveStyle = { bgColor: livePalette?.background || "#F7F5F0", textColor: livePalette?.text || "#2C2C2C" };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -314,7 +314,7 @@ function DownloadPageInner() {
 
           {(live && liveConfig) ? (
           <div className="mb-6 overflow-hidden rounded-lg border shadow-md">
-            <div className="aspect-[3/4]" style={{ backgroundColor: liveStyle.bgColor }}>
+            <div style={{ backgroundColor: liveStyle.bgColor, aspectRatio: `${liveConfig.width} / ${liveConfig.height}` }}>
               <LivePosterMap
                 ref={liveMapRef}
                 config={liveConfig}
@@ -324,7 +324,6 @@ function DownloadPageInner() {
                 pitch={liveConfig.pitch || 0}
                 interactive={false}
                 showControls={false}
-                captureLongEdge={EXPORT_LONG_EDGE}
                 onIdle={() => {
                   if (job) void runLiveExport(job);
                 }}

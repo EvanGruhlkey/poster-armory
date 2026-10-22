@@ -42,12 +42,57 @@ export interface GeocodeCache {
 }
 
 export interface PosterMarker {
+  id?: string;
   lat: number;
   lon: number;
   label: string;
+  type?: "pin" | "crosshair" | "dot" | "ring" | "heart" | "home";
+  color?: string;
+  size?: number;
+  label_style?: "standard" | "elevated" | "glass" | "vintage";
+  label_color?: string;
+  label_size?: number;
 }
 
 export interface PosterConfig {
+  palette_id?: string;
+  custom_colors?: Record<string, string>;
+  map_layers?: Record<string, boolean>;
+  road_weight?: number;
+  terrain_exaggeration?: number;
+  terrain_light_azimuth?: number;
+  terrain_light_altitude?: number;
+  building_height_scale?: number;
+  building_default_height?: number;
+  label_admin?: boolean;
+  label_cities?: boolean;
+  label_streets?: boolean;
+  label_size?: number;
+  label_style?: "standard" | "elevated" | "glass" | "vintage";
+  show_scale?: boolean;
+  show_grid?: boolean;
+  grid_density?: 1 | 2 | 5 | 10 | 15 | 20 | 30;
+  grid_weight?: number;
+  center_marker?: boolean;
+  connect_markers?: boolean;
+  marker_path_color?: string;
+  marker_path_width?: number;
+  marker_path_style?: "solid" | "dashed";
+  show_segment_lengths?: boolean;
+  marker_fill_color?: string;
+  typography_preset?: "gallery" | "editorial" | "modern" | "custom" | "modern-bold" | "classic-serif" | "minimal-clean" | "editorial-strong" | "vintage-elegant" | "technical-mono" | "geometric-modern" | "condensed-impact";
+  text_placement?: "below" | "top" | "center" | "bottom";
+  title_font?: "Inter" | "Playfair Display" | "Oswald" | "Montserrat" | "Crimson Text" | "JetBrains Mono" | "Poppins";
+  title_size?: number;
+  title_weight?: number;
+  title_tracking?: number;
+  title_all_caps?: boolean;
+  subtitle_font?: PosterConfig["title_font"];
+  subtitle_size?: number;
+  subtitle_weight?: number;
+  subtitle_tracking?: number;
+  text_backdrop?: "none" | "subtle" | "strong" | "gradient";
+  frame_style?: "none" | "fine" | "double";
   style_id: string;
   city: string;
   country: string;

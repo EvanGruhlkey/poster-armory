@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/logo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -16,15 +18,21 @@ import {
   Download,
   Package,
   LogIn,
-  Map,
-  Layers3,
-  Type,
-  Palette,
   Rotate3D,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getPosterPalette } from "@/lib/poster-renderer/adapter";
+import { fitPosterInStage } from "@/lib/poster-editor-geometry";
+import { PosterRoomStage, type PosterViewMode } from "@/components/poster-room-stage";
 import {
-  STYLE_PRESETS,
+  applyTypographyCustomization,
+  resolvePosterTypography,
+} from "@/lib/poster-typography";
+import { PosterTextChoices } from "@/components/poster-text-choices";
+import { PosterColorControls } from "@/components/poster-color-controls";
+import { PosterMapControls } from "@/components/poster-map-controls";
+import { PosterEditorSidebar, type PosterEditorTool } from "@/components/poster-editor-sidebar";
+import {
   POSTER_SIZES,
   type PosterConfig,
   DEFAULT_CONFIG,
@@ -40,22 +48,6 @@ import {
 } from "@/lib/plan-config";
 import { useAuth } from "@/components/auth-provider";
 import { useSubscription } from "@/components/subscription-provider";
-type EditorTool = "location" | "layers" | "type" | "style";
-
-const EDITOR_TOOLS = [
-  { id: "location" as const, label: "Location", icon: Map },
-  { id: "layers" as const, label: "Layers", icon: Layers3 },
-  { id: "type" as const, label: "Words", icon: Type },
-  { id: "style" as const, label: "Style", icon: Palette },
-];
-
-const LAYER_PRESETS: Array<{ id: MapLayerPreset; label: string }> = [
-  { id: "everything", label: "Everything" },
-  { id: "city", label: "City life" },
-  { id: "nature", label: "Nature" },
-  { id: "minimal", label: "Minimal" },
-  { id: "transit", label: "Transit" },
-];
 
 interface SavedDesignState {
   config?: PosterConfig;
@@ -97,19 +89,41 @@ export default function CustomizePosterPage({
     date_line: "",
     show_coordinates: false,
     style_id: "warm_beige",
-    distance: 10000,
-    show_labels: true,
+    distance: 1500,
+    show_labels: false,
     show_water: true,
-    show_parks: true,
+    show_parks: false,
   });
 
   const [selectedSize, setSelectedSize] = useState(DEFAULT_SIZE);
   const [generateLoading, setGenerateLoading] = useState(false);
-  const [activeTool, setActiveTool] = useState<EditorTool>("location");
+  const [activeTool, setActiveTool] = useState<PosterEditorTool | null>(null);
+  const [viewMode, setViewMode] = useState<PosterViewMode>("map");
+  const editorRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [editorHeight, setEditorHeight] = useState(700);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const [layerPreset, setLayerPreset] =
-    useState<MapLayerPreset>("everything");
+    useState<MapLayerPreset>("minimal");
   const [pitch, setPitch] = useState(0);
+  const typography = resolvePosterTypography(config);
   const [draftHydrated, setDraftHydrated] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      if (editorRef.current) setEditorHeight(Math.max(0, window.innerHeight - editorRef.current.getBoundingClientRect().top));
+      if (stageRef.current) {
+        const { width, height } = stageRef.current.getBoundingClientRect();
+        const bottomInset = Number.parseFloat(getComputedStyle(stageRef.current).paddingBottom) || 0;
+        setStageSize({ width, height: height - bottomInset });
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (stageRef.current) observer.observe(stageRef.current);
+    window.addEventListener("resize", measure);
+    return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
+  }, []);
 
   // Keep the live editor state attached to this draft ID. This preserves the
   // exact design across refreshes, browser-back from checkout, and auth flows.
@@ -304,6 +318,8 @@ export default function CustomizePosterPage({
       ...config,
       width: selectedSize.width,
       height: selectedSize.height,
+      pitch,
+      layer_preset: layerPreset,
     };
     try {
       sessionStorage.setItem(
@@ -326,53 +342,19 @@ export default function CustomizePosterPage({
     router.push("/app/order");
   }
 
-  const currentStyle = STYLE_PRESETS[config.style_id] || STYLE_PRESETS.warm_beige;
-
-  function chooseLayerPreset(preset: MapLayerPreset) {
-    setLayerPreset(preset);
-    const updates: Record<MapLayerPreset, Partial<PosterConfig>> = {
-      everything: {
-        show_labels: true,
-        show_water: true,
-        show_parks: true,
-        major_roads_only: false,
-      },
-      city: {
-        show_labels: true,
-        show_water: true,
-        show_parks: false,
-        major_roads_only: false,
-      },
-      nature: {
-        show_labels: false,
-        show_water: true,
-        show_parks: true,
-        major_roads_only: true,
-      },
-      minimal: {
-        show_labels: false,
-        show_water: true,
-        show_parks: false,
-        major_roads_only: true,
-      },
-      transit: {
-        show_labels: true,
-        show_water: true,
-        show_parks: false,
-        major_roads_only: true,
-      },
-    };
-    updateConfig({ ...updates[preset], layer_preset: preset });
-  }
+  const posterPalette = getPosterPalette(config);
+  const currentStyle = { bgColor: posterPalette.background, textColor: posterPalette.text };
+  const posterFit = fitPosterInStage(stageSize.width, stageSize.height, selectedSize.width / selectedSize.height, 20);
 
   const livePosterPanel = (
     <Card className="overflow-hidden">
       <div
-        className="aspect-[3/4] flex items-center justify-center"
-        style={{ backgroundColor: currentStyle.bgColor }}
+        className="flex items-center justify-center"
+        style={{ backgroundColor: currentStyle.bgColor, aspectRatio: `${selectedSize.width} / ${selectedSize.height}` }}
       >
         <LivePosterMap
           config={config}
+          showControls={false}
           bgColor={currentStyle.bgColor}
           textColor={currentStyle.textColor}
           layerPreset={layerPreset}
@@ -387,48 +369,29 @@ export default function CustomizePosterPage({
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-5 pb-32 sm:px-6 sm:py-8 sm:pb-8 lg:px-8">
-      <div className="mb-5 sm:mb-8">
-        <h1 className="text-xl font-bold sm:text-2xl lg:text-3xl">
-          Customize poster
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {city}
-          {country ? `, ${country}` : ""}
-        </p>
-      </div>
+    <div ref={editorRef} className="flex w-full flex-col overflow-hidden bg-[#eee9e1]" style={{ height: editorHeight }}>
+      <header data-testid="poster-editor-header" className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[#ded6cb] bg-[#faf8f5] px-3 sm:h-16 sm:px-7">
+        <Link href="/" className="flex min-w-0 items-center gap-2 text-sm font-bold text-[#18344b] sm:text-lg" aria-label="Poster Armory home">
+          <Logo className="h-6 w-6 shrink-0" />
+          <span className="hidden truncate min-[380px]:inline">Poster Armory</span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="px-3" onClick={() => {
+            try { sessionStorage.setItem(`poster-design-draft:${params.draftId}`, JSON.stringify({ config, selectedSize, layerPreset, pitch })); toast.success("Design saved"); }
+            catch { toast.error("Could not save this design"); }
+          }}>Save</Button>
+          <Button size="sm" className="bg-[#18344b] px-3 text-white hover:bg-[#10283a]" onClick={handleOrderPhysical} disabled={!config.city}>Order Print →</Button>
+        </div>
+      </header>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_340px] lg:gap-8 xl:grid-cols-[1fr_380px]">
-        {/* Controls */}
-        <div className="order-2 space-y-4 lg:order-1">
-          <Card className="overflow-hidden">
-            <div className="grid grid-cols-[76px_1fr] sm:grid-cols-[92px_1fr]">
-              <nav className="space-y-1 border-r bg-muted/20 p-2" aria-label="Editor tools">
-                {EDITOR_TOOLS.map((tool) => (
-                  <button
-                    key={tool.id}
-                    type="button"
-                    onClick={() => setActiveTool(tool.id)}
-                    className={`flex w-full flex-col items-center gap-1 rounded-md px-1 py-2 text-[10px] font-medium transition-colors sm:text-xs ${
-                      activeTool === tool.id
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    <tool.icon className="h-4 w-4" aria-hidden="true" />
-                    {tool.label}
-                  </button>
-                ))}
-              </nav>
-
-              <div className="min-w-0 p-4 sm:p-5">
-                {activeTool === "location" && (
+      <div className="relative flex min-h-0 flex-1">
+        <div className="contents">
+          <PosterEditorSidebar activeTool={activeTool} onToolChange={setActiveTool}>
+                {activeTool === "map" && (
                   <div className="space-y-4">
                     <div>
                       <h2 className="text-sm font-semibold">Frame your map</h2>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        Drag the live map to reposition it. Use the controls on the poster to zoom.
-                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Drag the preview to move the map. Zoom on the preview.</p>
                     </div>
                     <div className="rounded-lg bg-muted/50 p-3 text-xs">
                       <p className="text-muted-foreground">Center</p>
@@ -454,69 +417,27 @@ export default function CustomizePosterPage({
                         </div>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="font-medium">Tilt</span>
+                            <span className="font-medium">3D angle</span>
                             <span className="tabular-nums text-muted-foreground">{Math.round(pitch)}°</span>
                           </div>
-                          <Slider value={[pitch]} onValueChange={([value]) => setPitch(value)} min={0} max={60} step={1} />
+                          <Slider value={[pitch]} onValueChange={([value]) => { setPitch(value); updateConfig({ pitch: value }); }} min={0} max={60} step={1} />
                         </div>
                       </div>
                   </div>
                 )}
 
-                {activeTool === "layers" && (
-                  <div className="space-y-4">
-                    <div>
-                      <h2 className="text-sm font-semibold">Map layers</h2>
-                      <p className="mt-1 text-xs text-muted-foreground">Start with a preset, then fine-tune the details.</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {LAYER_PRESETS.map((preset) => (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() => chooseLayerPreset(preset.id)}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                            layerPreset === preset.id
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "hover:bg-muted"
-                          }`}
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="space-y-3 border-t pt-4">
-                        {[
-                          ["show_labels", "Map labels", config.show_labels],
-                          ["show_water", "Water", config.show_water],
-                          ["show_parks", "Parks & green areas", config.show_parks],
-                          ["major_roads_only", "Major roads only", config.major_roads_only],
-                        ].map(([key, label, checked]) => (
-                          <div key={String(key)} className="flex items-center justify-between gap-4">
-                            <Label htmlFor={`layer-${String(key)}`} className="text-xs font-normal">{String(label)}</Label>
-                            <Switch
-                              id={`layer-${String(key)}`}
-                              checked={Boolean(checked)}
-                              onCheckedChange={(value) =>
-                                updateConfig({ [String(key)]: value } as Partial<PosterConfig>)
-                              }
-                            />
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
+                {activeTool === "map" && <div className="mt-5"><PosterMapControls config={config} pitch={pitch} onChange={updateConfig} onPitchChange={setPitch} /></div>}
 
                 {activeTool === "type" && (
                   <div className="space-y-4">
                     <div>
-                      <h2 className="text-sm font-semibold">Poster words</h2>
-                      <p className="mt-1 text-xs text-muted-foreground">Changes appear instantly on the live poster.</p>
+                      <h2 className="text-sm font-semibold">Poster text</h2>
                     </div>
+                    <PosterTextChoices config={config} onChange={updateConfig} />
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="live-title" className="text-xs">Title</Label>
-                        <Input id="live-title" value={config.title} onChange={(event) => updateConfig({ title: event.target.value })} />
+                        <Input id="live-title" placeholder={config.city} value={config.title} onChange={(event) => updateConfig({ title: event.target.value })} />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="live-subtitle" className="text-xs">Subtitle or dedication</Label>
@@ -538,47 +459,107 @@ export default function CustomizePosterPage({
                         />
                       </div>
                     </div>
+                    <details className="rounded-md border px-3 py-2.5">
+                      <summary className="cursor-pointer text-xs font-medium">More options{typography.preset === "custom" ? " · Custom" : ""}</summary>
+                      <div className="space-y-4 pt-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="title-font" className="text-xs">Title font</Label>
+                          <select id="title-font" value={typography.titleFont}
+                            onChange={(event) => updateConfig(applyTypographyCustomization(config, { title_font: event.target.value as PosterConfig["title_font"] }))}
+                            className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                            <option value="Inter">Inter</option>
+                            <option value="Playfair Display">Playfair Display</option>
+                            <option value="Oswald">Oswald</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Crimson Text">Crimson Text</option>
+                            <option value="JetBrains Mono">JetBrains Mono</option>
+                            <option value="Poppins">Poppins</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="title-size" className="text-xs">Title size · {typography.titleSize.toFixed(1)}%</Label>
+                          <Slider id="title-size" value={[typography.titleSize]} min={3.5} max={10} step={0.1}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_size: value }))} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="title-weight" className="text-xs">Title weight · {typography.titleWeight}</Label>
+                          <Slider id="title-weight" value={[typography.titleWeight]} min={300} max={900} step={100}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_weight: value }))} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="title-spacing" className="text-xs">Letter spacing · {typography.titleTracking.toFixed(2)}</Label>
+                          <Slider id="title-spacing" value={[typography.titleTracking]} min={-0.1} max={0.25} step={0.01}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_tracking: value }))} />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="title-caps" className="text-xs">All caps title</Label>
+                          <Switch id="title-caps" checked={typography.titleAllCaps}
+                            onCheckedChange={(value) => updateConfig(applyTypographyCustomization(config, { title_all_caps: value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="subtitle-font" className="text-xs">Subtitle font</Label>
+                          <select id="subtitle-font" value={typography.subtitleFont}
+                            onChange={(event) => updateConfig(applyTypographyCustomization(config, { subtitle_font: event.target.value as PosterConfig["subtitle_font"] }))}
+                            className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                            {["Inter", "Playfair Display", "Oswald", "Montserrat", "Crimson Text", "JetBrains Mono", "Poppins"].map((font) => <option key={font} value={font}>{font}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="subtitle-size" className="text-xs">Subtitle size · {typography.subtitleSize.toFixed(1)}%</Label>
+                          <Slider id="subtitle-size" value={[typography.subtitleSize]} min={1.2} max={5} step={0.1}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { subtitle_size: value }))} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="subtitle-weight" className="text-xs">Subtitle weight · {typography.subtitleWeight}</Label>
+                          <Slider id="subtitle-weight" value={[typography.subtitleWeight]} min={300} max={900} step={100}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { subtitle_weight: value }))} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="subtitle-spacing" className="text-xs">Subtitle spacing · {typography.subtitleTracking.toFixed(2)}</Label>
+                          <Slider id="subtitle-spacing" value={[typography.subtitleTracking]} min={-0.1} max={0.25} step={0.01}
+                            onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { subtitle_tracking: value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="text-backdrop" className="text-xs">Text backing</Label>
+                          <select id="text-backdrop" value={typography.textBackdrop}
+                            onChange={(event) => updateConfig(applyTypographyCustomization(config, { text_backdrop: event.target.value as PosterConfig["text_backdrop"] }))}
+                            className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                            <option value="none">None</option>
+                            <option value="subtle">Soft glow</option>
+                            <option value="strong">Solid</option>
+                            <option value="gradient">Fade</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="frame-style" className="text-xs">Frame</Label>
+                          <select id="frame-style" value={typography.frameStyle}
+                            onChange={(event) => updateConfig(applyTypographyCustomization(config, { frame_style: event.target.value as PosterConfig["frame_style"] }))}
+                            className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                            <option value="none">None</option>
+                            <option value="fine">Fine</option>
+                            <option value="double">Double</option>
+                          </select>
+                        </div>
+                      </div>
+                    </details>
                   </div>
                 )}
 
                 {activeTool === "style" && (
                   <div className="space-y-4">
-                    <div>
-                      <h2 className="text-sm font-semibold">Poster style</h2>
-                      <p className="mt-1 text-xs text-muted-foreground">Choose a palette and watch the WebGL map redraw.</p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                      {Object.entries(STYLE_PRESETS).map(([id, preset]) => (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={() => updateConfig({ style_id: id })}
-                              className={`relative rounded-md border p-2 text-center ${
-                                config.style_id === id ? "border-primary ring-2 ring-primary/15" : "hover:bg-muted"
-                              }`}
-                            >
-                              <span className="mx-auto mb-1 block h-7 w-7 rounded" style={{ backgroundColor: preset.bgColor }} />
-                              <span className="block truncate text-[10px] font-medium">{preset.name}</span>
-                            </button>
-                          ))}
-                    </div>
+                    <PosterColorControls config={config} onChange={updateConfig} />
                   </div>
                 )}
-              </div>
-            </div>
-          </Card>
-
+          {activeTool === "finish" && <>
           <Card>
             <CardContent className="space-y-4 p-4 sm:p-5">
               <div>
-                <h2 className="text-sm font-semibold">Choose your output</h2>
+                <h2 className="text-sm font-semibold">Poster size</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Designing is free. High-resolution downloads need the
-                  ${MEMBERSHIP_PRICE_MONTHLY_USD}/month membership; physical
-                  prints are sold separately.
+                  Choose a size before ordering or downloading.
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2">
                 {POSTER_SIZES.map((size) => (
                   <button
                     key={size.key}
@@ -597,8 +578,7 @@ export default function CustomizePosterPage({
             </CardContent>
           </Card>
 
-          {/* Desktop actions */}
-          <div className="hidden grid-cols-2 gap-3 sm:grid">
+          <div className="mt-4 grid gap-2">
             <Button
               size="lg"
               onClick={handleOrderPhysical}
@@ -631,24 +611,6 @@ export default function CustomizePosterPage({
                   : "Download High-Res"}
             </Button>
           </div>
-
-          {isGuest && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
-              <p className="text-sm text-blue-900">
-                Designing is free. Create an account only when you are ready to
-                download or order a print.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => redirectToSignup("download")}
-              >
-                <LogIn className="mr-2 h-4 w-4" />
-                Create Free Account
-              </Button>
-            </div>
-          )}
 
           {!isGuest && !isMember && (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
@@ -687,50 +649,19 @@ export default function CustomizePosterPage({
               )}
             </p>
           )}
+          </>}
+          </PosterEditorSidebar>
         </div>
 
-        {/* Automatic live poster — above controls on mobile, sticky on desktop */}
-        <div className="order-1 mx-auto w-full max-w-sm lg:sticky lg:top-20 lg:order-2 lg:max-w-none">
-          {livePosterPanel}
+        <div ref={stageRef} data-testid="poster-stage"
+          className={`flex min-h-0 min-w-0 flex-1 items-center justify-center transition-[margin,padding] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${activeTool ? "pb-[50dvh] lg:mr-[440px]" : "pb-20 lg:mr-20"} lg:pb-0`}
+        >
+          <PosterRoomStage mode={viewMode} onModeChange={setViewMode}>
+            <div data-testid="poster-preview" style={{ width: posterFit.width, height: posterFit.height }} className="shrink-0 shadow-[0_16px_35px_rgba(39,31,23,0.16)] transition-[width,height] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none">
+              {livePosterPanel}
+            </div>
+          </PosterRoomStage>
         </div>
-      </div>
-
-      {/* Mobile sticky actions */}
-      <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2.5 border-t bg-background/95 p-3 backdrop-blur sm:hidden">
-        <Button
-          variant="outline"
-          onClick={handleDownloadPoster}
-          disabled={generateLoading || outOfDownloads}
-          className="h-11 min-w-11 flex-1 px-3"
-          aria-label={
-            isGuest
-              ? "Sign up to download"
-              : outOfDownloads
-                ? "No downloads left this billing period"
-                : "Download high-resolution poster"
-          }
-        >
-          {generateLoading ? (
-            <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-          ) : isGuest ? (
-            <LogIn className="h-5 w-5 shrink-0" />
-          ) : (
-            <Download className="h-5 w-5 shrink-0" />
-          )}
-        </Button>
-        <Button
-          onClick={handleOrderPhysical}
-          disabled={!config.city}
-          className="h-11 min-w-0 flex-1 gap-2"
-          aria-label={isGuest ? "Sign up to order a print" : "Order a print"}
-        >
-          {isGuest ? (
-            <LogIn className="h-5 w-5 shrink-0" />
-          ) : (
-            <Package className="h-5 w-5 shrink-0" />
-          )}
-          {isGuest ? "Sign Up" : "Order"}
-        </Button>
       </div>
     </div>
   );

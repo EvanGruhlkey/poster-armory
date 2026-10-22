@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6 \
     libfontconfig1 \
     libglib2.0-0 \
+    chromium \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Node.js 20 ────────────────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ RUN mkdir -p cache tmp posters fonts
 
 # ── Environment ───────────────────────────────────────────────────────────────
 ENV PYTHON_EXECUTABLE=python3
+ENV CHROME_PATH=/usr/bin/chromium
 ENV POSTER_CLI_PATH=./create_map_poster.py
 ENV NODE_ENV=production
 # CACHE_DIR is read by create_map_poster.py

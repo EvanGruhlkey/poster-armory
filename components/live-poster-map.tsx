@@ -5,9 +5,12 @@ import { LocateFixed, Minus, Plus, RotateCcw } from "lucide-react";
 import { Map as MapLibre, setWorkerUrl } from "maplibre-gl";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { PosterConfig } from "@/lib/types";
+import { getPosterMapStyle } from "@/lib/poster-renderer/adapter";
+import { zoomForExportWidth } from "@/lib/poster-renderer/export";
+import { fitTitleScale, resolvePosterTypography } from "@/lib/poster-typography";
+import { getPosterTextBackdrop, getPosterTextLayout, getPosterTextMetrics } from "@/lib/poster-text-layout";
+import { getPosterScaleBar } from "@/lib/poster-labels";
 import {
-  OPEN_FREE_MAP_STYLE,
-  applyPosterStyle,
   distanceToZoom,
   zoomToDistance,
   type MapLayerPreset,
@@ -54,7 +57,10 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     ref
   ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const posterRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const applyingViewRef = useRef(false);
+  const userMoveRef = useRef(false);
   const onViewChangeRef = useRef(onViewChange);
   const onIdleRef = useRef(onIdle);
   const initialViewRef = useRef({
@@ -66,6 +72,26 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   });
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
+  const titleBoxRef = useRef<HTMLDivElement | null>(null);
+  const titleTextRef = useRef<HTMLSpanElement | null>(null);
+  const [titleScale, setTitleScale] = useState(1);
+  const subtitleBoxRef = useRef<HTMLDivElement | null>(null);
+  const subtitleTextRef = useRef<HTMLSpanElement | null>(null);
+  const [subtitleScale, setSubtitleScale] = useState(1);
+  const [posterSize, setPosterSize] = useState({ width: 330, height: 440 });
+
+  useEffect(() => {
+    const element = posterRef.current;
+    if (!element) return;
+    const measure = () => setPosterSize({ width: element.clientWidth, height: element.clientHeight });
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+  const viewportWidth = () => containerRef.current?.clientWidth || 330;
+  const previewZoom = (distance: number) => zoomForExportWidth(distanceToZoom(distance), viewportWidth());
+  const previewDistance = (zoom: number) => zoomToDistance(zoom - Math.log2(viewportWidth() / 330));
 
   useImperativeHandle(
     ref,
@@ -92,9 +118,9 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     setWorkerUrl("/maplibre-gl-worker.mjs");
     const map = new MapLibre({
       container: containerRef.current,
-      style: OPEN_FREE_MAP_STYLE,
+      style: getPosterMapStyle(config),
       center: [config.lon, config.lat],
-      zoom: distanceToZoom(config.distance),
+      zoom: previewZoom(config.distance),
       bearing: config.rotation,
       pitch,
       attributionControl: false,
@@ -108,6 +134,14 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     });
 
     mapRef.current = map;
+    const armUserMove = () => { userMoveRef.current = true; };
+    map.getCanvas().addEventListener("pointerdown", armUserMove);
+    map.getCanvas().addEventListener("wheel", armUserMove);
+    map.getCanvas().addEventListener("keydown", armUserMove);
+    const resizeObserver = new ResizeObserver(() => {
+      map.resize();
+    });
+    resizeObserver.observe(containerRef.current);
     let idleNotified = false;
     const notifyIdle = () => {
       if (disposed || idleNotified) return;
@@ -118,11 +152,6 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       if (disposed) return;
       map.resize();
       setReady(true);
-      try {
-        applyPosterStyle(map, bgColor, textColor, config, layerPreset);
-      } catch {
-        // Keep the upstream map visible if a style does not accept a customization.
-      }
       if (captureLongEdge && containerRef.current) {
         const cssLongEdge = Math.max(
           containerRef.current.clientWidth,
@@ -138,12 +167,14 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     map.once("style.load", markReady);
     map.on("error", () => setError(true));
     map.on("moveend", () => {
+      if (applyingViewRef.current || !userMoveRef.current) return;
+      userMoveRef.current = false;
       if (!onViewChangeRef.current) return;
       const center = map.getCenter();
       onViewChangeRef.current({
         lat: Number(center.lat.toFixed(6)),
         lon: Number(center.lng.toFixed(6)),
-        distance: zoomToDistance(map.getZoom()),
+        distance: previewDistance(map.getZoom()),
         rotation: Number(map.getBearing().toFixed(1)),
         pitch: Number(map.getPitch().toFixed(1)),
       });
@@ -151,6 +182,10 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
 
     return () => {
       disposed = true;
+      resizeObserver.disconnect();
+      map.getCanvas().removeEventListener("pointerdown", armUserMove);
+      map.getCanvas().removeEventListener("wheel", armUserMove);
+      map.getCanvas().removeEventListener("keydown", armUserMove);
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -161,46 +196,84 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    applyPosterStyle(map, bgColor, textColor, config, layerPreset);
+    map.setStyle(getPosterMapStyle(config));
   }, [
-    bgColor,
-    textColor,
+    config.style_id,
+    config.palette_id,
+    config.custom_colors,
+    config.map_layers,
+    config.road_weight,
+    config.terrain_exaggeration,
+    config.building_height_scale,
+    config.pitch,
     config.show_labels,
     config.show_water,
     config.show_parks,
     config.major_roads_only,
-    layerPreset,
+    config.label_admin,
+    config.label_cities,
+    config.label_streets,
+    config.label_size,
+    config.label_style,
+    config.show_grid,
+    config.grid_density,
+    config.grid_weight,
+    config.lat,
+    config.lon,
+    config.center_marker,
+    config.markers,
+    config.connect_markers,
+    config.marker_path_color,
+    config.marker_path_width,
+    config.marker_path_style,
+    config.show_segment_lengths,
+    config.marker_fill_color,
     ready,
   ]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    map.jumpTo({ bearing: config.rotation, pitch });
+    applyingViewRef.current = true;
+    try { map.jumpTo({ bearing: config.rotation, pitch }); }
+    finally { applyingViewRef.current = false; }
   }, [config.rotation, pitch, ready]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready || interactive) return;
-    map.jumpTo({
+    if (!map || !ready) return;
+    const center = map.getCenter();
+    const zoom = previewZoom(config.distance);
+    if (
+      Math.abs(center.lat - config.lat) < 0.00001 &&
+      Math.abs(center.lng - config.lon) < 0.00001 &&
+      Math.abs(map.getZoom() - zoom) < 0.01 &&
+      Math.abs(map.getBearing() - config.rotation) < 0.1 &&
+      Math.abs(map.getPitch() - pitch) < 0.1
+    ) return;
+    applyingViewRef.current = true;
+    try { map.jumpTo({
       center: [config.lon, config.lat],
-      zoom: distanceToZoom(config.distance),
+      zoom,
       bearing: config.rotation,
       pitch,
-    });
-  }, [config.lat, config.lon, config.distance, config.rotation, pitch, ready, interactive]);
+    }); }
+    finally { applyingViewRef.current = false; }
+  }, [config.lat, config.lon, config.distance, config.rotation, pitch, ready]);
 
   const zoomBy = useCallback((delta: number) => {
     const map = mapRef.current;
     if (!map) return;
+    userMoveRef.current = true;
     map.easeTo({ zoom: map.getZoom() + delta, duration: 220 });
   }, []);
 
   const resetView = useCallback(() => {
     const initial = initialViewRef.current;
+    userMoveRef.current = true;
     mapRef.current?.easeTo({
       center: [initial.lon, initial.lat],
-      zoom: distanceToZoom(initial.distance),
+      zoom: previewZoom(initial.distance),
       bearing: initial.rotation,
       pitch: initial.pitch,
       duration: 450,
@@ -208,12 +281,55 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   }, []);
 
   const recenter = useCallback(() => {
+    userMoveRef.current = true;
     mapRef.current?.easeTo({ center: [config.lon, config.lat], duration: 350 });
   }, [config.lat, config.lon]);
 
+  const posterTitle = config.title.trim() || config.city;
+  const posterSubtitle = config.subtitle.trim() || config.country;
+  const typography = resolvePosterTypography(config);
+  const layout = getPosterTextLayout(config, posterSize.width, posterSize.height);
+  const metrics = getPosterTextMetrics(config, posterSize.width, posterSize.height);
+  const backdrop = getPosterTextBackdrop(config);
+  const titleShadow = backdrop.kind === "subtle" ? `0 0 ${Math.max(2, metrics.titleSize * 0.2)}px ${bgColor}` : undefined;
+
+  useEffect(() => {
+    const box = titleBoxRef.current;
+    const title = titleTextRef.current;
+    if (!box || !title) return;
+    const measure = () => setTitleScale(fitTitleScale(title.offsetWidth, box.clientWidth));
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    observer.observe(title);
+    void document.fonts?.ready.then(measure);
+    measure();
+    return () => observer.disconnect();
+  }, [posterTitle, typography.titleFont, typography.titleSize, typography.titleTracking, typography.titleAllCaps, metrics.titleSize]);
+
+  useEffect(() => {
+    const box = subtitleBoxRef.current;
+    const subtitle = subtitleTextRef.current;
+    if (!box || !subtitle) return;
+    const measure = () => setSubtitleScale(fitTitleScale(subtitle.offsetWidth, box.clientWidth));
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    observer.observe(subtitle);
+    void document.fonts?.ready.then(measure);
+    measure();
+    return () => observer.disconnect();
+  }, [posterSubtitle, typography.subtitleFont, typography.subtitleSize, typography.subtitleTracking, metrics.subtitleSize]);
+
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor }}>
+    <div ref={posterRef} className="relative h-full w-full overflow-hidden" style={{ backgroundColor: bgColor, color: textColor, containerType: "inline-size" }}>
+      <div className="absolute inset-x-[6%] bottom-[23%] top-[5%] overflow-hidden">
       <div ref={containerRef} className="absolute inset-0" />
+      {typography.frameStyle !== "none" && (
+        <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true" style={{
+          boxShadow: typography.frameStyle === "double"
+            ? `inset 0 0 0 0.1cqw ${textColor}55, inset 0 0 0 0.7cqw ${bgColor}, inset 0 0 0 0.8cqw ${textColor}55`
+            : `inset 0 0 0 0.1cqw ${textColor}55`,
+        }} />
+      )}
 
       {!ready && !error && (
         <div className="absolute inset-0 grid place-items-center" style={{ color: textColor }}>
@@ -229,31 +345,6 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
           <p className="text-xs">The live map could not load. Try refreshing—the design settings are safe.</p>
         </div>
       )}
-
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/45 via-black/15 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-6 bottom-7 text-center text-white drop-shadow-md sm:inset-x-8 sm:bottom-9">
-        {config.title && (
-          <p className="text-base font-bold tracking-[0.2em] sm:text-xl">
-            {config.title.toUpperCase()}
-          </p>
-        )}
-        {config.subtitle && (
-          <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.16em] opacity-90 sm:text-xs">
-            {config.subtitle}
-          </p>
-        )}
-        {config.date_line && (
-          <p className="mt-1 text-[9px] font-medium uppercase tracking-[0.14em] opacity-80">
-            {config.date_line}
-          </p>
-        )}
-        {config.show_coordinates && (
-          <p className="mt-1.5 text-[9px] tracking-[0.12em] opacity-75">
-            {Math.abs(config.lat).toFixed(4)}° {config.lat >= 0 ? "N" : "S"} ·{" "}
-            {Math.abs(config.lon).toFixed(4)}° {config.lon >= 0 ? "E" : "W"}
-          </p>
-        )}
-      </div>
 
       {showControls && (
         <div className="absolute right-2 top-2 flex flex-col overflow-hidden rounded-md border bg-background/90 shadow-sm backdrop-blur">
@@ -272,8 +363,37 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
         </div>
       )}
 
-      <div className="pointer-events-none absolute bottom-1 left-1 text-[5px] font-medium leading-none text-white/30 mix-blend-difference">
+      <div className="pointer-events-none absolute bottom-1 left-1 right-1 w-fit max-w-[98%] px-1 py-0.5 text-[7px] font-medium leading-tight text-white/60 mix-blend-difference">
         © OpenStreetMap contributors · OpenFreeMap
+      </div>
+      {config.show_scale && (() => {
+        const scale = getPosterScaleBar(config, posterSize.width * 0.88);
+        return <div className="pointer-events-none absolute bottom-2 right-3 rounded bg-background/80 px-1.5 py-1 text-right text-[9px] font-medium shadow-sm" style={{ color: textColor }}>
+          <span>{scale.label}</span>
+          <div className="mt-0.5 border-b-2 border-x-2" style={{ width: scale.widthPx, height: 5, borderColor: textColor }} />
+        </div>;
+      })()}
+      </div>
+
+      <div className="pointer-events-none absolute flex flex-col items-center justify-center text-center" style={{
+        left: layout.text.x, top: layout.text.y, width: layout.text.width, height: layout.text.height,
+        gap: metrics.gap,
+      }}>
+        {backdrop.kind === "strong" && <div className="absolute inset-0" style={{ backgroundColor: bgColor, opacity: backdrop.alpha }} />}
+        {backdrop.kind === "gradient" && <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent, ${bgColor}c7, transparent)` }} />}
+        <div ref={titleBoxRef} className="relative flex justify-center overflow-x-clip overflow-y-visible whitespace-nowrap" style={{ width: "98%" }}>
+          <span ref={titleTextRef} className="inline-block shrink-0" style={{ fontFamily: `"${typography.titleFont}", sans-serif`, fontWeight: typography.titleWeight, fontSize: metrics.titleSize, lineHeight: 1, letterSpacing: `${typography.titleTracking}em`, textTransform: typography.titleAllCaps ? "uppercase" : "none", textShadow: titleShadow, transform: `scaleX(${titleScale})`, transformOrigin: "center" }}>{posterTitle}</span>
+        </div>
+        {posterSubtitle && <div ref={subtitleBoxRef} className="relative flex justify-center overflow-x-clip overflow-y-visible whitespace-nowrap opacity-75" style={{ width: "98%" }}>
+          <span ref={subtitleTextRef} className="inline-block shrink-0 uppercase" style={{ fontFamily: `"${typography.subtitleFont}", sans-serif`, fontWeight: typography.subtitleWeight, fontSize: metrics.subtitleSize, lineHeight: 1, letterSpacing: `${typography.subtitleTracking}em`, textShadow: titleShadow, transform: `scaleX(${subtitleScale})`, transformOrigin: "center" }}>{posterSubtitle}</span>
+        </div>}
+        {config.date_line && <p className="relative max-w-full truncate uppercase opacity-70" style={{ fontSize: metrics.metaSize, lineHeight: 1, letterSpacing: "0.7cqw", textShadow: titleShadow }}>{config.date_line}</p>}
+        {config.show_coordinates && (
+          <p className="relative opacity-65" style={{ fontSize: metrics.metaSize, lineHeight: 1, letterSpacing: "0.6cqw", textShadow: titleShadow }}>
+            {Math.abs(config.lat).toFixed(4)}° {config.lat >= 0 ? "N" : "S"} ·{" "}
+            {Math.abs(config.lon).toFixed(4)}° {config.lon >= 0 ? "E" : "W"}
+          </p>
+        )}
       </div>
     </div>
   );

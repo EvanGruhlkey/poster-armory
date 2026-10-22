@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { useSubscription } from "@/components/subscription-provider";
+import { shouldShowSubscriptionBanner } from "@/components/subscription-banner-visibility";
 import {
   MEMBERSHIP_DOWNLOADS_PER_MONTH,
   MEMBERSHIP_PRICE_MONTHLY_USD,
@@ -23,7 +24,7 @@ export function SubscriptionBanner() {
   const isMember = subscription.planTier === "membership";
   const outOfDownloads = isMember && subscription.downloadsRemaining === 0;
 
-  if (pathname === "/app/billing" || dismissed) return null;
+  if (!shouldShowSubscriptionBanner(pathname) || dismissed) return null;
   if (isMember && !outOfDownloads) return null;
 
   const message = outOfDownloads ? (

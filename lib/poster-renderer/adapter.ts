@@ -1,0 +1,230 @@
+import type { StyleSpecification } from "maplibre-gl";
+import type { PosterConfig } from "@/lib/types";
+import type { PosterConfig as RendererConfig, PosterStyle, ColorPalette } from "./types";
+import { getDefaultStyle, getStyleById } from "./styles";
+import { getPosterGrid, resolvePosterLabels } from "../poster-labels";
+import { getPosterMarkerOverlay } from "../poster-markers";
+
+const STYLE_MAP: Record<string, string> = {
+  warm_beige: "minimal", terracotta: "vintage", noir: "dark-mode",
+  blueprint: "blueprint", midnight_blue: "midnight", ocean: "minimal",
+  forest: "organic", sunset: "vintage", autumn: "vintage",
+  emerald: "midnight", copper_patina: "vintage", japanese_ink: "minimal",
+  pastel_dream: "watercolor", monochrome_blue: "blueprint",
+  neon_cyberpunk: "midnight", contrast_zones: "dark-mode",
+  gradient_roads: "abstract",
+};
+
+function selectStyle(config: PosterConfig): PosterStyle {
+  return getStyleById(STYLE_MAP[config.style_id] ?? config.style_id) ?? getDefaultStyle();
+}
+
+function selectPalette(style: PosterStyle, config: PosterConfig): ColorPalette {
+  const preferred: Record<string, string> = {
+    warm_beige: "minimal-navy",
+    ocean: "minimal-navy",
+    japanese_ink: "minimal-ink",
+  };
+  const selected = style.palettes.find((palette) => palette.id === config.palette_id)
+    ?? style.palettes.find((palette) => palette.id === preferred[config.style_id])
+    ?? style.defaultPalette;
+  const colors = config.custom_colors ?? {};
+  const palette = structuredClone(selected);
+  for (const key of ["background", "text", "border", "water", "waterLine", "greenSpace", "landuse", "buildings", "accent", "contour", "hillshade"] as const) {
+    if (colors[key]) (palette as unknown as Record<string, string>)[key] = colors[key];
+  }
+  for (const key of ["motorway", "trunk", "primary", "secondary", "tertiary", "residential", "service", "railroad"] as const) {
+    if (colors[`roads.${key}`]) palette.roads[key] = colors[`roads.${key}`];
+  }
+  return palette;
+}
+
+function recolorStyle(mapStyle: StyleSpecification, from: ColorPalette, to: ColorPalette) {
+  const colors = new Map<string, string>();
+  for (const key of ["background", "text", "border", "water", "waterLine", "greenSpace", "landuse", "buildings", "accent", "contour", "hillshade"] as const) {
+    if (from[key] && to[key]) colors.set(from[key]!.toLowerCase(), to[key]!);
+  }
+  for (const key of ["motorway", "trunk", "primary", "secondary", "tertiary", "residential", "service", "railroad"] as const) {
+    if (from.roads[key] && to.roads[key]) colors.set(from.roads[key]!.toLowerCase(), to.roads[key]!);
+  }
+  const replace = (value: unknown): unknown => {
+    if (typeof value === "string") return colors.get(value.toLowerCase()) ?? value;
+    if (Array.isArray(value)) return value.map(replace);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, replace(child)]));
+    return value;
+  };
+  for (const layer of mapStyle.layers) {
+    if ("paint" in layer && layer.paint) layer.paint = replace(layer.paint) as typeof layer.paint;
+  }
+}
+
+function scaleZoomStops(value: unknown, factor: number): unknown {
+  if (typeof value === "number") return value * factor;
+  if (!Array.isArray(value) || !Array.isArray(value[2]) || value[2][0] !== "zoom") return value;
+  if (value[0] !== "interpolate" && value[0] !== "step") return value;
+  const scaled = [...value];
+  for (let index = value[0] === "step" ? 2 : 4; index < scaled.length; index += 2) {
+    scaled[index] = typeof scaled[index] === "number"
+      ? scaled[index] * factor
+      : ["*", scaled[index], factor];
+  }
+  return scaled;
+}
+
+export function getPosterPalette(config: PosterConfig): ColorPalette {
+  return selectPalette(selectStyle(config), config);
+}
+
+export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
+  const style = selectStyle(config);
+  const labels = resolvePosterLabels(config);
+  const palette = selectPalette(style, config);
+  const mapStyle = structuredClone(style.mapStyle) as StyleSpecification;
+  recolorStyle(mapStyle, style.defaultPalette, palette);
+  mapStyle.sources = { ...mapStyle.sources };
+  if ((config.pitch ?? 0) > 0 && config.map_layers?.terrain !== false && mapStyle.sources.terrain) {
+    mapStyle.terrain = { source: "terrain", exaggeration: config.terrain_exaggeration ?? 1.5 };
+  } else {
+    delete mapStyle.terrain;
+  }
+  if (labels.grid) {
+    mapStyle.sources["poster-grid"] = { type: "geojson", data: getPosterGrid(config) };
+    mapStyle.layers.push({
+      id: "poster-grid-lines", type: "line", source: "poster-grid",
+      paint: { "line-color": palette.border, "line-width": labels.gridWeight, "line-opacity": 0.28 },
+    });
+  }
+  // These optional sources require upstream-only routes or protocols.
+  delete mapStyle.sources.contours;
+  delete mapStyle.sources.population;
+  delete mapStyle.sources.spaceports;
+  const hiddenLayerIds = new Set(style.layerToggles
+    .filter((toggle) => config.map_layers?.[toggle.id] === false)
+    .flatMap((toggle) => toggle.layerIds));
+  mapStyle.layers = mapStyle.layers.filter((layer) => {
+    if (hiddenLayerIds.has(layer.id)) return false;
+    const source = "source" in layer ? layer.source : undefined;
+    if (source === "contours" || source === "population" || source === "spaceports") return false;
+    if (!config.show_water && /water|river|lake/.test(layer.id)) return false;
+    if (!config.show_parks && /park|green|forest|landcover/.test(layer.id)) return false;
+    if (!config.show_labels && /labels|street-name/.test(layer.id)) return false;
+    if (labels.show && !labels.admin && /^labels-(country|state)$/.test(layer.id)) return false;
+    if (labels.show && !labels.cities && layer.id === "labels-city") return false;
+    if (labels.show && !labels.streets && /labels-street|street-name/.test(layer.id)) return false;
+    if (config.major_roads_only && /^(road|bridge)-(service|residential|tertiary|secondary)(-|$)/.test(layer.id)) return false;
+    return true;
+  });
+  // Preserve the imported layer ordering and road hierarchy while using its palette.
+  const background = mapStyle.layers.find((layer) => layer.id === "background");
+  if (background?.type === "background") background.paint = { ...background.paint, "background-color": palette.background };
+  for (const layer of mapStyle.layers) {
+    if (layer.type === "symbol" && /labels|street-name/.test(layer.id) && labels.size !== 16) {
+      const textSize = layer.layout?.["text-size"];
+      if (textSize !== undefined) layer.layout = { ...layer.layout, "text-size": scaleZoomStops(textSize, labels.size / 16) as typeof textSize };
+    }
+    if (layer.type === "symbol" && /labels|street-name/.test(layer.id) && labels.style !== "standard") {
+      layer.paint = { ...layer.paint,
+        "text-halo-color": palette.background,
+        "text-halo-width": labels.style === "glass" ? 3 : labels.style === "elevated" ? 2 : 1.5,
+      };
+    }
+    if (layer.type === "line" && /^(road|bridge)-/.test(layer.id) && config.road_weight && config.road_weight !== 1) {
+      const width = layer.paint?.["line-width"];
+      if (width !== undefined) {
+        layer.paint = { ...layer.paint, "line-width": scaleZoomStops(width, config.road_weight) as typeof width };
+      }
+    }
+    if (layer.type === "hillshade" && config.terrain_exaggeration !== undefined) {
+      layer.paint = { ...layer.paint, "hillshade-exaggeration": config.terrain_exaggeration };
+    }
+    if (layer.type === "fill-extrusion" && layer.id === "buildings-3d") {
+      const height = layer.paint?.["fill-extrusion-height"];
+      if (height !== undefined && config.building_height_scale !== undefined) {
+        layer.paint = { ...layer.paint, "fill-extrusion-height": scaleZoomStops(height, config.building_height_scale) as typeof height };
+      }
+    }
+  }
+  if (config.center_marker || config.markers?.length) {
+    const overlay = getPosterMarkerOverlay(config);
+    mapStyle.sources["poster-markers"] = { type: "geojson", data: overlay.points };
+    if (overlay.fill) {
+      mapStyle.sources["poster-marker-fill"] = { type: "geojson", data: overlay.fill };
+      mapStyle.layers.push({ id: "poster-marker-fill", type: "fill", source: "poster-marker-fill",
+        paint: { "fill-color": config.marker_fill_color ?? palette.accent ?? palette.text, "fill-opacity": 0.15 },
+      });
+    }
+    if (overlay.route.coordinates.length) {
+      mapStyle.sources["poster-route"] = { type: "geojson", data: {
+        type: "Feature", properties: {}, geometry: overlay.route,
+      } };
+      mapStyle.layers.push({ id: "poster-marker-route", type: "line", source: "poster-route",
+        paint: { "line-color": config.marker_path_color ?? palette.accent ?? palette.text,
+          "line-width": config.marker_path_width ?? 2,
+          ...(config.marker_path_style === "dashed" ? { "line-dasharray": [2, 2] } : {}),
+        } });
+    }
+    mapStyle.layers.push({ id: "poster-marker-points", type: "circle", source: "poster-markers",
+      paint: { "circle-color": ["get", "color"], "circle-radius": ["/", ["get", "size"], 3],
+        "circle-stroke-color": palette.background, "circle-stroke-width": 2,
+        "circle-opacity": ["case", ["==", ["get", "type"], "ring"], 0, 1],
+      } });
+    mapStyle.layers.push({ id: "poster-marker-icons", type: "symbol", source: "poster-markers",
+      filter: ["in", ["get", "type"], ["literal", ["pin", "crosshair", "heart", "home"]]],
+      layout: { "text-field": ["match", ["get", "type"], "heart", "♥", "home", "⌂", "crosshair", "+", "pin", "•", ""],
+        "text-font": ["Noto Sans Regular"], "text-size": ["*", ["get", "size"], 0.7],
+        "text-allow-overlap": true,
+      },
+      paint: { "text-color": palette.background },
+    });
+    mapStyle.layers.push({ id: "poster-marker-labels", type: "symbol", source: "poster-markers",
+      filter: ["!=", ["get", "label"], ""],
+      layout: { "text-field": ["get", "label"], "text-font": ["Noto Sans Regular"], "text-size": 12, "text-offset": [0, 1.8] },
+      paint: { "text-color": palette.text, "text-halo-color": palette.background, "text-halo-width": 1.5 },
+    });
+    if (overlay.segmentLabels.features.length) {
+      mapStyle.sources["poster-marker-segments"] = { type: "geojson", data: overlay.segmentLabels };
+      mapStyle.layers.push({ id: "poster-marker-segments", type: "symbol", source: "poster-marker-segments",
+        layout: { "text-field": ["get", "label"], "text-font": ["Noto Sans Regular"], "text-size": 11 },
+        paint: { "text-color": palette.text, "text-halo-color": palette.background, "text-halo-width": 1.5 },
+      });
+    }
+  }
+  return mapStyle;
+}
+
+export function toRendererConfig(config: PosterConfig): RendererConfig {
+  const style = selectStyle(config);
+  const palette = selectPalette(style, config);
+  return {
+    location: {
+      name: config.title?.trim() || config.city,
+      city: config.city,
+      subtitle: config.subtitle?.trim() || config.country,
+      center: [config.lon, config.lat],
+      bounds: [[config.lon, config.lat], [config.lon, config.lat]],
+      zoom: 12,
+    },
+    style,
+    palette,
+    typography: {
+      titleFont: "Inter", titleSize: 48, titleWeight: 600,
+      subtitleFont: "Inter", subtitleSize: 22, position: "bottom",
+      showCoordinates: config.show_coordinates,
+      showTitle: true, showSubtitle: true,
+    },
+    format: {
+      aspectRatio: "3:4", orientation: config.orientation === "landscape" ? "landscape" : "portrait",
+      margin: 8, borderStyle: config.show_border ? "thin" : "none",
+    },
+    layers: {
+      streets: true, buildings: true, water: config.show_water,
+      parks: config.show_parks, terrain: true, terrainUnderWater: false,
+      hillshadeExaggeration: 0.6, contours: false, contourDensity: 100,
+      population: false, labels: config.show_labels, labelSize: 1,
+      labelMaxWidth: 10, marker: false, roadWeight: 1,
+      railroads: true, buildings3D: true,
+      buildings3DPitch: config.pitch ?? 0,
+      buildings3DBearing: config.rotation ?? 0,
+    },
+  };
+}

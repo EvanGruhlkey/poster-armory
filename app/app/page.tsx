@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,11 @@ export default function PickLocationPage() {
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [found, setFound] = useState(false);
+
+  useEffect(() => {
+    const place = new URLSearchParams(window.location.search).get("place");
+    if (place) setLocationText(place);
+  }, []);
 
   async function reverseGeocode(latitude: string, longitude: string) {
     const res = await fetch(
@@ -148,16 +153,17 @@ export default function PickLocationPage() {
   return (
     <div className="mx-auto max-w-lg px-4 py-6 pb-28 sm:px-6 sm:py-10 sm:pb-10">
       <div className="mb-6 text-center sm:mb-8">
-        <h1 className="text-2xl font-bold sm:text-3xl">Where should we map?</h1>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step 1 of 2</p>
+        <h1 className="text-2xl font-bold sm:text-3xl">Choose a place</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Search for a city, address, or landmark.
+          City, address, or landmark.
         </p>
       </div>
 
           <Card className="shadow-sm">
             <CardContent className="space-y-4 pt-6">
               <div className="space-y-2">
-                <Label htmlFor="location">Place</Label>
+                <Label htmlFor="location">Search for a place</Label>
                   <Input
                     id="location"
                     placeholder="Paris, France or Eiffel Tower"
@@ -176,7 +182,7 @@ export default function PickLocationPage() {
                 ) : (
                   <MapPin className="mr-2 h-5 w-5 shrink-0" />
                 )}
-                Find Location
+                Find place
               </Button>
 
               {found && lat && lon && (
@@ -199,7 +205,7 @@ export default function PickLocationPage() {
                 <ChevronDown
                   className={`h-3.5 w-3.5 transition-transform ${showAdvanced ? "rotate-180" : ""}`}
                 />
-                Manual entry
+                Enter coordinates instead
               </button>
 
               {showAdvanced && (
@@ -248,7 +254,7 @@ export default function PickLocationPage() {
 
       <div className="mt-6 hidden sm:flex sm:justify-end">
         <Button onClick={handleNext} disabled={!found} size="lg">
-          Next
+          Customize poster
           <ChevronRight className="ml-2 h-5 w-5 shrink-0" />
         </Button>
       </div>
@@ -256,7 +262,7 @@ export default function PickLocationPage() {
       {/* Mobile sticky CTA */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 p-4 backdrop-blur sm:hidden">
         <Button onClick={handleNext} disabled={!found} size="lg" className="h-12 w-full gap-2">
-          Next
+          Customize poster
           <ChevronRight className="h-5 w-5 shrink-0" />
         </Button>
       </div>

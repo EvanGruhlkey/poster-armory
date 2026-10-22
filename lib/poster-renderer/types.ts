@@ -1,0 +1,238 @@
+// Core type definitions for the Map Poster Generator
+
+export interface PosterLocation {
+  name: string;
+  city?: string; // New: specific city/municipality field
+  subtitle?: string;
+  center: [number, number]; // [lng, lat]
+  bounds: [[number, number], [number, number]]; // SW, NE corners
+  zoom: number;
+}
+
+export interface ColorPalette {
+  id: string;
+  name: string;
+  style: string;                    // Parent style ID
+
+  // Core colors
+  background: string;
+  text: string;
+  border: string;
+
+  // Road hierarchy (7 levels)
+  roads: {
+    motorway: string;
+    trunk: string;
+    primary: string;
+    secondary: string;
+    tertiary: string;
+    residential: string;
+    service: string;
+    railroad?: string; // New: railroad line color
+  };
+
+  // Land features
+  water: string;
+  waterLine: string;                // Rivers, streams
+  greenSpace: string;
+  landuse: string;                  // General land tint
+  buildings: string;
+
+  // Optional/style-specific
+  accent?: string;
+  contour?: string;
+  contourIndex?: string;
+  grid?: string;
+  hillshade?: string;
+
+  // 3D building theme (optional)
+  building3D?: {
+    colorLow: string;    // Color for short buildings
+    colorMid: string;    // Color for medium buildings
+    colorHigh: string;   // Color for tall buildings
+    colorRoof?: string;      // NEW: distinct roof color
+    colorEdge?: string;      // NEW: edge/outline tint
+    floodLightColor?: string; // NEW: glow color
+    opacity: number;     // 0-1
+    lightColor?: string;     // NEW: light tint
+    lightIntensity?: number; // NEW: 0-1 brightness
+  };
+
+  // Keep for backward compatibility/internal use
+  primary?: string; // Main streets/features
+  secondary?: string; // Minor streets/features
+  population?: string; // Color for population density
+  parks?: string; // Alias for greenSpace
+}
+
+export interface LayerToggle {
+  id: string;
+  name: string;
+  layerIds: string[]; // MapLibre layer IDs this toggle affects
+}
+
+export interface PosterStyle {
+  id: string;
+  name: string;
+  description: string;
+  mapStyle: any; // MapLibre style spec (using any for now as the spec is complex)
+  defaultPalette: ColorPalette;
+  palettes: ColorPalette[];
+  recommendedFonts: string[];
+  layerToggles: LayerToggle[];
+}
+
+
+export interface CustomMarker {
+  id: string;
+  lat: number;
+  lng: number;
+  label?: string;
+  type: 'pin' | 'crosshair' | 'dot' | 'ring' | 'heart' | 'home';
+  color: string;
+  size: number;
+  labelStyle?: 'standard' | 'elevated' | 'glass' | 'vintage';
+  labelColor?: string;
+  labelSize?: number;
+}
+
+export interface PosterConfig {
+  location: PosterLocation;
+  style: PosterStyle;
+  palette: ColorPalette;
+  typography: {
+    titleFont: string;
+    titleSize: number;
+    titleWeight: number;
+    titleLetterSpacing?: number; // Added tracking
+    titleAllCaps?: boolean;      // Added all-caps support
+    subtitleFont: string;
+    subtitleSize: number;
+    subtitleWeight?: number;        // Subtitle font weight (100-900)
+    subtitleLetterSpacing?: number; // Subtitle letter spacing
+    showTitle?: boolean;      // New: toggle title visibility
+    showSubtitle?: boolean;   // New: toggle subtitle visibility
+    showCoordinates?: boolean; // New: toggle coordinates visibility
+    position: 'top' | 'bottom' | 'center';
+    textBackdrop?: 'none' | 'subtle' | 'strong' | 'gradient'; // Added gradient type
+    backdropHeight?: number; // percentage (0-100)
+    backdropAlpha?: number;  // opacity (0-1)
+    backdropSharpness?: number; // New: 0-100 (soft to abrupt)
+    maxWidth?: number; // New: max width percentage (0-100)
+    offsetY?: number; // New: vertical offset (-50 to 50)
+  };
+  format: {
+    aspectRatio: '2:3' | '3:4' | '4:5' | '1:1' | 'ISO' | '16:9' | '16:10' | '9:16' | '9:19.5';
+    orientation: 'portrait' | 'landscape';
+    margin: number; // 0-100 (percentage based)
+    borderStyle: 'none' | 'thin' | 'thick' | 'double' | 'inset';
+    maskShape?: 'rectangular' | 'circular';
+    compassRose?: boolean; // Show compass rose around circular mask
+    texture?: 'none' | 'paper' | 'canvas' | 'grain'; // Added texture support
+    textureIntensity?: number; // 0-100
+  };
+  stl?: {
+    modelHeight: number; // Base height in mm
+    optimization: 'low' | 'medium' | 'high';
+  };
+  is3DMode?: boolean; // Toggle for 3D preview mode
+  layers: {
+    streets: boolean;
+    buildings: boolean;
+    water: boolean;
+    parks: boolean;
+    terrain: boolean;
+    terrainUnderWater: boolean; // New: toggle bathymetry/terrain under water
+    hillshadeExaggeration: number; // New: control hillshade intensity
+    contours: boolean;
+    contourDensity: number; // New: control contour line density (interval)
+    population: boolean;
+    pois?: boolean; // Toggle for points of interest (airports, monuments, etc.)
+    labels: boolean;
+    labelSize: number; // New: control map label size
+    labelMaxWidth: number; // New: control map label wrap width
+    labelStyle?: 'standard' | 'elevated' | 'glass' | 'vintage'; // New: control map label visual style
+    'labels-admin'?: boolean; // Toggle for state & country names
+    labelAdminSize?: number; // Size for state & country names
+    'labels-cities'?: boolean; // Toggle for city names
+    labelCitiesSize?: number; // Size for city names
+    'labels-streets'?: boolean; // Toggle for street names
+    boundaries?: boolean; // Toggle for administrative boundaries (country/state/county)
+    marker: boolean;
+    markerType?: 'pin' | 'crosshair' | 'dot' | 'ring' | 'heart' | 'home';
+    markerColor?: string;
+    roadWeight: number; // New: control road line thickness
+    // 3D Terrain
+    volumetricTerrain?: boolean;       // Enable 3D terrain (RGB-encoded elevation)
+    volumetricTerrainExaggeration?: number; // Exaggeration factor (0-5)
+    terrainMeshQuality?: 'fast' | 'balanced' | 'high' | 'export' | 'ultra'; // Mesh resolution quality
+    terrainDetailLevel?: 'normal' | 'high' | 'ultra'; // Tile resolution: smaller tiles fetch from higher zoom levels
+    // Terrain Atmosphere & Fog
+    terrainFog?: boolean;              // Enable atmospheric fog depth effect
+    terrainFogColor?: string;          // Fog/atmosphere tint color
+    terrainFogRange?: [number, number]; // Fog near/far range [0-1, 0-10]
+    // Terrain Lighting
+    terrainLightAzimuth?: number;      // Light source horizontal angle (0-360°)
+    terrainLightAltitude?: number;     // Light source vertical angle (0-90°)
+    terrainAmbientLight?: number;      // Ambient light intensity (0-1)
+    terrainDiffuseLight?: number;      // Diffuse light intensity (0-1)
+    // Terrain Shadows (self-shadowing for 3D terrain)
+    terrainShadows?: boolean;          // Enable terrain self-shadowing
+    terrainShadowDarkness?: number;    // Shadow darkness (0-1, 0=no shadow, 1=full black)
+    terrainColor?: [number, number, number];        // Base terrain color [R, G, B]
+    terrainShadowColor?: [number, number, number];  // Shadow tint color [R, G, B]
+    terrainHighlightColor?: [number, number, number]; // Highlight color for lit areas [R, G, B]
+    // 3D Buildings
+    buildings3D?: boolean;             // Enable 3D building extrusions
+    buildings3DPitch?: number;         // Camera pitch angle (0-60°)
+    buildings3DBearing?: number;       // Camera bearing/rotation (0-360°)
+    buildings3DHeightScale?: number;   // Height exaggeration (0.5-3x)
+    buildings3DDefaultHeight?: number; // Fallback height for buildings without data (0-30m)
+    // Landcover layers (from 'landcover' source-layer)
+    landcoverWood?: boolean;
+    landcoverGrass?: boolean;
+    landcoverFarmland?: boolean;
+    landcoverIce?: boolean;
+    // Landuse layers (from 'landuse' source-layer)
+    landuseForest?: boolean;
+    landuseOrchard?: boolean;
+    landuseVineyard?: boolean;
+    landuseCemetery?: boolean;
+    landuseGrass?: boolean;
+    railroads: boolean; // New: toggle for railroad lines
+    graticules?: boolean;           // New: toggle for latitude/longitude gridlines
+    graticuleWeight?: number;       // New: control graticule line thickness
+    graticuleLabelSize?: number;    // New: control graticule label size
+    graticuleDensity?: number;      // New: control graticule line density (degrees)
+    // Custom Marker Path
+    connectMarkers?: boolean;       // New: toggle to connect custom markers with a line
+    markerPathColor?: string;       // New: color for the marker path
+    markerPathWidth?: number;       // New: width for the marker path
+    markerPathStyle?: 'solid' | 'dashed'; // New: style for the marker path
+    showSegmentLengths?: boolean;   // New: toggle segment lengths visibility
+    markerPathLabelStyle?: 'standard' | 'elevated' | 'glass' | 'vintage'; // New: style for distance labels
+    markerPathLabelSize?: number;   // New: size for distance labels
+    fillMarkers?: boolean;          // New: toggle to fill the shape formed by markers
+    markerFillColor?: string;       // New: color for the fill
+    showScale?: boolean;            // New: toggle scale bar visibility
+  };
+  markers?: CustomMarker[]; // New: Custom markers list
+  // Rendering quality settings
+  rendering?: {
+    /**
+     * Overzoom factor for capturing high-resolution tile data at lower zoom levels.
+     * - 1: Standard (default) - uses current zoom level
+     * - 2: High - renders at 1 zoom level higher with 2x viewport, then downscales
+     * Higher values capture more tile detail (buildings, roads) when zoomed out.
+     */
+    overzoom?: 1 | 2;
+  };
+}
+
+export interface SavedProject {
+  id: string;
+  name: string;
+  config: PosterConfig;
+  updatedAt: number;
+}
+

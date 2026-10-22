@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { spawn } from "child_process";
 import * as fs from "fs";
 import * as crypto from "crypto";
+import { isClientRenderedJob, printPixelSize, renderPrintPoster } from "./render-poster";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -435,7 +436,8 @@ async function processJob(jobId: string): Promise<void> {
       // aspect ratio. config.width/height are the render dimensions chosen by
       // the order API; 300 DPI keeps the long edge near 6000px.
       const outputFile = path.join(jobDir, "print.png");
-      await runPythonCli(config, outputFile, "png", config.width, config.height, 300);
+      const { width, height } = printPixelSize(config.width, config.height);
+      await renderPrintPoster(config as unknown as Record<string, unknown>, outputFile, width, height);
       const storagePath = `${userId}/${jobId}/print.png`;
       await uploadFile(outputFile, storagePath);
       output.print = storagePath;
@@ -578,8 +580,7 @@ async function pollForJobs(): Promise<boolean> {
       .select("input")
       .eq("id", jobId)
       .single();
-    const engine = (claimed?.input as { render_engine?: string } | null)?.render_engine;
-    if (engine === "webgl") {
+    if (isClientRenderedJob((claimed?.input as { render_engine?: string; print_size_key?: string } | null) ?? null)) {
       console.log(`  Skipping client-rendered job ${jobId}`);
       return false;
     }
