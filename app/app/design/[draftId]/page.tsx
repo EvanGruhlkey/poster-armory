@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getPosterPalette } from "@/lib/poster-renderer/adapter";
+import { fitPosterInStage } from "@/lib/poster-editor-geometry";
+import { PosterRoomStage, type PosterViewMode } from "@/components/poster-room-stage";
 import {
   applyTypographyCustomization,
   resolvePosterTypography,
@@ -94,11 +96,31 @@ export default function CustomizePosterPage({
   const [selectedSize, setSelectedSize] = useState(DEFAULT_SIZE);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [activeTool, setActiveTool] = useState<PosterEditorTool | null>(null);
+  const [viewMode, setViewMode] = useState<PosterViewMode>("map");
+  const editorRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [editorHeight, setEditorHeight] = useState(700);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const [layerPreset, setLayerPreset] =
     useState<MapLayerPreset>("minimal");
   const [pitch, setPitch] = useState(0);
   const typography = resolvePosterTypography(config);
   const [draftHydrated, setDraftHydrated] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      if (editorRef.current) setEditorHeight(Math.max(320, window.innerHeight - editorRef.current.getBoundingClientRect().top));
+      if (stageRef.current) {
+        const { width, height } = stageRef.current.getBoundingClientRect();
+        setStageSize({ width, height });
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (stageRef.current) observer.observe(stageRef.current);
+    window.addEventListener("resize", measure);
+    return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
+  }, []);
 
   // Keep the live editor state attached to this draft ID. This preserves the
   // exact design across refreshes, browser-back from checkout, and auth flows.
@@ -319,6 +341,7 @@ export default function CustomizePosterPage({
 
   const posterPalette = getPosterPalette(config);
   const currentStyle = { bgColor: posterPalette.background, textColor: posterPalette.text };
+  const posterFit = fitPosterInStage(stageSize.width, stageSize.height, selectedSize.width / selectedSize.height, 20);
 
   const livePosterPanel = (
     <Card className="overflow-hidden">
@@ -328,6 +351,7 @@ export default function CustomizePosterPage({
       >
         <LivePosterMap
           config={config}
+          showControls={viewMode === "map"}
           bgColor={currentStyle.bgColor}
           textColor={currentStyle.textColor}
           layerPreset={layerPreset}
@@ -342,21 +366,23 @@ export default function CustomizePosterPage({
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-5 pb-32 sm:px-6 sm:py-8 sm:pb-8 lg:px-8">
-      <div className="mb-5 sm:mb-8">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Step 2 of 2</p>
-        <h1 className="text-xl font-bold sm:text-2xl lg:text-3xl">
-          Customize your poster
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {city}
-          {country ? `, ${country}` : ""}
-        </p>
+    <div ref={editorRef} className="flex w-full flex-col overflow-hidden bg-[#eee9e1]" style={{ height: editorHeight }}>
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#ded6cb] bg-[#faf8f5] px-4 sm:px-7">
+        <div className="min-w-0 text-sm font-medium text-[#18344b]">
+          <span className="truncate">{city}{country ? `, ${country}` : ""}</span>
+          <span className="ml-2 hidden text-xs font-normal text-slate-500 sm:inline">Poster editor</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="hidden sm:inline-flex" onClick={() => {
+            try { sessionStorage.setItem(`poster-design-draft:${params.draftId}`, JSON.stringify({ config, selectedSize, layerPreset, pitch })); toast.success("Design saved"); }
+            catch { toast.error("Could not save this design"); }
+          }}>Save</Button>
+          <Button size="sm" className="hidden bg-[#18344b] text-white hover:bg-[#10283a] sm:inline-flex" onClick={handleOrderPhysical} disabled={!config.city}>Order Print →</Button>
+        </div>
       </div>
 
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-8">
-        {/* Controls */}
-        <div className="order-2 min-w-0 space-y-4 lg:order-2 lg:max-w-[360px]">
+      <div className="relative flex min-h-0 flex-1">
+        <div className="contents">
           <PosterEditorSidebar activeTool={activeTool} onToolChange={setActiveTool}>
                 {activeTool === "map" && (
                   <div className="space-y-4">
@@ -397,7 +423,7 @@ export default function CustomizePosterPage({
                   </div>
                 )}
 
-                {activeTool === "map" && <PosterMapControls config={config} pitch={pitch} onChange={updateConfig} onPitchChange={setPitch} />}
+                {activeTool === "map" && <div className="mt-5"><PosterMapControls config={config} pitch={pitch} onChange={updateConfig} onPitchChange={setPitch} /></div>}
 
                 {activeTool === "type" && (
                   <div className="space-y-4">
@@ -521,9 +547,8 @@ export default function CustomizePosterPage({
                     <PosterColorControls config={config} onChange={updateConfig} />
                   </div>
                 )}
-          </PosterEditorSidebar>
-
-          {activeTool === "finish" && <Card>
+          {activeTool === "finish" && <>
+          <Card>
             <CardContent className="space-y-4 p-4 sm:p-5">
               <div>
                 <h2 className="text-sm font-semibold">Poster size</h2>
@@ -548,10 +573,9 @@ export default function CustomizePosterPage({
                 ))}
               </div>
             </CardContent>
-          </Card>}
+          </Card>
 
-          {/* Desktop actions */}
-          <div className="hidden grid-cols-2 gap-3 sm:grid">
+          <div className="mt-4 grid gap-2">
             <Button
               size="lg"
               onClick={handleOrderPhysical}
@@ -640,56 +664,19 @@ export default function CustomizePosterPage({
               )}
             </p>
           )}
+          </>}
+          </PosterEditorSidebar>
         </div>
 
-        {/* Automatic live poster — above controls on mobile, sticky on desktop */}
-        <div
-          className="order-1 mx-auto w-full max-w-sm lg:sticky lg:top-20 lg:order-1 lg:w-[min(100%,var(--poster-fit-width))] lg:max-w-none lg:self-start"
-          style={{
-            "--poster-fit-width": `calc(${(selectedSize.width / selectedSize.height) * 100}dvh - ${(selectedSize.width / selectedSize.height) * 300}px)`,
-          } as React.CSSProperties}
+        <div ref={stageRef} data-testid="poster-stage"
+          className={`flex min-h-0 min-w-0 flex-1 items-center justify-center transition-[width,padding] duration-200 motion-reduce:transition-none ${activeTool ? "lg:mr-[440px]" : "lg:mr-20"} pb-20 lg:pb-0`}
         >
-          {livePosterPanel}
+          <PosterRoomStage mode={viewMode} onModeChange={setViewMode}>
+            <div data-testid="poster-preview" style={{ width: posterFit.width, height: posterFit.height }} className="shrink-0 shadow-[0_16px_35px_rgba(39,31,23,0.16)]">
+              {livePosterPanel}
+            </div>
+          </PosterRoomStage>
         </div>
-      </div>
-
-      {/* Mobile sticky actions */}
-      <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2.5 border-t bg-background/95 p-3 backdrop-blur sm:hidden">
-        <Button
-          variant="outline"
-          onClick={handleDownloadPoster}
-          disabled={generateLoading || outOfDownloads}
-          className="h-11 min-w-0 flex-1 gap-1.5 px-2 text-xs"
-          aria-label={
-            isGuest
-              ? "Sign up to download"
-              : outOfDownloads
-                ? "No downloads left this billing period"
-                : "Download high-resolution poster"
-          }
-        >
-          {generateLoading ? (
-            <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-          ) : isGuest ? (
-            <LogIn className="h-5 w-5 shrink-0" />
-          ) : (
-            <Download className="h-5 w-5 shrink-0" />
-          )}
-          Download
-        </Button>
-        <Button
-          onClick={handleOrderPhysical}
-          disabled={!config.city}
-          className="h-11 min-w-0 flex-1 gap-1.5 px-2 text-xs"
-          aria-label={isGuest ? "Sign up to order a print" : "Order a print"}
-        >
-          {isGuest ? (
-            <LogIn className="h-5 w-5 shrink-0" />
-          ) : (
-            <Package className="h-5 w-5 shrink-0" />
-          )}
-          Order print
-        </Button>
       </div>
     </div>
   );

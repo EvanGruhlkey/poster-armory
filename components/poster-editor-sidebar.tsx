@@ -59,14 +59,14 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
   ));
 
   return <>
-    <nav aria-label="Editor tools" className="fixed right-4 top-1/2 z-50 hidden -translate-y-1/2 grid-cols-1 gap-1 rounded-xl border border-stone-200 bg-white/95 p-1.5 shadow-lg backdrop-blur lg:grid">
+    <nav aria-label="Editor tools" className="fixed right-4 top-1/2 z-50 hidden -translate-y-1/2 grid-cols-1 gap-1 rounded-xl border border-stone-200 bg-white/95 p-1.5 shadow-lg backdrop-blur lg:absolute lg:top-1/2 lg:grid">
       {toolButtons}
     </nav>
     <nav aria-label="Editor tools" className="fixed inset-x-3 bottom-3 z-50 grid grid-cols-4 gap-1 rounded-xl border border-stone-200 bg-white/95 p-1.5 shadow-lg backdrop-blur lg:hidden">
       {toolButtons}
     </nav>
     {activeTool && <section id="poster-settings-panel" ref={panelRef} tabIndex={-1} role="dialog" aria-label={`${activeLabel} settings`}
-      className="fixed inset-x-0 bottom-0 z-[60] flex max-h-[72dvh] flex-col rounded-t-2xl border border-stone-200 bg-white shadow-2xl outline-none lg:inset-x-auto lg:bottom-auto lg:right-24 lg:top-24 lg:max-h-[calc(100dvh-8rem)] lg:w-[350px] lg:rounded-xl">
+      className="fixed inset-x-0 bottom-0 z-[60] flex max-h-[50dvh] flex-col rounded-t-2xl border border-stone-200 bg-white shadow-2xl outline-none lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-24 lg:top-4 lg:max-h-[calc(100%-2rem)] lg:w-[350px] lg:rounded-xl">
       <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-stone-300 lg:hidden" aria-hidden="true" />
       <div className="flex shrink-0 items-center justify-between border-b border-stone-100 px-5 py-4">
         <h2 className="text-sm font-semibold text-[#18344b]">{activeLabel}</h2>
