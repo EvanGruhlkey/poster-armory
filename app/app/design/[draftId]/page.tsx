@@ -643,7 +643,12 @@ export default function CustomizePosterPage({
         </div>
 
         {/* Automatic live poster — above controls on mobile, sticky on desktop */}
-        <div className="order-1 mx-auto w-full max-w-sm lg:sticky lg:top-20 lg:order-1 lg:max-w-none lg:self-start">
+        <div
+          className="order-1 mx-auto w-full max-w-sm lg:sticky lg:top-20 lg:order-1 lg:w-[min(100%,var(--poster-fit-width))] lg:max-w-none lg:self-start"
+          style={{
+            "--poster-fit-width": `calc(${(selectedSize.width / selectedSize.height) * 100}dvh - ${(selectedSize.width / selectedSize.height) * 300}px)`,
+          } as React.CSSProperties}
+        >
           {livePosterPanel}
         </div>
       </div>

@@ -27,6 +27,13 @@ export const posterConfigSchema = z.object({
   show_grid: z.boolean().optional(),
   grid_density: z.union([z.literal(1), z.literal(2), z.literal(5), z.literal(10), z.literal(15), z.literal(20), z.literal(30)]).optional(),
   grid_weight: z.number().min(0.1).max(3).optional(),
+  center_marker: z.boolean().optional(),
+  connect_markers: z.boolean().optional(),
+  marker_path_color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  marker_path_width: z.number().min(0.5).max(8).optional(),
+  marker_path_style: z.enum(["solid", "dashed"]).optional(),
+  show_segment_lengths: z.boolean().optional(),
+  marker_fill_color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   typography_preset: z.enum(["gallery", "editorial", "modern", "custom", "modern-bold", "classic-serif", "minimal-clean", "editorial-strong", "vintage-elegant", "technical-mono", "geometric-modern", "condensed-impact"]).optional(),
   text_placement: z.enum(["below", "top", "center", "bottom"]).optional(),
   title_font: z.enum(["Inter", "Playfair Display", "Oswald", "Montserrat", "Crimson Text", "JetBrains Mono", "Poppins"]).optional(),
@@ -77,6 +84,13 @@ export const posterConfigSchema = z.object({
         lat: z.number().min(-90).max(90),
         lon: z.number().min(-180).max(180),
         label: z.string().max(60).default(""),
+        id: z.string().max(80).optional(),
+        type: z.enum(["pin", "crosshair", "dot", "ring", "heart", "home"]).optional(),
+        color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+        size: z.number().min(8).max(48).optional(),
+        label_style: z.enum(["standard", "elevated", "glass", "vintage"]).optional(),
+        label_color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+        label_size: z.number().min(8).max(32).optional(),
       })
     )
     .max(20)

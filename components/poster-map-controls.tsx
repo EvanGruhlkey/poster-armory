@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { PosterConfig } from "@/lib/types";
+import { PosterMarkerControls } from "./poster-marker-controls";
 
 const cameraPresets = [
   { label: "Flat", pitch: 0, rotation: 0 },
@@ -95,5 +96,6 @@ export function PosterMapControls({ config, pitch, onChange, onPitchChange }: {
         </label>
       </div>
     </details>
+    <PosterMarkerControls config={config} onChange={onChange} />
   </div>;
 }

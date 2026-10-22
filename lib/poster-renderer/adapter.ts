@@ -3,6 +3,7 @@ import type { PosterConfig } from "@/lib/types";
 import type { PosterConfig as RendererConfig, PosterStyle, ColorPalette } from "./types";
 import { getDefaultStyle, getStyleById } from "./styles";
 import { getPosterGrid, resolvePosterLabels } from "../poster-labels";
+import { getPosterMarkerOverlay } from "../poster-markers";
 
 const STYLE_MAP: Record<string, string> = {
   warm_beige: "minimal", terracotta: "vintage", noir: "dark-mode",
@@ -141,6 +142,51 @@ export function getPosterMapStyle(config: PosterConfig): StyleSpecification {
       if (height !== undefined && config.building_height_scale !== undefined) {
         layer.paint = { ...layer.paint, "fill-extrusion-height": scaleZoomStops(height, config.building_height_scale) as typeof height };
       }
+    }
+  }
+  if (config.center_marker || config.markers?.length) {
+    const overlay = getPosterMarkerOverlay(config);
+    mapStyle.sources["poster-markers"] = { type: "geojson", data: overlay.points };
+    if (overlay.fill) {
+      mapStyle.sources["poster-marker-fill"] = { type: "geojson", data: overlay.fill };
+      mapStyle.layers.push({ id: "poster-marker-fill", type: "fill", source: "poster-marker-fill",
+        paint: { "fill-color": config.marker_fill_color ?? palette.accent ?? palette.text, "fill-opacity": 0.15 },
+      });
+    }
+    if (overlay.route.coordinates.length) {
+      mapStyle.sources["poster-route"] = { type: "geojson", data: {
+        type: "Feature", properties: {}, geometry: overlay.route,
+      } };
+      mapStyle.layers.push({ id: "poster-marker-route", type: "line", source: "poster-route",
+        paint: { "line-color": config.marker_path_color ?? palette.accent ?? palette.text,
+          "line-width": config.marker_path_width ?? 2,
+          ...(config.marker_path_style === "dashed" ? { "line-dasharray": [2, 2] } : {}),
+        } });
+    }
+    mapStyle.layers.push({ id: "poster-marker-points", type: "circle", source: "poster-markers",
+      paint: { "circle-color": ["get", "color"], "circle-radius": ["/", ["get", "size"], 3],
+        "circle-stroke-color": palette.background, "circle-stroke-width": 2,
+        "circle-opacity": ["case", ["==", ["get", "type"], "ring"], 0, 1],
+      } });
+    mapStyle.layers.push({ id: "poster-marker-icons", type: "symbol", source: "poster-markers",
+      filter: ["in", ["get", "type"], ["literal", ["pin", "crosshair", "heart", "home"]]],
+      layout: { "text-field": ["match", ["get", "type"], "heart", "♥", "home", "⌂", "crosshair", "+", "pin", "•", ""],
+        "text-font": ["Noto Sans Regular"], "text-size": ["*", ["get", "size"], 0.7],
+        "text-allow-overlap": true,
+      },
+      paint: { "text-color": palette.background },
+    });
+    mapStyle.layers.push({ id: "poster-marker-labels", type: "symbol", source: "poster-markers",
+      filter: ["!=", ["get", "label"], ""],
+      layout: { "text-field": ["get", "label"], "text-font": ["Noto Sans Regular"], "text-size": 12, "text-offset": [0, 1.8] },
+      paint: { "text-color": palette.text, "text-halo-color": palette.background, "text-halo-width": 1.5 },
+    });
+    if (overlay.segmentLabels.features.length) {
+      mapStyle.sources["poster-marker-segments"] = { type: "geojson", data: overlay.segmentLabels };
+      mapStyle.layers.push({ id: "poster-marker-segments", type: "symbol", source: "poster-marker-segments",
+        layout: { "text-field": ["get", "label"], "text-font": ["Noto Sans Regular"], "text-size": 11 },
+        paint: { "text-color": palette.text, "text-halo-color": palette.background, "text-halo-width": 1.5 },
+      });
     }
   }
   return mapStyle;

@@ -216,6 +216,14 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     config.grid_weight,
     config.lat,
     config.lon,
+    config.center_marker,
+    config.markers,
+    config.connect_markers,
+    config.marker_path_color,
+    config.marker_path_width,
+    config.marker_path_style,
+    config.show_segment_lengths,
+    config.marker_fill_color,
     ready,
   ]);
 
