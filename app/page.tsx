@@ -70,7 +70,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What do I get with the membership?",
-    a: "20 high-resolution downloads per month for $10/month, in PNG, PDF and SVG. The allowance resets at the start of each billing month and you can cancel anytime.",
+    a: "20 high-resolution downloads per month for $10/month, in PNG and PDF. The allowance resets each billing month and you can cancel anytime.",
   },
   {
     q: "What happens when I use all 20 downloads?",
@@ -106,7 +106,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Will it look good printed?",
-    a: "Exports are built for print: vector PDF and SVG plus crisp PNGs at standard poster aspect ratios. Use a quality print shop, or let us print and ship it for you.",
+    a: "Download high-resolution PNG and PDF files at standard poster aspect ratios. Use a quality print shop, or let us print and ship it for you.",
   },
   {
     q: "Can I cancel anytime?",

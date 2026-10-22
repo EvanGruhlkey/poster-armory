@@ -51,7 +51,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, PlanEntitlements> = {
     posterLibrary: true,
     designsPerMonth: null,
     downloadsPerMonth: MEMBERSHIP_DOWNLOADS_PER_MONTH,
-    formats: ["png", "pdf", "svg"],
+    formats: ["png", "pdf"],
   },
 };
 
