@@ -122,3 +122,9 @@
     color: #666;
   }
 }
+@media (min-width: 1024px) {
+  .hero-room-photo {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 22%);
+    mask-image: linear-gradient(to right, transparent 0%, #000 22%);
+  }
+}

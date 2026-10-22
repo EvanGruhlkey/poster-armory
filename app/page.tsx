@@ -124,8 +124,8 @@ export default function LandingPage() {
       <Navbar />
 
       {/* Hero */}
-      <section data-testid="home-hero" className="grid overflow-hidden border-b lg:min-h-[calc(100svh-4rem)] lg:grid-cols-2">
-        <div className="relative flex items-center bg-[#fbfaf8] px-6 py-16 sm:px-12 lg:px-[clamp(3rem,6vw,8rem)] lg:py-20" style={{ backgroundImage: "linear-gradient(to right, rgba(24,52,75,.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(24,52,75,.045) 1px, transparent 1px)", backgroundSize: "28px 28px" }}>
+      <section data-testid="home-hero" className="grid overflow-hidden border-b bg-[#fbfaf8] lg:min-h-[calc(100svh-4rem)] lg:grid-cols-2" style={{ backgroundImage: "linear-gradient(to right, rgba(24,52,75,.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(24,52,75,.045) 1px, transparent 1px)", backgroundSize: "28px 28px" }}>
+        <div className="relative flex items-center px-6 py-16 sm:px-12 lg:px-[clamp(3rem,6vw,8rem)] lg:py-20">
           <div className="relative mx-auto w-full max-w-[560px] lg:ml-auto lg:mr-0">
             <h1 className="text-[clamp(2.75rem,3.5vw,4.25rem)] font-bold leading-[1.06] tracking-tight text-[#18344b]">
               Your favorite place.<br />On your wall.
@@ -134,8 +134,8 @@ export default function LandingPage() {
             <HeroLocationForm />
           </div>
         </div>
-        <div data-testid="hero-room" className="relative min-h-[520px] overflow-hidden bg-[#d4c5ad] sm:min-h-[650px] lg:min-h-full">
-          <Image src="/images/hero-room-portrait.png" alt="" fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
+        <div data-testid="hero-room" className="relative min-h-[520px] overflow-hidden sm:min-h-[650px] lg:min-h-full">
+          <Image src="/images/hero-room-portrait.png" alt="" fill priority className="hero-room-photo object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
           <div className="absolute left-1/2 top-[7%] w-[min(57%,430px)] -translate-x-1/2 border-[7px] border-[#8a6241] bg-[#8a6241] p-[2px] shadow-[0_18px_35px_rgba(43,26,13,0.32),0_2px_4px_rgba(43,26,13,0.3)] sm:border-[9px]">
             <Image src="/images/hero-san-francisco.jpg" alt="San Francisco custom map poster in a wood frame" width={900} height={1200} priority className="block h-auto w-full" sizes="(max-width: 1024px) 57vw, 29vw" />
           </div>
