@@ -136,7 +136,7 @@ export function Navbar() {
                 Sign In
               </Link>
               <Button asChild size="sm">
-                <Link href="/login">Get Started</Link>
+                <Link href="/app">Get Started</Link>
               </Button>
             </>
           )}
@@ -146,7 +146,7 @@ export function Navbar() {
         <div className="flex items-center gap-2 md:hidden">
           {!user ? (
             <Button asChild size="sm">
-              <Link href="/login">Start</Link>
+              <Link href="/app">Start</Link>
             </Button>
           ) : (
             <Button asChild size="sm" variant="outline" className="h-9 w-9 shrink-0 p-0">
