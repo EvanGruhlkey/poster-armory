@@ -22,11 +22,21 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
   children: ReactNode;
 }) {
   const panelRef = useRef<HTMLElement>(null);
-  const activeLabel = tools.find(tool => tool.id === activeTool)?.label;
+  const lastToolRef = useRef<PosterEditorTool>("map");
+  const lastContentRef = useRef<ReactNode>(null);
+  if (activeTool) {
+    lastToolRef.current = activeTool;
+    lastContentRef.current = children;
+  }
+  const activeLabel = tools.find(tool => tool.id === (activeTool ?? lastToolRef.current))?.label;
+
+  useEffect(() => {
+    if (panelRef.current) panelRef.current.inert = !activeTool;
+  }, [activeTool]);
 
   useEffect(() => {
     if (!activeTool) return;
-    panelRef.current?.focus();
+    const focusTimer = window.setTimeout(() => panelRef.current?.focus(), 320);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Tab" && window.matchMedia("(max-width: 1023px)").matches) {
         const panel = panelRef.current;
@@ -52,7 +62,10 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
       });
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [activeTool, onToolChange]);
 
   const close = () => {
@@ -80,8 +93,8 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
     <nav aria-label="Editor tools" className="fixed inset-x-3 bottom-3 z-50 grid grid-cols-4 gap-1 rounded-xl border border-stone-200 bg-white/95 p-1.5 shadow-lg backdrop-blur lg:hidden">
       {toolButtons}
     </nav>
-    {activeTool && <section id="poster-settings-panel" ref={panelRef} tabIndex={-1} role="dialog" aria-label={`${activeLabel} settings`}
-      className="fixed inset-x-0 bottom-0 z-[60] flex max-h-[50dvh] flex-col rounded-t-2xl border border-stone-200 bg-white shadow-2xl outline-none lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-24 lg:top-4 lg:max-h-[calc(100%-2rem)] lg:w-[350px] lg:rounded-xl">
+    <section id="poster-settings-panel" ref={panelRef} tabIndex={activeTool ? -1 : undefined} role="dialog" aria-label={`${activeLabel} settings`} aria-hidden={!activeTool}
+      className={`fixed inset-x-0 bottom-0 z-[60] flex max-h-[50dvh] flex-col rounded-t-2xl border border-stone-200 bg-white shadow-2xl outline-none transition-[opacity,transform,visibility] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-24 lg:top-4 lg:max-h-[calc(100%-2rem)] lg:w-[350px] lg:rounded-xl ${activeTool ? "visible translate-y-0 opacity-100 lg:translate-x-0" : "invisible pointer-events-none translate-y-full opacity-0 lg:translate-x-6 lg:translate-y-0"}`}>
       <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-stone-300 lg:hidden" aria-hidden="true" />
       <div className="flex shrink-0 items-center justify-between border-b border-stone-100 px-5 py-4">
         <h2 className="text-sm font-semibold text-[#18344b]">{activeLabel}</h2>
@@ -89,7 +102,7 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
           <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="min-h-0 overflow-y-auto p-4 sm:p-5">{children}</div>
-    </section>}
+      <div className="min-h-0 overflow-y-auto p-4 sm:p-5">{activeTool ? children : lastContentRef.current}</div>
+    </section>
   </>;
 }

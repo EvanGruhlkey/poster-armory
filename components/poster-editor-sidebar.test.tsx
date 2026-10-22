@@ -14,7 +14,7 @@ test("tools start collapsed and do not show settings until chosen", () => {
     assert.ok(html.includes(label), `missing ${label}`);
   }
   assert.ok(!html.includes("Hidden settings"));
-  assert.ok(!html.includes('role="dialog"'));
+  assert.ok(html.includes('aria-hidden="true"'));
   assert.equal(nextPosterTool(null, "map"), "map");
   assert.equal(nextPosterTool("map", "map"), null);
   assert.equal(nextPosterTool("map", "type"), "type");
