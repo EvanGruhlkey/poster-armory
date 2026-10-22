@@ -93,7 +93,7 @@ export default function CustomizePosterPage({
 
   const [selectedSize, setSelectedSize] = useState(DEFAULT_SIZE);
   const [generateLoading, setGenerateLoading] = useState(false);
-  const [activeTool, setActiveTool] = useState<PosterEditorTool>("map");
+  const [activeTool, setActiveTool] = useState<PosterEditorTool | null>(null);
   const [layerPreset, setLayerPreset] =
     useState<MapLayerPreset>("minimal");
   const [pitch, setPitch] = useState(0);

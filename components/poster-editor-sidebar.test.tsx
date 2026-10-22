@@ -2,16 +2,32 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PosterEditorSidebar } from "./poster-editor-sidebar";
+import { PosterEditorSidebar, nextPosterTool } from "./poster-editor-sidebar";
 
-test("poster sidebar keeps four simple tabs and one active section", () => {
+test("tools start collapsed and do not show settings until chosen", () => {
   const html = renderToStaticMarkup(
-    <PosterEditorSidebar activeTool="map" onToolChange={() => {}}>
-      <details><summary>More options</summary>Fine controls</details>
+    <PosterEditorSidebar activeTool={null} onToolChange={() => {}}>
+      <p>Hidden settings</p>
     </PosterEditorSidebar>,
   );
-  for (const label of ["Map", "Text", "Colors", "Finish", "More options"]) {
+  for (const label of ["Map", "Text", "Colors", "Finish"]) {
     assert.ok(html.includes(label), `missing ${label}`);
   }
-  assert.equal((html.match(/aria-pressed="true"/g) ?? []).length, 1);
+  assert.ok(!html.includes("Hidden settings"));
+  assert.ok(!html.includes('role="dialog"'));
+  assert.equal(nextPosterTool(null, "map"), "map");
+  assert.equal(nextPosterTool("map", "map"), null);
+  assert.equal(nextPosterTool("map", "type"), "type");
+});
+
+test("selected tool opens a labelled, closeable settings panel", () => {
+  const html = renderToStaticMarkup(
+    <PosterEditorSidebar activeTool="type" onToolChange={() => {}}>
+      <p>Text settings</p>
+    </PosterEditorSidebar>,
+  );
+  assert.ok(html.includes('aria-pressed="true"'));
+  assert.ok(html.includes('aria-expanded="true"'));
+  assert.ok(html.includes('aria-label="Close Text settings"'));
+  assert.ok(html.includes("Text settings"));
 });
