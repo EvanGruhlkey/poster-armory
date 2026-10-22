@@ -28,6 +28,21 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
     if (!activeTool) return;
     panelRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Tab" && window.matchMedia("(max-width: 1023px)").matches) {
+        const panel = panelRef.current;
+        const focusable = panel && Array.from(panel.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href]'))
+          .filter(element => element.getClientRects().length);
+        if (focusable?.length) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey && (document.activeElement === first || document.activeElement === panel)) {
+            event.preventDefault(); last.focus(); return;
+          }
+          if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault(); first.focus(); return;
+          }
+        }
+      }
       if (event.key !== "Escape") return;
       event.preventDefault();
       onToolChange(null);

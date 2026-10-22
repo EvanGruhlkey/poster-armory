@@ -556,7 +556,7 @@ export default function CustomizePosterPage({
                   Choose a size before ordering or downloading.
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2">
                 {POSTER_SIZES.map((size) => (
                   <button
                     key={size.key}
@@ -608,24 +608,6 @@ export default function CustomizePosterPage({
                   : "Download High-Res"}
             </Button>
           </div>
-
-          {isGuest && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
-              <p className="text-sm text-blue-900">
-                Designing is free. Create an account only when you are ready to
-                download or order a print.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => redirectToSignup("download")}
-              >
-                <LogIn className="mr-2 h-4 w-4" />
-                Create Free Account
-              </Button>
-            </div>
-          )}
 
           {!isGuest && !isMember && (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
