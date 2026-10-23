@@ -1,0 +1,15 @@
+{
+  "name": "Linen",
+  "description": "Warm linen with soft stone lines for a minimal neutral interior",
+  "bg": "#F1EBDF",
+  "text": "#57544D",
+  "gradient_color": "#F1EBDF",
+  "water": "#D4DBD7",
+  "parks": "#DDE0CE",
+  "road_motorway": "#656159",
+  "road_primary": "#7B766D",
+  "road_secondary": "#938D83",
+  "road_tertiary": "#AAA49A",
+  "road_residential": "#C2BCB1",
+  "road_default": "#9F998F"
+}

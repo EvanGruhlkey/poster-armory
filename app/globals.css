@@ -77,6 +77,24 @@
   }
 }
 
+@keyframes feedback-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.feedback-marquee {
+  animation: feedback-marquee 42s linear infinite;
+}
+
+.feedback-rail {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+}
+
 .hero-map-grid {
   opacity: 0.22;
   background-image:
@@ -97,7 +115,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .hero-map-grid,
-  .hero-map-grid-fine {
+  .hero-map-grid-fine,
+  .feedback-marquee {
     animation: none;
   }
 }

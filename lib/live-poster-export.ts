@@ -3,7 +3,7 @@ import { STYLE_PRESETS } from "@/lib/types";
 import { jpegToPdf } from "@/lib/jpeg-pdf";
 import { getPosterPalette } from "@/lib/poster-renderer/adapter";
 import { getPosterMapDimensions, renderPosterMapCanvas } from "@/lib/poster-renderer/export";
-import { getPosterFrameStrokes } from "@/lib/poster-frame";
+import { getOuterPosterFrameStrokes, getPosterFrameStrokes } from "@/lib/poster-frame";
 import { resolvePosterTypography } from "@/lib/poster-typography";
 import { getPosterTextBackdrop, getPosterTextLayout, getPosterTextMetrics } from "@/lib/poster-text-layout";
 import { getPosterScaleBar } from "@/lib/poster-labels";
@@ -191,7 +191,7 @@ export async function renderPosterPNG(config: PosterConfig, width: number, heigh
   ctx.imageSmoothingQuality = "high";
   ctx.fillStyle = getPosterPalette(config).background || STYLE_PRESETS.warm_beige.bgColor;
   ctx.fillRect(0, 0, width, height);
-  const { x: mapX, y: mapY, width: mapWidth, height: mapHeight } = getPosterMapDimensions(width, height);
+  const { x: mapX, y: mapY, width: mapWidth, height: mapHeight } = getPosterMapDimensions(width, height, config.map_bounds);
   const printMap = await renderPosterMapCanvas(config, mapWidth, mapHeight);
   ctx.drawImage(printMap, mapX, mapY);
   if (config.show_scale) {
@@ -215,11 +215,16 @@ export async function renderPosterPNG(config: PosterConfig, width: number, heigh
   }
   const textColor = getPosterPalette(config).text;
   ctx.strokeStyle = `${textColor}55`;
-  for (const stroke of getPosterFrameStrokes(typography.frameStyle, width, height)) {
+  for (const stroke of getPosterFrameStrokes(typography.frameStyle, width, height, config.map_bounds)) {
     ctx.lineWidth = stroke.lineWidth;
     ctx.strokeRect(stroke.x, stroke.y, stroke.width, stroke.height);
   }
   drawPosterCopy(ctx, width, height, config, textColor);
+  ctx.strokeStyle = textColor;
+  for (const stroke of getOuterPosterFrameStrokes(config.outer_border_style ?? "none", width, height)) {
+    ctx.lineWidth = stroke.lineWidth;
+    ctx.strokeRect(stroke.x, stroke.y, stroke.width, stroke.height);
+  }
 
   return canvasToBlob(out, "image/png");
 }

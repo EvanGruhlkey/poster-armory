@@ -9,9 +9,16 @@ export function getPosterTextLayout(config: PosterConfig, width: number, height:
   text: Rect;
   maxTextWidth: number;
 } {
-  const map = getPosterMapDimensions(width, height);
+  const map = getPosterMapDimensions(width, height, config.map_bounds);
   const placement = resolvePosterTypography(config).textPlacement;
-  const text = placement === "below"
+  const text = config.text_bounds
+    ? {
+      x: width * config.text_bounds.x,
+      y: height * config.text_bounds.y,
+      width: width * config.text_bounds.width,
+      height: height * config.text_bounds.height,
+    }
+    : placement === "below"
     ? { x: width * 0.06, y: height * 0.79, width: width * 0.88, height: height * 0.17 }
     : {
       x: width * 0.12,
@@ -23,7 +30,7 @@ export function getPosterTextLayout(config: PosterConfig, width: number, height:
 }
 
 export function getPosterTextBackdrop(config: PosterConfig): { kind: NonNullable<PosterConfig["text_backdrop"]>; alpha: number } {
-  const kind = resolvePosterTypography(config).textPlacement === "below" ? "none" : resolvePosterTypography(config).textBackdrop;
+  const kind = resolvePosterTypography(config).textPlacement === "below" && !config.text_bounds ? "none" : resolvePosterTypography(config).textBackdrop;
   return { kind, alpha: kind === "strong" ? 0.88 : kind === "gradient" ? 0.78 : kind === "subtle" ? 0.75 : 0 };
 }
 

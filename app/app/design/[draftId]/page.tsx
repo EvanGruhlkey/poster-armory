@@ -575,6 +575,27 @@ export default function CustomizePosterPage({
                   </button>
                 ))}
               </div>
+              <div className="border-t pt-4">
+                <h2 className="text-sm font-semibold">Outer border</h2>
+                <p className="mt-1 text-xs text-muted-foreground">Frame the complete poster.</p>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {([
+                    ["none", "None"],
+                    ["fine", "Fine"],
+                    ["double", "Double"],
+                  ] as const).map(([value, label]) => (
+                    <button key={value} type="button"
+                      onClick={() => updateConfig({ outer_border_style: value })}
+                      className={`rounded-md border px-2 py-2 text-xs transition-colors ${
+                        (config.outer_border_style ?? "none") === value
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "hover:bg-muted"
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
 

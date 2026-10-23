@@ -9,6 +9,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useSubscription } from "@/components/subscription-provider";
 import { MEMBERSHIP_DOWNLOADS_PER_MONTH } from "@/lib/plan-config";
 import { toast } from "sonner";
+import { PRINT_DETAILS } from "@/lib/print-details";
 
 function PricingContent() {
   const searchParams = useSearchParams();
@@ -56,6 +57,19 @@ export default function PricingPage() {
           >
             <PricingContent />
           </Suspense>
+
+          <section className="mx-auto mt-12 max-w-3xl rounded-xl border bg-card p-5 sm:p-7">
+            <h2 className="text-xl font-semibold">Physical prints</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Prints are purchased separately from downloads. Choose from {PRINT_DETAILS.sizes.join(", ")} on {PRINT_DETAILS.paper}. Each file is {PRINT_DETAILS.resolution.toLowerCase()}.
+            </p>
+            <div className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
+              <div className="rounded-lg bg-muted/50 p-3"><span className="font-medium">1.</span> Design free</div>
+              <div className="rounded-lg bg-muted/50 p-3"><span className="font-medium">2.</span> Enter delivery details</div>
+              <div className="rounded-lg bg-muted/50 p-3"><span className="font-medium">3.</span> See print and shipping total</div>
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground">{PRINT_DETAILS.payment}. Shipping varies by destination.</p>
+          </section>
 
           <div className="mx-auto mt-12 max-w-2xl space-y-2 text-center">
             <p className="text-sm text-muted-foreground">

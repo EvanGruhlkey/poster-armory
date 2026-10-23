@@ -26,6 +26,14 @@ test("landscape on-map text remains inside the map", () => {
   assert.ok(metrics.blockHeight <= layout.text.height * 0.82);
 });
 
+test("uses saved freeform text bounds", () => {
+  const layout = getPosterTextLayout({
+    ...DEFAULT_CONFIG,
+    text_bounds: { x: 0.1, y: 0.2, width: 0.8, height: 0.3 },
+  }, 1000, 1200);
+  assert.deepEqual(layout.text, { x: 100, y: 240, width: 800, height: 360 });
+});
+
 test("backdrop follows preset unless manually overridden", () => {
   const strong = { ...DEFAULT_CONFIG, typography_preset: "editorial-strong" as const, text_placement: "top" as const };
   assert.equal(getPosterTextBackdrop(strong).kind, "strong");
