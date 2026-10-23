@@ -59,6 +59,34 @@ const STEPS = [
   },
 ];
 
+const EARLY_FEEDBACK = [
+  {
+    quote: "The editor made it easy to turn our favorite trip into something personal.",
+    name: "Maya R.",
+    initials: "MR",
+  },
+  {
+    quote: "I found our neighborhood, chose a style, and had a poster ready in minutes.",
+    name: "Noah T.",
+    initials: "NT",
+  },
+  {
+    quote: "A thoughtful housewarming gift that still felt simple to create.",
+    name: "Elena P.",
+    initials: "EP",
+  },
+  {
+    quote: "The live preview helped me get the colors and text exactly where I wanted them.",
+    name: "Jordan K.",
+    initials: "JK",
+  },
+  {
+    quote: "Clean, modern, and much easier to customize than I expected.",
+    name: "Sam W.",
+    initials: "SW",
+  },
+];
+
 const FAQ_ITEMS = [
   {
     q: "What does it cost?",
@@ -98,7 +126,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What can I customize?",
-    a: "Everything, for free: map framing, rotation and tilt, layer presets, labels, water and parks, all 17 themes, the poster size, and the title, subtitle, date line and optional coordinates.",
+    a: "Everything, for free: map framing, rotation and tilt, layer presets, labels, water and parks, all 21 themes, the poster size, and the title, subtitle, date line and optional coordinates.",
   },
   {
     q: "Are my designs saved?",
@@ -128,17 +156,21 @@ export default function LandingPage() {
         <div className="relative flex items-center px-6 py-16 sm:px-12 lg:px-[clamp(3rem,6vw,8rem)] lg:py-20">
           <div className="relative mx-auto w-full max-w-[560px] lg:ml-auto lg:mr-0">
             <h1 className="text-[clamp(2.75rem,3.5vw,4.25rem)] font-bold leading-[1.06] tracking-tight text-[#18344b]">
-              Your favorite place.<br />On your wall.
+              Pick a place.<br />We&apos;ll print it.
             </h1>
             <p className="mt-5 text-xl text-slate-500 sm:text-2xl">Custom map posters.</p>
             <HeroLocationForm />
           </div>
         </div>
         <div data-testid="hero-room" className="relative min-h-[520px] overflow-hidden sm:min-h-[650px] lg:min-h-full">
-          <Image src="/images/hero-room-portrait.png" alt="" fill priority className="hero-room-photo object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
-          <div className="absolute left-1/2 top-[7%] w-[min(57%,430px)] -translate-x-1/2 border-[7px] border-[#8a6241] bg-[#8a6241] p-[2px] shadow-[0_18px_35px_rgba(43,26,13,0.32),0_2px_4px_rgba(43,26,13,0.3)] sm:border-[9px]">
-            <Image src="/images/hero-san-francisco.jpg" alt="San Francisco custom map poster in a wood frame" width={900} height={1200} priority className="block h-auto w-full" sizes="(max-width: 1024px) 57vw, 29vw" />
-          </div>
+          <Image
+            src="/images/hero-room-san-francisco-v2.png"
+            alt="San Francisco custom map poster in a sunlit room"
+            fill
+            priority
+            className="hero-room-photo object-cover object-center"
+            sizes="(max-width: 1024px) 100vw, 50vw"
+          />
         </div>
       </section>
 
@@ -196,6 +228,33 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {process.env.NODE_ENV === "development" && (
+      <section aria-label="Sample customer reviews" className="overflow-hidden border-y border-[#e5ded3] bg-[#f7f3ec] py-6">
+        <div className="feedback-rail">
+          <div className="feedback-marquee flex w-max hover:[animation-play-state:paused]">
+            {[false, true].map((duplicate) => (
+              <div key={String(duplicate)} aria-hidden={duplicate || undefined} className="flex shrink-0 gap-4 pr-4">
+                {EARLY_FEEDBACK.map((review) => (
+                  <blockquote key={review.quote} className="flex w-[300px] shrink-0 flex-col justify-between rounded-xl border border-[#ded6ca] bg-white/90 p-4 shadow-[0_8px_24px_rgba(24,52,75,0.05)] sm:w-[360px]">
+                    <p className="text-sm leading-6 text-[#18344b]">“{review.quote}”</p>
+                    <footer className="mt-4 flex items-center gap-2.5">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#18344b] text-[10px] font-semibold text-white">
+                        {review.initials}
+                      </span>
+                      <span>
+                        <span className="block text-xs font-semibold text-[#18344b]">{review.name}</span>
+                        <span className="block text-[10px] text-slate-500">Review</span>
+                      </span>
+                    </footer>
+                  </blockquote>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      )}
 
       {/* FAQ */}
       <section className="border-t py-10 sm:py-14">

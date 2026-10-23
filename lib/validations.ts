@@ -47,6 +47,19 @@ export const posterConfigSchema = z.object({
   subtitle_tracking: z.number().min(-0.1).max(0.25).optional(),
   text_backdrop: z.enum(["none", "subtle", "strong", "gradient"]).optional(),
   frame_style: z.enum(["none", "fine", "double"]).optional(),
+  outer_border_style: z.enum(["none", "fine", "double"]).optional(),
+  map_bounds: z.object({
+    left: z.number().min(0).max(0.8),
+    top: z.number().min(0).max(0.8),
+    right: z.number().min(0).max(0.8),
+    bottom: z.number().min(0).max(0.8),
+  }).optional(),
+  text_bounds: z.object({
+    x: z.number().min(0).max(1),
+    y: z.number().min(0).max(1),
+    width: z.number().min(0.12).max(1),
+    height: z.number().min(0.06).max(1),
+  }).optional(),
   style_id: z.enum([
     "warm_beige", "terracotta", "noir", "blueprint", "midnight_blue",
     "ocean", "forest", "sunset", "autumn", "emerald",

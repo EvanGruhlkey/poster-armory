@@ -93,6 +93,11 @@ export interface PosterConfig {
   subtitle_tracking?: number;
   text_backdrop?: "none" | "subtle" | "strong" | "gradient";
   frame_style?: "none" | "fine" | "double";
+  outer_border_style?: "none" | "fine" | "double";
+  /** Normalized poster insets for the freely resizable map artwork. */
+  map_bounds?: { left: number; top: number; right: number; bottom: number };
+  /** Normalized freeform position and size of the poster text block. */
+  text_bounds?: { x: number; y: number; width: number; height: number };
   style_id: string;
   city: string;
   country: string;
@@ -223,6 +228,10 @@ export const STYLE_PRESETS: Record<
   { name: string; bgColor: string; textColor: string }
 > = {
   warm_beige: { name: "Classic", bgColor: "#F5F0E8", textColor: "#6B5B4F" },
+  sand: { name: "Sand", bgColor: "#E9DDCA", textColor: "#5E5143" },
+  sage: { name: "Sage", bgColor: "#E6E7DA", textColor: "#465247" },
+  clay: { name: "Clay", bgColor: "#E8D5C8", textColor: "#684A3E" },
+  linen: { name: "Linen", bgColor: "#F1EBDF", textColor: "#57544D" },
   terracotta: { name: "Terracotta", bgColor: "#F5EDE4", textColor: "#8B4513" },
   noir: { name: "Noir", bgColor: "#000000", textColor: "#FFFFFF" },
   blueprint: { name: "Blueprint", bgColor: "#1A3A5C", textColor: "#E8F4FF" },
@@ -276,4 +285,6 @@ export const DEFAULT_CONFIG: PosterConfig = {
   gpx_data: "",
   layer_preset: "everything",
   pitch: 0,
+  map_bounds: { left: 0.06, top: 0.05, right: 0.06, bottom: 0.23 },
+  outer_border_style: "none",
 };

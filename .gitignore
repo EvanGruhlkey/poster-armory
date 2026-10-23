@@ -41,6 +41,7 @@ out/
 # Copied from node_modules by scripts/copy-maplibre-worker.mjs
 public/maplibre-gl-worker.mjs
 public/maplibre-gl-shared.mjs
+public/maplibre/
 
 # Node
 node_modules/

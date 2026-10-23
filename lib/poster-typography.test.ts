@@ -54,7 +54,7 @@ test("reference presets carry their title and subtitle looks", () => {
 test("placement changes independently of style and defaults below the map", () => {
   assert.equal(resolvePosterTypography(DEFAULT_CONFIG).textPlacement, "below");
   const updates = applyTextPlacement(DEFAULT_CONFIG, "center");
-  assert.deepEqual(updates, { text_placement: "center" });
+  assert.deepEqual(updates, { text_placement: "center", text_bounds: undefined });
   assert.equal(({ ...DEFAULT_CONFIG, ...updates }).title, DEFAULT_CONFIG.title);
 });
 

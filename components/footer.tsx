@@ -32,6 +32,12 @@ export function Footer() {
             >
               Privacy
             </Link>
+            <a
+              href="mailto:posterarmory@gmail.com"
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Contact
+            </a>
             <Link
               href="/login"
               className="text-xs text-muted-foreground hover:text-foreground"

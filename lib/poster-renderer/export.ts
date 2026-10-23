@@ -1,14 +1,24 @@
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { PosterConfig } from "@/lib/types";
 import { distanceToZoom } from "@/lib/live-poster-style";
+import { MAPLIBRE_WORKER_URL } from "@/lib/generated/maplibre-worker";
 import { getPosterMapStyle } from "./adapter";
 
-export function getPosterMapDimensions(width: number, height: number) {
+export type PosterMapBounds = { left: number; top: number; right: number; bottom: number };
+
+export const DEFAULT_POSTER_MAP_BOUNDS: PosterMapBounds = {
+  left: 0.06,
+  top: 0.05,
+  right: 0.06,
+  bottom: 0.23,
+};
+
+export function getPosterMapDimensions(width: number, height: number, bounds = DEFAULT_POSTER_MAP_BOUNDS) {
   return {
-    x: Math.round(width * 0.06),
-    y: Math.round(height * 0.05),
-    width: Math.round(width * 0.88),
-    height: Math.round(height * 0.72),
+    x: Math.round(width * bounds.left),
+    y: Math.round(height * bounds.top),
+    width: Math.round(width * (1 - bounds.left - bounds.right)),
+    height: Math.round(height * (1 - bounds.top - bounds.bottom)),
   };
 }
 
@@ -36,7 +46,7 @@ export async function renderPosterMapCanvas(
   container.style.cssText = `position:fixed;left:-100000px;top:0;width:${native.width}px;height:${native.height}px;pointer-events:none`;
   document.body.appendChild(container);
   const { Map: MapLibre, setWorkerUrl } = await import("maplibre-gl");
-  setWorkerUrl("/maplibre-gl-worker.mjs");
+  setWorkerUrl(MAPLIBRE_WORKER_URL);
 
   let map: MapLibreMap | undefined;
   let stage = "constructing map";

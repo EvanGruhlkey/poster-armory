@@ -90,7 +90,7 @@ export function applyTypographyPreset(_config: PosterConfig, preset: TypographyP
 }
 
 export function applyTextPlacement(_config: PosterConfig, placement: TextPlacement): Partial<PosterConfig> {
-  return { text_placement: placement };
+  return { text_placement: placement, text_bounds: undefined };
 }
 
 export function applyTypographyCustomization(

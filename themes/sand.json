@@ -1,0 +1,15 @@
+{
+  "name": "Sand",
+  "description": "Soft sandstone and warm taupe for a quiet, natural print",
+  "bg": "#E9DDCA",
+  "text": "#5E5143",
+  "gradient_color": "#E9DDCA",
+  "water": "#C8D0C8",
+  "parks": "#D0D1B9",
+  "road_motorway": "#6E5E4C",
+  "road_primary": "#85735E",
+  "road_secondary": "#9D8B73",
+  "road_tertiary": "#B4A38C",
+  "road_residential": "#C9BAA4",
+  "road_default": "#AD9B83"
+}
