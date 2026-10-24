@@ -90,7 +90,7 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
     <nav aria-label="Editor tools" className="fixed right-4 top-1/2 z-50 hidden -translate-y-1/2 grid-cols-1 gap-1 rounded-xl border border-stone-200 bg-white/95 p-1.5 shadow-lg backdrop-blur lg:absolute lg:top-1/2 lg:grid">
       {toolButtons}
     </nav>
-    <nav aria-label="Editor tools" className="fixed inset-x-3 bottom-3 z-50 grid grid-cols-4 gap-1 rounded-xl border border-stone-200 bg-white/95 p-1.5 shadow-lg backdrop-blur lg:hidden">
+    <nav aria-label="Editor tools" style={{ bottom: "calc(0.75rem + env(safe-area-inset-bottom))" }} className="fixed inset-x-3 z-50 grid grid-cols-4 gap-1 rounded-xl border border-stone-200 bg-white/95 p-1.5 shadow-lg backdrop-blur lg:hidden">
       {toolButtons}
     </nav>
     <section id="poster-settings-panel" ref={panelRef} tabIndex={activeTool ? -1 : undefined} role="dialog" aria-label={`${activeLabel} settings`} aria-hidden={!activeTool}
@@ -103,6 +103,7 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
         </button>
       </div>
       <div className="min-h-0 overflow-y-auto p-4 sm:p-5">{activeTool ? children : lastContentRef.current}</div>
+      <div className="h-[env(safe-area-inset-bottom)] shrink-0 lg:hidden" aria-hidden="true" />
     </section>
   </>;
 }

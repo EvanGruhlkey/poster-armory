@@ -31,3 +31,12 @@ test("selected tool opens a labelled, closeable settings panel", () => {
   assert.ok(html.includes('aria-label="Close Text settings"'));
   assert.ok(html.includes("Text settings"));
 });
+
+test("mobile controls reserve the device bottom safe area", () => {
+  const html = renderToStaticMarkup(
+    <PosterEditorSidebar activeTool="map" onToolChange={() => {}}>
+      <p>Map settings</p>
+    </PosterEditorSidebar>,
+  );
+  assert.ok(html.includes("env(safe-area-inset-bottom)"));
+});
