@@ -32,6 +32,7 @@ import { PosterTextChoices } from "@/components/poster-text-choices";
 import { PosterColorControls } from "@/components/poster-color-controls";
 import { PosterMapControls } from "@/components/poster-map-controls";
 import { PosterEditorSidebar, type PosterEditorTool } from "@/components/poster-editor-sidebar";
+import { PosterCanvasShell } from "@/components/poster-canvas-shell";
 import {
   POSTER_SIZES,
   type PosterConfig,
@@ -347,25 +348,23 @@ export default function CustomizePosterPage({
   const posterFit = fitPosterInStage(stageSize.width, stageSize.height, selectedSize.width / selectedSize.height, 20);
 
   const livePosterPanel = (
-    <Card className="overflow-hidden">
-      <div
-        className="flex items-center justify-center"
-        style={{ backgroundColor: currentStyle.bgColor, aspectRatio: `${selectedSize.width} / ${selectedSize.height}` }}
-      >
-        <LivePosterMap
-          config={config}
-          showControls={false}
-          bgColor={currentStyle.bgColor}
-          textColor={currentStyle.textColor}
-          layerPreset={layerPreset}
-          pitch={pitch}
-          onViewChange={({ pitch: nextPitch, ...updates }) => {
-            if (typeof nextPitch === "number") setPitch(nextPitch);
-            updateConfig(updates);
-          }}
-        />
-      </div>
-    </Card>
+    <PosterCanvasShell
+      aspectRatio={`${selectedSize.width} / ${selectedSize.height}`}
+      backgroundColor={currentStyle.bgColor}
+    >
+      <LivePosterMap
+        config={config}
+        showControls={false}
+        bgColor={currentStyle.bgColor}
+        textColor={currentStyle.textColor}
+        layerPreset={layerPreset}
+        pitch={pitch}
+        onViewChange={({ pitch: nextPitch, ...updates }) => {
+          if (typeof nextPitch === "number") setPitch(nextPitch);
+          updateConfig(updates);
+        }}
+      />
+    </PosterCanvasShell>
   );
 
   return (

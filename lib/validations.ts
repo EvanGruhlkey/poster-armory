@@ -72,7 +72,7 @@ export const posterConfigSchema = z.object({
   country: z.string().max(200).default(""),
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
-  distance: z.number().min(1000).max(50000),
+  distance: z.number().min(100).max(50000),
   width: z.number().min(3).max(20),
   height: z.number().min(3).max(20),
   orientation: z.enum(["portrait", "landscape", "square"]),

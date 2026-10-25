@@ -14,6 +14,7 @@ import { getPosterTextBackdrop, getPosterTextLayout, getPosterTextMetrics } from
 import { getPosterScaleBar } from "@/lib/poster-labels";
 import {
   distanceToZoom,
+  MAX_POSTER_ZOOM,
   zoomToDistance,
   type MapLayerPreset,
 } from "@/lib/live-poster-style";
@@ -123,6 +124,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
       style: getPosterMapStyle(config),
       center: [config.lon, config.lat],
       zoom: previewZoom(config.distance),
+      maxZoom: MAX_POSTER_ZOOM,
       bearing: config.rotation,
       pitch,
       attributionControl: false,
