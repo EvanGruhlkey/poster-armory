@@ -35,7 +35,7 @@ const MEMBERSHIP_FEATURES = [
     text: `${MEMBERSHIP_DOWNLOADS_PER_MONTH} high-resolution downloads per month`,
     included: true,
   },
-  { text: "PNG, PDF and SVG exports", included: true },
+  { text: "High-resolution PNG and PDF exports", included: true },
   { text: "Everything in the free designer", included: true },
   { text: "Poster library with every download saved", included: true },
   { text: "Cancel anytime", included: true },

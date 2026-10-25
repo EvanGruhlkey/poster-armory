@@ -42,12 +42,62 @@ export interface GeocodeCache {
 }
 
 export interface PosterMarker {
+  id?: string;
   lat: number;
   lon: number;
   label: string;
+  type?: "pin" | "crosshair" | "dot" | "ring" | "heart" | "home";
+  color?: string;
+  size?: number;
+  label_style?: "standard" | "elevated" | "glass" | "vintage";
+  label_color?: string;
+  label_size?: number;
 }
 
 export interface PosterConfig {
+  palette_id?: string;
+  custom_colors?: Record<string, string>;
+  map_layers?: Record<string, boolean>;
+  road_weight?: number;
+  terrain_exaggeration?: number;
+  terrain_light_azimuth?: number;
+  terrain_light_altitude?: number;
+  building_height_scale?: number;
+  building_default_height?: number;
+  label_admin?: boolean;
+  label_cities?: boolean;
+  label_streets?: boolean;
+  label_size?: number;
+  label_style?: "standard" | "elevated" | "glass" | "vintage";
+  show_scale?: boolean;
+  show_grid?: boolean;
+  grid_density?: 1 | 2 | 5 | 10 | 15 | 20 | 30;
+  grid_weight?: number;
+  center_marker?: boolean;
+  connect_markers?: boolean;
+  marker_path_color?: string;
+  marker_path_width?: number;
+  marker_path_style?: "solid" | "dashed";
+  show_segment_lengths?: boolean;
+  marker_fill_color?: string;
+  typography_preset?: "gallery" | "editorial" | "modern" | "custom" | "modern-bold" | "classic-serif" | "minimal-clean" | "editorial-strong" | "vintage-elegant" | "technical-mono" | "geometric-modern" | "condensed-impact";
+  text_placement?: "below" | "top" | "center" | "bottom";
+  title_font?: "Inter" | "Playfair Display" | "Oswald" | "Montserrat" | "Crimson Text" | "JetBrains Mono" | "Poppins";
+  title_size?: number;
+  title_weight?: number;
+  title_tracking?: number;
+  title_all_caps?: boolean;
+  subtitle_font?: PosterConfig["title_font"];
+  subtitle_size?: number;
+  subtitle_weight?: number;
+  subtitle_tracking?: number;
+  text_backdrop?: "none" | "subtle" | "strong" | "gradient";
+  frame_style?: "none" | "fine" | "double";
+  outer_border_style?: "none" | "fine" | "double";
+  /** Normalized poster insets for the freely resizable map artwork. */
+  map_bounds?: { left: number; top: number; right: number; bottom: number };
+  /** Normalized freeform position and size of the poster text block. */
+  text_bounds?: { x: number; y: number; width: number; height: number };
   style_id: string;
   city: string;
   country: string;
@@ -178,6 +228,10 @@ export const STYLE_PRESETS: Record<
   { name: string; bgColor: string; textColor: string }
 > = {
   warm_beige: { name: "Classic", bgColor: "#F5F0E8", textColor: "#6B5B4F" },
+  sand: { name: "Sand", bgColor: "#E9DDCA", textColor: "#5E5143" },
+  sage: { name: "Sage", bgColor: "#E6E7DA", textColor: "#465247" },
+  clay: { name: "Clay", bgColor: "#E8D5C8", textColor: "#684A3E" },
+  linen: { name: "Linen", bgColor: "#F1EBDF", textColor: "#57544D" },
   terracotta: { name: "Terracotta", bgColor: "#F5EDE4", textColor: "#8B4513" },
   noir: { name: "Noir", bgColor: "#000000", textColor: "#FFFFFF" },
   blueprint: { name: "Blueprint", bgColor: "#1A3A5C", textColor: "#E8F4FF" },
@@ -231,4 +285,6 @@ export const DEFAULT_CONFIG: PosterConfig = {
   gpx_data: "",
   layer_preset: "everything",
   pitch: 0,
+  map_bounds: { left: 0.06, top: 0.05, right: 0.06, bottom: 0.23 },
+  outer_border_style: "none",
 };

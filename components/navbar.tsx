@@ -39,6 +39,8 @@ export function Navbar() {
 
   const isApp = pathname.startsWith("/app");
 
+  if (/^\/app\/design\/[^/]+/.test(pathname)) return null;
+
   const navLinkClass = (href: string) =>
     `block rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted ${
       pathname === href ? "text-foreground" : "text-muted-foreground"
@@ -134,7 +136,7 @@ export function Navbar() {
                 Sign In
               </Link>
               <Button asChild size="sm">
-                <Link href="/login">Get Started</Link>
+                <Link href="/app">Get Started</Link>
               </Button>
             </>
           )}
@@ -144,7 +146,7 @@ export function Navbar() {
         <div className="flex items-center gap-2 md:hidden">
           {!user ? (
             <Button asChild size="sm">
-              <Link href="/login">Start</Link>
+              <Link href="/app">Start</Link>
             </Button>
           ) : (
             <Button asChild size="sm" variant="outline" className="h-9 w-9 shrink-0 p-0">

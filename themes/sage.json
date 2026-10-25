@@ -1,0 +1,15 @@
+{
+  "name": "Sage",
+  "description": "Muted sage, parchment, and charcoal inspired by botanical prints",
+  "bg": "#E6E7DA",
+  "text": "#465247",
+  "gradient_color": "#E6E7DA",
+  "water": "#BAC9C5",
+  "parks": "#C5CFB6",
+  "road_motorway": "#4F5F51",
+  "road_primary": "#657466",
+  "road_secondary": "#7E8B7C",
+  "road_tertiary": "#98A394",
+  "road_residential": "#B4BCAA",
+  "road_default": "#8E998A"
+}

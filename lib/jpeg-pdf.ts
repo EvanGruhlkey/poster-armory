@@ -3,12 +3,9 @@
  * Used so the live WebGL poster can be downloaded as a print-ready PDF
  * without a heavy PDF library.
  */
-export function jpegToPdf(jpeg: Uint8Array, imgWidth: number, imgHeight: number): Blob {
-  const longInches = 18;
-  const longPts = longInches * 72;
-  const portrait = imgHeight >= imgWidth;
-  const pageW = portrait ? Math.round((longPts * imgWidth) / imgHeight) : longPts;
-  const pageH = portrait ? longPts : Math.round((longPts * imgHeight) / imgWidth);
+export function jpegToPdf(jpeg: Uint8Array, imgWidth: number, imgHeight: number, pageWidthInches: number, pageHeightInches: number): Blob {
+  const pageW = Math.round(pageWidthInches * 72);
+  const pageH = Math.round(pageHeightInches * 72);
 
   const encoder = new TextEncoder();
   const header = encoder.encode("%PDF-1.4\n");

@@ -1,0 +1,15 @@
+{
+  "name": "Clay",
+  "description": "Dusty clay and cocoa tones with restrained desert warmth",
+  "bg": "#E8D5C8",
+  "text": "#684A3E",
+  "gradient_color": "#E8D5C8",
+  "water": "#B9C6C3",
+  "parks": "#CBC8A9",
+  "road_motorway": "#765043",
+  "road_primary": "#916255",
+  "road_secondary": "#A87869",
+  "road_tertiary": "#BD9180",
+  "road_residential": "#CFAB9A",
+  "road_default": "#B18474"
+}

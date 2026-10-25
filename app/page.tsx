@@ -4,53 +4,40 @@ import Link from "next/link";
 import Image from "next/image";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { HeroMapAnimation } from "@/components/hero-map-animation";
+import { HeroLocationForm } from "@/components/hero-location-form";
 import { Button } from "@/components/ui/button";
-import { MapPin, Palette, Download, ChevronDown, Truck } from "lucide-react";
-
-const GH_RAW =
-  "https://raw.githubusercontent.com/EvanGruhlkey/poster-forge/main/posters";
+import { MapPin, Palette, Download, ChevronDown } from "lucide-react";
 
 const GALLERY = [
   {
-    src: `${GH_RAW}/marrakech_terracotta_20260118_143253.png`,
-    city: "Marrakech",
-    theme: "Terracotta",
+    src: "/images/gallery/chicago.jpg",
+    city: "Chicago",
+    theme: "Classic",
   },
   {
-    src: `${GH_RAW}/venice_blueprint_20260118_140505.png`,
+    src: "/images/gallery/tokyo.jpg",
+    city: "Tokyo",
+    theme: "Noir",
+  },
+  {
+    src: "/images/gallery/paris.jpg",
+    city: "Paris",
+    theme: "Watercolor",
+  },
+  {
+    src: "/images/gallery/venice.jpg",
     city: "Venice",
+    theme: "Vintage",
+  },
+  {
+    src: "/images/gallery/new-york.jpg",
+    city: "New York",
     theme: "Blueprint",
   },
   {
-    src: `${GH_RAW}/dubai_midnight_blue_20260118_140807.png`,
-    city: "Dubai",
-    theme: "Midnight Blue",
-  },
-  {
-    src: `${GH_RAW}/tokyo_japanese_ink_20260118_142446.png`,
-    city: "Tokyo",
-    theme: "Japanese Ink",
-  },
-  {
-    src: `${GH_RAW}/san_francisco_sunset_20260118_144726.png`,
-    city: "San Francisco",
-    theme: "Sunset",
-  },
-  {
-    src: `${GH_RAW}/singapore_neon_cyberpunk_20260118_153328.png`,
-    city: "Singapore",
-    theme: "Neon Cyberpunk",
-  },
-  {
-    src: `${GH_RAW}/seattle_emerald_20260124_162244.png`,
+    src: "/images/gallery/seattle.jpg",
     city: "Seattle",
-    theme: "Emerald",
-  },
-  {
-    src: `${GH_RAW}/london_noir_20260118_150259.png`,
-    city: "London",
-    theme: "Noir",
+    theme: "Organic",
   },
 ];
 
@@ -72,6 +59,34 @@ const STEPS = [
   },
 ];
 
+const EARLY_FEEDBACK = [
+  {
+    quote: "The editor made it easy to turn our favorite trip into something personal.",
+    name: "Maya R.",
+    initials: "MR",
+  },
+  {
+    quote: "I found our neighborhood, chose a style, and had a poster ready in minutes.",
+    name: "Noah T.",
+    initials: "NT",
+  },
+  {
+    quote: "A thoughtful housewarming gift that still felt simple to create.",
+    name: "Elena P.",
+    initials: "EP",
+  },
+  {
+    quote: "The live preview helped me get the colors and text exactly where I wanted them.",
+    name: "Jordan K.",
+    initials: "JK",
+  },
+  {
+    quote: "Clean, modern, and much easier to customize than I expected.",
+    name: "Sam W.",
+    initials: "SW",
+  },
+];
+
 const FAQ_ITEMS = [
   {
     q: "What does it cost?",
@@ -83,7 +98,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What do I get with the membership?",
-    a: "20 high-resolution downloads per month for $10/month, in PNG, PDF and SVG. The allowance resets at the start of each billing month and you can cancel anytime.",
+    a: "20 high-resolution downloads per month for $10/month, in PNG and PDF. The allowance resets each billing month and you can cancel anytime.",
   },
   {
     q: "What happens when I use all 20 downloads?",
@@ -111,7 +126,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What can I customize?",
-    a: "Everything, for free: map framing, rotation and tilt, layer presets, labels, water and parks, all 17 themes, the poster size, and the title, subtitle, date line and optional coordinates.",
+    a: "Everything, for free: map framing, rotation and tilt, layer presets, labels, water and parks, all 21 themes, the poster size, and the title, subtitle, date line and optional coordinates.",
   },
   {
     q: "Are my designs saved?",
@@ -119,7 +134,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Will it look good printed?",
-    a: "Exports are built for print: vector PDF and SVG plus crisp PNGs at standard poster aspect ratios. Use a quality print shop, or let us print and ship it for you.",
+    a: "Download high-resolution PNG and PDF files at standard poster aspect ratios. Use a quality print shop, or let us print and ship it for you.",
   },
   {
     q: "Can I cancel anytime?",
@@ -137,36 +152,25 @@ export default function LandingPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <HeroMapAnimation />
-
-        {/* Light vignette: map visible at edges, copy readable in center */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/50" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_45%_at_50%_48%,hsl(var(--background)/0.92)_0%,hsl(var(--background)/0.55)_45%,transparent_72%)]" />
-
-        <div className="relative z-10 mx-auto flex min-h-[min(88vh,760px)] max-w-3xl flex-col items-center justify-center px-4 py-16 text-center sm:px-6 sm:py-20">
-          <p className="mb-4 inline-flex items-center gap-2 rounded-full border bg-background/80 px-4 py-1.5 text-xs font-medium tracking-wide text-muted-foreground backdrop-blur-sm sm:text-sm">
-            <Truck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            Premium map posters, shipped to your door
-          </p>
-          <h1 className="text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
-            Turn a place you love
-            <br />
-            <span className="text-primary">into a poster</span>
-          </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:mt-6 sm:text-lg">
-            Choose any city, neighborhood, or memory. We&apos;ll turn it into a
-            custom map poster, print it on premium paper, and ship it straight
-            to you.
-          </p>
-          <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-3 sm:mt-10">
-            <Button asChild size="lg" className="h-12 w-full px-8 text-base shadow-lg sm:w-auto">
-              <Link href="/app">Design for free</Link>
-            </Button>
-            <p className="text-sm text-muted-foreground">
-              Free to design · No card required
-            </p>
+      <section data-testid="home-hero" className="grid overflow-hidden border-b bg-[#fbfaf8] lg:min-h-[calc(100svh-4rem)] lg:grid-cols-2" style={{ backgroundImage: "linear-gradient(to right, rgba(24,52,75,.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(24,52,75,.045) 1px, transparent 1px)", backgroundSize: "28px 28px" }}>
+        <div className="relative flex items-center px-6 py-16 sm:px-12 lg:px-[clamp(3rem,6vw,8rem)] lg:py-20">
+          <div className="relative mx-auto w-full max-w-[560px] lg:ml-auto lg:mr-0">
+            <h1 className="text-[clamp(2.75rem,3.5vw,4.25rem)] font-bold leading-[1.06] tracking-tight text-[#18344b]">
+              Pick a place.<br />We&apos;ll print it.
+            </h1>
+            <p className="mt-5 text-xl text-slate-500 sm:text-2xl">Custom map posters.</p>
+            <HeroLocationForm />
           </div>
+        </div>
+        <div data-testid="hero-room" className="relative min-h-[520px] overflow-hidden sm:min-h-[650px] lg:min-h-full">
+          <Image
+            src="/images/hero-room-san-francisco-v2.png"
+            alt="San Francisco custom map poster in a sunlit room"
+            fill
+            priority
+            className="hero-room-photo object-cover object-center"
+            sizes="(max-width: 1024px) 100vw, 50vw"
+          />
         </div>
       </section>
 
@@ -200,10 +204,10 @@ export default function LandingPage() {
             Example posters
           </h2>
           <p className="mb-8 text-center text-sm text-muted-foreground sm:text-base">
-            17 themes. Any city.
+            Made in the editor. Make one yours.
           </p>
 
-          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x snap-mandatory sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0">
             {GALLERY.map((poster) => (
               <div
                 key={poster.city}
@@ -218,15 +222,39 @@ export default function LandingPage() {
                     sizes="(max-width: 640px) 42vw, (max-width: 1024px) 33vw, 25vw"
                   />
                 </div>
-                <div className="p-2 text-center">
-                  <p className="text-sm font-medium">{poster.city}</p>
-                  <p className="text-xs text-muted-foreground">{poster.theme}</p>
-                </div>
+                <p className="p-2 text-center text-xs text-muted-foreground">{poster.theme}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
+
+      {process.env.NODE_ENV === "development" && (
+      <section aria-label="Sample customer reviews" className="overflow-hidden border-y border-[#e5ded3] bg-[#f7f3ec] py-6">
+        <div className="feedback-rail">
+          <div className="feedback-marquee flex w-max hover:[animation-play-state:paused]">
+            {[false, true].map((duplicate) => (
+              <div key={String(duplicate)} aria-hidden={duplicate || undefined} className="flex shrink-0 gap-4 pr-4">
+                {EARLY_FEEDBACK.map((review) => (
+                  <blockquote key={review.quote} className="flex w-[300px] shrink-0 flex-col justify-between rounded-xl border border-[#ded6ca] bg-white/90 p-4 shadow-[0_8px_24px_rgba(24,52,75,0.05)] sm:w-[360px]">
+                    <p className="text-sm leading-6 text-[#18344b]">“{review.quote}”</p>
+                    <footer className="mt-4 flex items-center gap-2.5">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#18344b] text-[10px] font-semibold text-white">
+                        {review.initials}
+                      </span>
+                      <span>
+                        <span className="block text-xs font-semibold text-[#18344b]">{review.name}</span>
+                        <span className="block text-[10px] text-slate-500">Review</span>
+                      </span>
+                    </footer>
+                  </blockquote>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      )}
 
       {/* FAQ */}
       <section className="border-t py-10 sm:py-14">
