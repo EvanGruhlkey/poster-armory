@@ -6,3 +6,15 @@ export function pointsToPixels(points: number, dpi = DEFAULT_PRINT_DPI): number 
   const resolvedDpi = Number.isFinite(dpi) && dpi > 0 ? dpi : DEFAULT_PRINT_DPI;
   return (points * resolvedDpi) / 72;
 }
+
+export function getMapAttributionLayout(width: number, height: number, dpi = DEFAULT_PRINT_DPI) {
+  const safeInsetX = Math.max(0, width * 0.01);
+  const safeInsetY = Math.max(0, height * 0.01);
+
+  return {
+    text: MAP_ATTRIBUTION_TEXT,
+    fontSize: pointsToPixels(MAP_ATTRIBUTION_FONT_POINTS, dpi),
+    x: safeInsetX,
+    y: Math.max(0, height - safeInsetY),
+  };
+}

@@ -7,6 +7,7 @@ import { getOuterPosterFrameStrokes, getPosterFrameStrokes } from "@/lib/poster-
 import { resolvePosterTypography } from "@/lib/poster-typography";
 import { getPosterTextBackdrop, getPosterTextLayout, getPosterTextMetrics } from "@/lib/poster-text-layout";
 import { getPosterScaleBar } from "@/lib/poster-labels";
+import { getMapAttributionLayout } from "@/lib/map-attribution";
 
 /** Long edge of a high-resolution digital poster, in pixels. */
 export const EXPORT_LONG_EDGE = 4800;
@@ -134,15 +135,18 @@ function drawPosterCopy(
   }
   ctx.shadowBlur = 0;
 
+  const attribution = getMapAttributionLayout(width, height);
+  ctx.save();
+  ctx.fillStyle = textColor;
   ctx.textAlign = "left";
   ctx.textBaseline = "bottom";
   ctx.globalAlpha = 0.45;
-  ctx.font = `500 ${Math.max(12, Math.round(width * 0.009))}px Inter, ui-sans-serif, system-ui, sans-serif`;
+  ctx.font = `500 ${attribution.fontSize}px Inter, ui-sans-serif, system-ui, sans-serif`;
   if ("letterSpacing" in ctx) {
     (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = "0px";
   }
-  ctx.fillText("© OpenStreetMap contributors · OpenFreeMap", width * 0.065, height * 0.765);
-  ctx.globalAlpha = 1;
+  ctx.fillText(attribution.text, attribution.x, attribution.y);
+  ctx.restore();
 }
 
 export interface LivePosterFiles {
