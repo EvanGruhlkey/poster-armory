@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_CONFIG } from "./types";
 import { posterConfigSchema } from "./validations";
-import { applyPosterPalette, applyPosterStyle, resolvePosterCustomization } from "./poster-customization";
+import { applyPosterColor, applyPosterPalette, applyPosterStyle, applyPosterTheme, resolvePosterCustomization } from "./poster-customization";
 
 test("old configs resolve to their existing palette and map defaults", () => {
   const resolved = resolvePosterCustomization(DEFAULT_CONFIG);
@@ -34,4 +34,22 @@ test("changing style clears its palette but preserves poster copy", () => {
   assert.equal(updated.style_id, "retro");
   assert.equal(updated.palette_id, undefined);
   assert.equal(posterConfigSchema.safeParse(updated).success, true);
+});
+
+test("the Roads color updates every street class and preserves other custom colors", () => {
+  const updated = { ...DEFAULT_CONFIG, ...applyPosterColor({ ...DEFAULT_CONFIG, custom_colors: { water: "#123456" } }, "roads.primary", "#abcdef") };
+  assert.equal(updated.custom_colors?.water, "#123456");
+  for (const road of ["motorway", "trunk", "primary", "secondary", "tertiary", "residential", "service"]) {
+    assert.equal(updated.custom_colors?.[`roads.${road}`], "#abcdef");
+  }
+});
+
+test("a theme applies its map look and colors together while preserving the design", () => {
+  const config = { ...DEFAULT_CONFIG, title: "Home", rotation: 25, custom_colors: { water: "#123456" } };
+  const updated = { ...config, ...applyPosterTheme(config, "minimal", "minimal-navy") };
+  assert.equal(updated.style_id, "minimal");
+  assert.equal(updated.palette_id, "minimal-navy");
+  assert.deepEqual(updated.custom_colors, {});
+  assert.equal(updated.title, "Home");
+  assert.equal(updated.rotation, 25);
 });

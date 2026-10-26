@@ -7,6 +7,7 @@ import { Map as MapLibre, setWorkerUrl } from "maplibre-gl";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import type { PosterConfig } from "@/lib/types";
 import { getPosterMapStyle } from "@/lib/poster-renderer/adapter";
+import { updatePosterMapStyle } from "@/lib/poster-renderer/update-style";
 import { DEFAULT_POSTER_MAP_BOUNDS, zoomForExportWidth } from "@/lib/poster-renderer/export";
 import { MAPLIBRE_WORKER_URL } from "@/lib/generated/maplibre-worker";
 import { fitTitleScale, resolvePosterTypography } from "@/lib/poster-typography";
@@ -142,8 +143,18 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
     map.getCanvas().addEventListener("pointerdown", armUserMove);
     map.getCanvas().addEventListener("wheel", armUserMove);
     map.getCanvas().addEventListener("keydown", armUserMove);
+    let previousWidth = viewportWidth();
     const resizeObserver = new ResizeObserver(() => {
-      map.resize();
+      const nextWidth = viewportWidth();
+      const nextZoom = map.getZoom() + Math.log2(nextWidth / previousWidth);
+      previousWidth = nextWidth;
+      applyingViewRef.current = true;
+      try {
+        map.resize();
+        map.jumpTo({ zoom: nextZoom });
+      } finally {
+        applyingViewRef.current = false;
+      }
     });
     resizeObserver.observe(containerRef.current);
     let idleNotified = false;
@@ -200,7 +211,7 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    map.setStyle(getPosterMapStyle(config));
+    updatePosterMapStyle(map, getPosterMapStyle(config));
   }, [
     config.style_id,
     config.palette_id,

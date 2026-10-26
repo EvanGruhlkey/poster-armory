@@ -3,6 +3,7 @@
 import React from "react";
 import type { PosterConfig } from "@/lib/types";
 import { PosterMarkerControls } from "./poster-marker-controls";
+import { Slider } from "./ui/slider";
 
 const cameraPresets = [
   { label: "Flat", pitch: 0, rotation: 0 },
@@ -47,10 +48,23 @@ export function PosterMapControls({ config, pitch, onChange, onPitchChange }: {
     <details className="rounded-md border px-3 py-2.5">
       <summary className="cursor-pointer text-xs font-medium">More options</summary>
       <div className="space-y-3 pt-4">
+        <div className="space-y-2">
+          <label htmlFor="map-rotation" className="flex justify-between text-xs">Rotation <span>{Math.round(config.rotation)}°</span></label>
+          <Slider id="map-rotation" aria-label="Map rotation" value={[config.rotation]} min={-180} max={180} step={1}
+            onValueChange={([rotation]) => onChange({ rotation })} />
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="map-pitch" className="flex justify-between text-xs">3D angle <span>{Math.round(pitch)}°</span></label>
+          <Slider id="map-pitch" aria-label="3D angle" value={[pitch]} min={0} max={60} step={1}
+            onValueChange={([value]) => { onPitchChange(value); onChange({ pitch: value }); }} />
+        </div>
         <label className="flex items-center justify-between text-xs">Major roads only
           <input type="checkbox" checked={config.major_roads_only} onChange={(event) => onChange({ major_roads_only: event.target.checked })} />
         </label>
-        {detailLayers.map(([key, label]) => <label key={key} className="flex items-center justify-between text-xs">
+        {detailLayers.filter(([key]) =>
+          (key !== "buildings3D" || pitch > 0) &&
+          (!key.startsWith("landcover") || config.show_parks)
+        ).map(([key, label]) => <label key={key} className="flex items-center justify-between text-xs">
           {label}
           <input type="checkbox" checked={config.map_layers?.[key] !== false}
             onChange={(event) => onChange({ map_layers: { ...config.map_layers, [key]: event.target.checked } })} />
@@ -86,10 +100,10 @@ export function PosterMapControls({ config, pitch, onChange, onPitchChange }: {
           <input type="range" min={0.5} max={3} step={0.1} value={config.road_weight ?? 1}
             onChange={(event) => onChange({ road_weight: Number(event.target.value) })} className="mt-2 w-full" />
         </label>
-        <label className="block text-xs">3D building height · {(config.building_height_scale ?? 1).toFixed(1)}×
+        {pitch > 0 && config.map_layers?.buildings3D !== false && <label className="block text-xs">3D building height · {(config.building_height_scale ?? 1).toFixed(1)}×
           <input type="range" min={0.5} max={3} step={0.1} value={config.building_height_scale ?? 1}
             onChange={(event) => onChange({ building_height_scale: Number(event.target.value) })} className="mt-2 w-full" />
-        </label>
+        </label>}
         <label className="block text-xs">Terrain shade · {(config.terrain_exaggeration ?? 0.6).toFixed(1)}×
           <input type="range" min={0} max={5} step={0.1} value={config.terrain_exaggeration ?? 0.6}
             onChange={(event) => onChange({ terrain_exaggeration: Number(event.target.value) })} className="mt-2 w-full" />

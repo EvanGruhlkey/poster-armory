@@ -6,7 +6,6 @@ import type { PosterConfig } from "@/lib/types";
 import {
   applyTextPlacement,
   applyTypographyPreset,
-  POSTER_TYPOGRAPHY_PRESETS,
   REFERENCE_TEXT_PRESETS,
   resolvePosterTypography,
   type TextPlacement,
@@ -44,20 +43,13 @@ export function PosterTextChoices({ config, onChange }: {
         </div>
       </div>
       <div className="space-y-2">
-        <p className="text-xs font-medium">Text style</p>
-        <div className="flex w-full min-w-0 max-w-full gap-2 overflow-x-auto pb-2" aria-label="Text styles">
-          {STYLES.map(({ id, label }) => {
-            const font = POSTER_TYPOGRAPHY_PRESETS[id].titleFont;
-            return (
-              <button key={id} type="button" aria-pressed={selected.preset === id}
-                onClick={() => onChange(applyTypographyPreset(config, id))}
-                className={`min-w-24 shrink-0 rounded-md border px-2 py-3 text-center transition-colors ${selected.preset === id ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted"}`}>
-                <span className="block text-xl leading-none" style={{ fontFamily: `"${font}", sans-serif` }}>Aa</span>
-                <span className="mt-2 block text-[10px] font-medium leading-tight">{label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <label htmlFor="poster-text-style" className="text-xs font-medium">Text style</label>
+        <select id="poster-text-style" value={selected.preset}
+          onChange={(event) => onChange(applyTypographyPreset(config, event.target.value as TypographyPreset))}
+          className="h-10 w-full rounded-md border bg-background px-2 text-sm">
+          {!STYLES.some(style => style.id === selected.preset) && <option value={selected.preset}>Custom</option>}
+          {STYLES.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
+        </select>
       </div>
     </div>
   );

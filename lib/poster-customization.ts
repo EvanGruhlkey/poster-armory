@@ -33,3 +33,17 @@ export function applyPosterPalette(_config: PosterConfig, paletteId: string): Pa
 export function applyPosterStyle(_config: PosterConfig, styleId: string): Partial<PosterConfig> {
   return { style_id: styleId, palette_id: undefined, custom_colors: {} };
 }
+
+export function applyPosterTheme(config: PosterConfig, styleId: string, paletteId: string): Partial<PosterConfig> {
+  return { ...applyPosterStyle(config, styleId), ...applyPosterPalette(config, paletteId) };
+}
+
+export function applyPosterColor(config: PosterConfig, key: string, color: string): Partial<PosterConfig> {
+  const colors = { ...config.custom_colors, [key]: color };
+  if (key === "roads.primary") {
+    for (const road of ["motorway", "trunk", "secondary", "tertiary", "residential", "service"]) {
+      colors[`roads.${road}`] = color;
+    }
+  }
+  return { custom_colors: colors };
+}

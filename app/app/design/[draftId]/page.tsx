@@ -18,7 +18,6 @@ import {
   Download,
   Package,
   LogIn,
-  Rotate3D,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getPosterPalette } from "@/lib/poster-renderer/adapter";
@@ -193,6 +192,12 @@ export default function CustomizePosterPage({
   );
 
   function redirectToSignup(reason: "download" | "order") {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      toast.info(reason === "download"
+        ? "Downloads are unavailable in this local preview. Your design is saved."
+        : "Ordering is unavailable in this local preview. Your design is saved.");
+      return;
+    }
     // Stash the current design so the user lands back in the editor with
     // their work intact after signing up.
     try {
@@ -227,7 +232,6 @@ export default function CustomizePosterPage({
       return;
     }
     if (isGuest) {
-      toast.info("Create a free account to download your poster.");
       redirectToSignup("download");
       return;
     }
@@ -312,7 +316,6 @@ export default function CustomizePosterPage({
       return;
     }
     if (isGuest) {
-      toast.info("Create a free account to ship your poster.");
       redirectToSignup("order");
       return;
     }
@@ -380,77 +383,36 @@ export default function CustomizePosterPage({
             try { sessionStorage.setItem(`poster-design-draft:${params.draftId}`, JSON.stringify({ config, selectedSize, layerPreset, pitch })); toast.success("Design saved"); }
             catch { toast.error("Could not save this design"); }
           }}>Save</Button>
-          <Button size="sm" className="bg-[#18344b] px-3 text-white hover:bg-[#10283a]" onClick={handleOrderPhysical} disabled={!config.city}>Order Print →</Button>
+          <Button size="sm" className="bg-[#18344b] px-3 text-white hover:bg-[#10283a]" onClick={handleOrderPhysical} disabled={!config.city}>Order Print</Button>
         </div>
       </header>
 
       <div className="relative flex min-h-0 flex-1">
         <div className="contents">
           <PosterEditorSidebar activeTool={activeTool} onToolChange={setActiveTool}>
-                {activeTool === "map" && (
-                  <div className="space-y-4">
-                    <div>
-                      <h2 className="text-sm font-semibold">Frame your map</h2>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Drag the preview to move the map. Zoom on the preview.</p>
-                    </div>
-                    <div className="rounded-lg bg-muted/50 p-3 text-xs">
-                      <p className="text-muted-foreground">Center</p>
-                      <p className="mt-0.5 font-medium tabular-nums">
-                        {config.lat.toFixed(3)}, {config.lon.toFixed(3)}
-                      </p>
-                    </div>
-                    <div className="space-y-4 border-t pt-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="inline-flex items-center gap-1.5 font-medium">
-                              <Rotate3D className="h-3.5 w-3.5" /> Rotation
-                            </span>
-                            <span className="tabular-nums text-muted-foreground">{Math.round(config.rotation)}°</span>
-                          </div>
-                          <Slider
-                            value={[config.rotation]}
-                            onValueChange={([value]) => updateConfig({ rotation: value })}
-                            min={-180}
-                            max={180}
-                            step={1}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-medium">3D angle</span>
-                            <span className="tabular-nums text-muted-foreground">{Math.round(pitch)}°</span>
-                          </div>
-                          <Slider value={[pitch]} onValueChange={([value]) => { setPitch(value); updateConfig({ pitch: value }); }} min={0} max={60} step={1} />
-                        </div>
-                      </div>
-                  </div>
-                )}
-
-                {activeTool === "map" && <div className="mt-5"><PosterMapControls config={config} pitch={pitch} onChange={updateConfig} onPitchChange={setPitch} /></div>}
+                {activeTool === "map" && <div className="space-y-4">
+                  <p className="text-xs text-muted-foreground">Drag to move · Scroll to zoom</p>
+                  <PosterMapControls config={config} pitch={pitch} onChange={updateConfig} onPitchChange={setPitch} />
+                </div>}
 
                 {activeTool === "type" && (
                   <div className="space-y-4">
-                    <div>
-                      <h2 className="text-sm font-semibold">Poster text</h2>
-                    </div>
-                    <PosterTextChoices config={config} onChange={updateConfig} />
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="live-title" className="text-xs">Title</Label>
                         <Input id="live-title" placeholder={config.city} value={config.title} onChange={(event) => updateConfig({ title: event.target.value })} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor="live-subtitle" className="text-xs">Subtitle or dedication</Label>
+                        <Label htmlFor="live-subtitle" className="text-xs">Subtitle</Label>
                         <Input id="live-subtitle" placeholder="Where our story began" value={config.subtitle} onChange={(event) => updateConfig({ subtitle: event.target.value })} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor="live-date" className="text-xs">Date line</Label>
+                        <Label htmlFor="live-date" className="text-xs">Date</Label>
                         <Input id="live-date" placeholder="EST. 2026" value={config.date_line} onChange={(event) => updateConfig({ date_line: event.target.value })} />
                       </div>
                       <div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2.5">
                         <div>
                           <Label htmlFor="show-coordinates" className="text-xs">Coordinates</Label>
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">Add latitude and longitude to the poster.</p>
                         </div>
                         <Switch
                           id="show-coordinates"
@@ -459,8 +421,9 @@ export default function CustomizePosterPage({
                         />
                       </div>
                     </div>
+                    <PosterTextChoices config={config} onChange={updateConfig} />
                     <details className="rounded-md border px-3 py-2.5">
-                      <summary className="cursor-pointer text-xs font-medium">More options{typography.preset === "custom" ? " · Custom" : ""}</summary>
+                      <summary className="cursor-pointer text-xs font-medium">Typography{typography.preset === "custom" ? " · Custom" : ""}</summary>
                       <div className="space-y-4 pt-4">
                         <div className="space-y-1.5">
                           <Label htmlFor="title-font" className="text-xs">Title font</Label>
@@ -478,17 +441,17 @@ export default function CustomizePosterPage({
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="title-size" className="text-xs">Title size · {typography.titleSize.toFixed(1)}%</Label>
-                          <Slider id="title-size" value={[typography.titleSize]} min={3.5} max={10} step={0.1}
+                          <Slider id="title-size" aria-label="Title size" value={[typography.titleSize]} min={3.5} max={10} step={0.1}
                             onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_size: value }))} />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="title-weight" className="text-xs">Title weight · {typography.titleWeight}</Label>
-                          <Slider id="title-weight" value={[typography.titleWeight]} min={300} max={900} step={100}
+                          <Slider id="title-weight" aria-label="Title weight" value={[typography.titleWeight]} min={300} max={900} step={100}
                             onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_weight: value }))} />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="title-spacing" className="text-xs">Letter spacing · {typography.titleTracking.toFixed(2)}</Label>
-                          <Slider id="title-spacing" value={[typography.titleTracking]} min={-0.1} max={0.25} step={0.01}
+                          <Slider id="title-spacing" aria-label="Title letter spacing" value={[typography.titleTracking]} min={-0.1} max={0.25} step={0.01}
                             onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { title_tracking: value }))} />
                         </div>
                         <div className="flex items-center justify-between">
@@ -506,17 +469,17 @@ export default function CustomizePosterPage({
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="subtitle-size" className="text-xs">Subtitle size · {typography.subtitleSize.toFixed(1)}%</Label>
-                          <Slider id="subtitle-size" value={[typography.subtitleSize]} min={1.2} max={5} step={0.1}
+                          <Slider id="subtitle-size" aria-label="Subtitle size" value={[typography.subtitleSize]} min={1.2} max={5} step={0.1}
                             onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { subtitle_size: value }))} />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="subtitle-weight" className="text-xs">Subtitle weight · {typography.subtitleWeight}</Label>
-                          <Slider id="subtitle-weight" value={[typography.subtitleWeight]} min={300} max={900} step={100}
+                          <Slider id="subtitle-weight" aria-label="Subtitle weight" value={[typography.subtitleWeight]} min={300} max={900} step={100}
                             onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { subtitle_weight: value }))} />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="subtitle-spacing" className="text-xs">Subtitle spacing · {typography.subtitleTracking.toFixed(2)}</Label>
-                          <Slider id="subtitle-spacing" value={[typography.subtitleTracking]} min={-0.1} max={0.25} step={0.01}
+                          <Slider id="subtitle-spacing" aria-label="Subtitle letter spacing" value={[typography.subtitleTracking]} min={-0.1} max={0.25} step={0.01}
                             onValueChange={([value]) => updateConfig(applyTypographyCustomization(config, { subtitle_tracking: value }))} />
                         </div>
                         <div className="space-y-1.5">
@@ -531,7 +494,7 @@ export default function CustomizePosterPage({
                           </select>
                         </div>
                         <div className="space-y-1.5">
-                          <Label htmlFor="frame-style" className="text-xs">Frame</Label>
+                          <Label htmlFor="frame-style" className="text-xs">Map border</Label>
                           <select id="frame-style" value={typography.frameStyle}
                             onChange={(event) => updateConfig(applyTypographyCustomization(config, { frame_style: event.target.value as PosterConfig["frame_style"] }))}
                             className="h-9 w-full rounded-md border bg-background px-2 text-sm">
@@ -555,15 +518,13 @@ export default function CustomizePosterPage({
             <CardContent className="space-y-4 p-4 sm:p-5">
               <div>
                 <h2 className="text-sm font-semibold">Poster size</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Choose a size before ordering or downloading.
-                </p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {POSTER_SIZES.map((size) => (
                   <button
                     key={size.key}
                     type="button"
+                    aria-pressed={selectedSize.key === size.key}
                     onClick={() => setSelectedSize(size)}
                     className={`rounded-md border px-2 py-2 text-center text-xs transition-colors ${
                       selectedSize.key === size.key
@@ -577,7 +538,6 @@ export default function CustomizePosterPage({
               </div>
               <div className="border-t pt-4">
                 <h2 className="text-sm font-semibold">Outer border</h2>
-                <p className="mt-1 text-xs text-muted-foreground">Frame the complete poster.</p>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {([
                     ["none", "None"],
@@ -585,6 +545,7 @@ export default function CustomizePosterPage({
                     ["double", "Double"],
                   ] as const).map(([value, label]) => (
                     <button key={value} type="button"
+                      aria-pressed={(config.outer_border_style ?? "none") === value}
                       onClick={() => updateConfig({ outer_border_style: value })}
                       className={`rounded-md border px-2 py-2 text-xs transition-colors ${
                         (config.outer_border_style ?? "none") === value
@@ -610,7 +571,7 @@ export default function CustomizePosterPage({
               ) : (
                 <Package className="mr-2 h-5 w-5 shrink-0" />
               )}
-              {isGuest ? "Sign Up to Order" : "Order a Print"}
+              {isGuest ? "Sign Up to Order" : "Order Print"}
             </Button>
             <Button
               variant="outline"
@@ -629,7 +590,7 @@ export default function CustomizePosterPage({
                 ? "Sign Up to Download"
                 : outOfDownloads
                   ? "No Downloads Left"
-                  : "Download High-Res"}
+                  : "Download"}
             </Button>
           </div>
 
@@ -682,7 +643,7 @@ export default function CustomizePosterPage({
               {livePosterPanel}
             </div>
           </PosterRoomStage>
-          <div className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap lg:bottom-1">
+          <div className={`absolute left-1/2 z-10 -translate-x-1/2 whitespace-nowrap ${activeTool ? "bottom-[calc(50dvh+0.25rem)]" : "bottom-[4.5rem]"} lg:bottom-1`}>
             <MapAttribution />
           </div>
         </div>

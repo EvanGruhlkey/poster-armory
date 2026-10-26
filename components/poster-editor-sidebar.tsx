@@ -22,6 +22,7 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
   children: ReactNode;
 }) {
   const panelRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const lastToolRef = useRef<PosterEditorTool>("map");
   const lastContentRef = useRef<ReactNode>(null);
   if (activeTool) {
@@ -32,27 +33,13 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
 
   useEffect(() => {
     if (panelRef.current) panelRef.current.inert = !activeTool;
+    contentRef.current?.scrollTo({ top: 0 });
   }, [activeTool]);
 
   useEffect(() => {
     if (!activeTool) return;
-    const focusTimer = window.setTimeout(() => panelRef.current?.focus(), 320);
+    const focusTimer = window.setTimeout(() => panelRef.current?.focus({ preventScroll: true }), 320);
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Tab" && window.matchMedia("(max-width: 1023px)").matches) {
-        const panel = panelRef.current;
-        const focusable = panel && Array.from(panel.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href]'))
-          .filter(element => element.getClientRects().length);
-        if (focusable?.length) {
-          const first = focusable[0];
-          const last = focusable[focusable.length - 1];
-          if (event.shiftKey && (document.activeElement === first || document.activeElement === panel)) {
-            event.preventDefault(); last.focus(); return;
-          }
-          if (!event.shiftKey && document.activeElement === last) {
-            event.preventDefault(); first.focus(); return;
-          }
-        }
-      }
       if (event.key !== "Escape") return;
       event.preventDefault();
       onToolChange(null);
@@ -94,15 +81,16 @@ export function PosterEditorSidebar({ activeTool, onToolChange, children }: {
       {toolButtons}
     </nav>
     <section id="poster-settings-panel" ref={panelRef} tabIndex={activeTool ? -1 : undefined} role="dialog" aria-label={`${activeLabel} settings`} aria-hidden={!activeTool}
-      className={`fixed inset-x-0 bottom-0 z-[60] flex max-h-[50dvh] flex-col rounded-t-2xl border border-stone-200 bg-white shadow-2xl outline-none transition-[opacity,transform,visibility] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-24 lg:top-4 lg:max-h-[calc(100%-2rem)] lg:w-[350px] lg:rounded-xl ${activeTool ? "visible translate-y-0 opacity-100 lg:translate-x-0" : "invisible pointer-events-none translate-y-full opacity-0 lg:translate-x-6 lg:translate-y-0"}`}>
+      style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}
+      className={`fixed inset-x-3 z-[60] flex max-h-[calc(50dvh-5.5rem)] flex-col rounded-2xl border border-stone-200 bg-white shadow-2xl outline-none transition-[opacity,transform,visibility] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none lg:absolute lg:inset-x-auto lg:!bottom-auto lg:right-24 lg:top-4 lg:max-h-[calc(100%-2rem)] lg:w-[350px] lg:rounded-xl ${activeTool ? "visible translate-y-0 opacity-100 lg:translate-x-0" : "invisible pointer-events-none translate-y-6 opacity-0 lg:translate-x-6 lg:translate-y-0"}`}>
       <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-stone-300 lg:hidden" aria-hidden="true" />
       <div className="flex shrink-0 items-center justify-between border-b border-stone-100 px-5 py-4">
         <h2 className="text-sm font-semibold text-[#18344b]">{activeLabel}</h2>
-        <button type="button" onClick={close} aria-label={`Close ${activeLabel} settings`} className="rounded-md p-1.5 text-slate-500 hover:bg-stone-100 hover:text-[#18344b]">
+        <button type="button" onClick={close} aria-label={`Close ${activeLabel} settings`} className="grid h-9 w-9 place-items-center rounded-md text-slate-500 hover:bg-stone-100 hover:text-[#18344b]">
           <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="min-h-0 overflow-y-auto p-4 sm:p-5">{activeTool ? children : lastContentRef.current}</div>
+      <div ref={contentRef} className="min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5">{activeTool ? children : lastContentRef.current}</div>
       <div className="h-[env(safe-area-inset-bottom)] shrink-0 lg:hidden" aria-hidden="true" />
     </section>
   </>;
