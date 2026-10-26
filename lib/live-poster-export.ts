@@ -7,7 +7,7 @@ import { getOuterPosterFrameStrokes, getPosterFrameStrokes } from "@/lib/poster-
 import { resolvePosterTypography } from "@/lib/poster-typography";
 import { getPosterTextBackdrop, getPosterTextLayout, getPosterTextMetrics } from "@/lib/poster-text-layout";
 import { getPosterScaleBar } from "@/lib/poster-labels";
-import { getMapAttributionLayout } from "@/lib/map-attribution";
+import { DEFAULT_PRINT_DPI, getMapAttributionLayout } from "@/lib/map-attribution";
 
 /** Long edge of a high-resolution digital poster, in pixels. */
 export const EXPORT_LONG_EDGE = 4800;
@@ -17,6 +17,39 @@ export function getDigitalPosterDimensions(widthInches: number, heightInches: nu
   return aspect <= 1
     ? { width: Math.round(EXPORT_LONG_EDGE * aspect), height: EXPORT_LONG_EDGE }
     : { width: EXPORT_LONG_EDGE, height: Math.round(EXPORT_LONG_EDGE / aspect) };
+}
+
+type AttributionPosterConfig = Pick<PosterConfig, "width" | "height"> & {
+  print_size_key?: string;
+};
+
+export function getPosterAttributionDpi(
+  config: AttributionPosterConfig,
+  widthPixels: number,
+  heightPixels: number,
+): number {
+  const physicalSize = config.print_size_key?.match(/^(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/);
+  let physicalWidth = config.width * 2;
+  let physicalHeight = config.height * 2;
+
+  if (physicalSize) {
+    const shortEdge = Number(physicalSize[1]);
+    const longEdge = Number(physicalSize[2]);
+    [physicalWidth, physicalHeight] = widthPixels > heightPixels
+      ? [longEdge, shortEdge]
+      : [shortEdge, longEdge];
+  }
+
+  if (
+    !Number.isFinite(widthPixels) || widthPixels <= 0 ||
+    !Number.isFinite(heightPixels) || heightPixels <= 0 ||
+    !Number.isFinite(physicalWidth) || physicalWidth <= 0 ||
+    !Number.isFinite(physicalHeight) || physicalHeight <= 0
+  ) {
+    return DEFAULT_PRINT_DPI;
+  }
+
+  return Math.min(widthPixels / physicalWidth, heightPixels / physicalHeight);
 }
 
 function blobToBytes(blob: Blob): Promise<Uint8Array> {
@@ -135,7 +168,11 @@ function drawPosterCopy(
   }
   ctx.shadowBlur = 0;
 
-  const attribution = getMapAttributionLayout(width, height);
+  const attribution = getMapAttributionLayout(
+    width,
+    height,
+    getPosterAttributionDpi(config, width, height),
+  );
   ctx.save();
   ctx.fillStyle = textColor;
   ctx.textAlign = "left";
