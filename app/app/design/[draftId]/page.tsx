@@ -32,6 +32,7 @@ import { PosterTextChoices } from "@/components/poster-text-choices";
 import { PosterColorControls } from "@/components/poster-color-controls";
 import { PosterMapControls } from "@/components/poster-map-controls";
 import { PosterEditorSidebar, type PosterEditorTool } from "@/components/poster-editor-sidebar";
+import { MapAttribution } from "@/components/map-attribution";
 import { PosterCanvasShell } from "@/components/poster-canvas-shell";
 import {
   POSTER_SIZES,
@@ -674,13 +675,16 @@ export default function CustomizePosterPage({
         </div>
 
         <div ref={stageRef} data-testid="poster-stage"
-          className={`flex min-h-0 min-w-0 flex-1 items-center justify-center transition-[margin,padding] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${activeTool ? "pb-[50dvh] lg:mr-[440px]" : "pb-20 lg:mr-20"} lg:pb-0`}
+          className={`relative flex min-h-0 min-w-0 flex-1 items-center justify-center transition-[margin,padding] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${activeTool ? "pb-[50dvh] lg:mr-[440px]" : "pb-20 lg:mr-20"} lg:pb-0`}
         >
           <PosterRoomStage mode={viewMode} onModeChange={setViewMode}>
             <div data-testid="poster-preview" style={{ width: posterFit.width, height: posterFit.height }} className="shrink-0 shadow-[0_16px_35px_rgba(39,31,23,0.16)] transition-[width,height] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none">
               {livePosterPanel}
             </div>
           </PosterRoomStage>
+          <div className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap lg:bottom-1">
+            <MapAttribution />
+          </div>
         </div>
       </div>
     </div>

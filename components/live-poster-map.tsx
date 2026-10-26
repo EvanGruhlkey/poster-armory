@@ -477,9 +477,6 @@ export const LivePosterMap = forwardRef<LivePosterMapHandle, LivePosterMapProps>
         </div>
       )}
 
-      <div className="pointer-events-none absolute bottom-1 left-1 right-1 w-fit max-w-[98%] px-1 py-0.5 text-[7px] font-medium leading-tight text-white/60 mix-blend-difference">
-        © OpenStreetMap contributors · OpenFreeMap
-      </div>
       {config.show_scale && (() => {
         const scale = getPosterScaleBar(config, posterSize.width * 0.88);
         return <div className="pointer-events-none absolute bottom-2 right-3 rounded bg-background/80 px-1.5 py-1 text-right text-[9px] font-medium shadow-sm" style={{ color: textColor }}>
