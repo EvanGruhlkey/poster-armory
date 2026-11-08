@@ -22,7 +22,7 @@ function PricingContent() {
 
   return (
     <PlanCards
-      isLoggedIn={Boolean(user)}
+      isLoggedIn={Boolean(user && !user.is_anonymous)}
       isMember={subscription.planTier === "membership"}
     />
   );

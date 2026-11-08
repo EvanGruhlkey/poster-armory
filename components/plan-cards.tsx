@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,9 +48,30 @@ export function PlanCards({
   const [interval, setInterval] = useState<BillingInterval>("monthly");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("poster-subscribe-interval");
+      if (saved === "monthly" || saved === "annual") {
+        setInterval(saved);
+        sessionStorage.removeItem("poster-subscribe-interval");
+      }
+    } catch {
+      // sessionStorage can be blocked; the page still loads on monthly.
+    }
+  }, []);
+
   async function startCheckout() {
     if (!isLoggedIn) {
-      router.push("/login?redirect=/app/billing");
+      const returnTo =
+        typeof window !== "undefined"
+          ? window.location.pathname + window.location.search
+          : "/pricing";
+      try {
+        sessionStorage.setItem("poster-subscribe-interval", interval);
+      } catch {
+        // The return path still works if storage is unavailable.
+      }
+      router.push(`/login?redirect=${encodeURIComponent(returnTo)}`);
       return;
     }
 

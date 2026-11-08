@@ -14,6 +14,19 @@ const REAL_AUTH_PATHS = [
   "/app/account",
 ];
 
+function safeRedirect(value: string | null): string {
+  if (
+    !value ||
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("://") ||
+    value.includes("\\")
+  ) {
+    return "/app";
+  }
+  return value;
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
@@ -58,7 +71,9 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (requiresRealAuth && !user) {
+  const isRealUser = Boolean(user && !user.is_anonymous);
+
+  if (requiresRealAuth && !isRealUser) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set(
       "redirect",
@@ -67,8 +82,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (request.nextUrl.pathname === "/login" && user) {
-    return NextResponse.redirect(new URL("/app", request.url));
+  if (request.nextUrl.pathname === "/login" && isRealUser) {
+    const next = safeRedirect(request.nextUrl.searchParams.get("redirect"));
+    return NextResponse.redirect(new URL(next, request.url));
   }
 
   return response;
