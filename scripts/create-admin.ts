@@ -159,7 +159,7 @@ async function main() {
   console.log("\nAdmin account ready:\n");
   console.log(`  Email:    ${email}`);
   console.log(`  Password: ${password}`);
-  console.log(`  Plan:     Membership (20 high-resolution downloads/month)`);
+  console.log(`  Plan:     Membership (unlimited high-resolution downloads)`);
   console.log(`\n  Sign in at: ${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`);
 }
 

@@ -6,18 +6,18 @@ import { createJobSchema } from "@/lib/validations";
 import { computeConfigHash } from "@/lib/config-hash";
 import { applyRateLimit } from "@/lib/rate-limit";
 import { resolveQuotaPeriod } from "@/lib/subscription-period";
+import { reconcileMembershipAccess } from "@/lib/stripe-fulfill";
 import { getClientIp, getGuestUserId } from "@/lib/guest-user";
 import {
-  MEMBERSHIP_DOWNLOADS_PER_MONTH,
   downloadsPerPeriod,
   getPlanTier,
 } from "@/lib/plan-config";
 
 /**
  * Designing is free: previews are unmetered for everyone, signed in or not.
- * Only high-resolution renders (is_preview = false) consume the membership's
- * 20-downloads-per-billing-month allowance, and they do so atomically inside
- * `create_download_job`.
+ * High-resolution renders (is_preview = false) require an active membership,
+ * which includes unlimited downloads. They are still recorded atomically in
+ * `create_download_job` so a retried job is never counted twice.
  */
 export async function POST(request: Request) {
   try {
@@ -174,7 +174,7 @@ export async function POST(request: Request) {
     }
 
     // ── Downloads: membership required, allowance enforced in Postgres ─────
-    const { data: sub } = await admin
+    const { data: loadedSub } = await admin
       .from("subscriptions")
       .select(
         "id, plan_slug, status, current_period_end, current_period_start, stripe_sub_id, created_at"
@@ -185,12 +185,14 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle();
 
+    let sub = loadedSub;
     const planTier = getPlanTier(sub?.plan_slug);
 
     if (!sub || planTier !== "membership") {
       return NextResponse.json(
         {
-          error: `Designing is free. Subscribe for $10/month to unlock ${MEMBERSHIP_DOWNLOADS_PER_MONTH} high-resolution downloads per month.`,
+          error:
+            "Designing is free. Subscribe for $10/month to unlock unlimited high-resolution downloads.",
           reason: "membership_required",
         },
         { status: 403 }
@@ -198,19 +200,20 @@ export async function POST(request: Request) {
     }
 
     if (sub.current_period_end && new Date(sub.current_period_end) < new Date()) {
-      await admin
-        .from("subscriptions")
-        .update({ status: "expired" })
-        .eq("id", sub.id)
-        .eq("status", "active");
-
-      return NextResponse.json(
-        {
-          error: "Your membership has ended. Renew for $10/month to download again.",
-          reason: "membership_required",
-        },
-        { status: 403 }
-      );
+      const reconciled = await reconcileMembershipAccess(sub);
+      sub = reconciled.sub;
+      if (reconciled.access !== "active") {
+        return NextResponse.json(
+          {
+            error:
+              reconciled.access === "past_due"
+                ? "Your membership payment didn't go through. Update billing to keep downloading."
+                : "Your membership has ended. Subscribe again to download.",
+            reason: "membership_required",
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const { start, end } = await resolveQuotaPeriod(admin, stripe, sub);
@@ -232,7 +235,7 @@ export async function POST(request: Request) {
           {
             error:
               rpcError.message.split("QUOTA_EXCEEDED:")[1]?.trim() ||
-              `You have used all ${MEMBERSHIP_DOWNLOADS_PER_MONTH} downloads for this billing period.`,
+              "Downloads are unavailable for this account right now.",
             reason: "quota_exceeded",
             resetsAt: end.toISOString(),
           },

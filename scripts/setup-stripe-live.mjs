@@ -29,8 +29,8 @@ const stripe = new Stripe(key);
 
 const PRODUCT_NAME = "Poster Armory Membership";
 
-// One product, two prices. Both grant the same entitlement: 20 high-resolution
-// downloads per billing month. The annual price bills 10 months for 12.
+// One product, two prices. Both grant unlimited high-resolution downloads.
+// The annual price bills 10 months for 12.
 const V3_CATALOG = [
   {
     name: "Membership (monthly)",
@@ -59,6 +59,7 @@ const LEGACY_PRODUCT_NAMES = new Set([
 ]);
 const WEBHOOK_EVENTS = [
   "checkout.session.completed",
+  "checkout.session.async_payment_succeeded",
   "customer.subscription.updated",
   "customer.subscription.deleted",
   "invoice.payment_succeeded",
@@ -86,7 +87,7 @@ async function ensureMembershipProduct() {
 
   const product = await stripe.products.create({
     name: PRODUCT_NAME,
-    description: "20 high-resolution poster downloads every billing month.",
+    description: "Unlimited high-resolution poster downloads. Designing is free. Physical prints sold separately.",
     active: true,
     metadata: { plan_slug: "membership", pricing_version: "v3" },
   });
@@ -142,12 +143,30 @@ async function deactivateLegacyCatalog(keepProductId) {
   }
 }
 
+function productionWebhookUrl() {
+  const url = new URL("/api/stripe/webhook", appUrl);
+  // The apex host 307-redirects to www, which breaks Stripe signature checks.
+  if (url.hostname === "posterarmory.com") {
+    url.hostname = "www.posterarmory.com";
+  }
+  return url.toString();
+}
+
 async function ensureWebhook() {
-  const webhookUrl = `${appUrl}/api/stripe/webhook`;
+  const webhookUrl = productionWebhookUrl();
   const endpoints = await stripe.webhookEndpoints.list({ limit: 100 });
   const existing = endpoints.data.find((ep) => ep.url === webhookUrl);
 
   if (existing) {
+    const missing = WEBHOOK_EVENTS.filter(
+      (eventName) => !existing.enabled_events.includes(eventName)
+    );
+    if (missing.length > 0) {
+      await stripe.webhookEndpoints.update(existing.id, {
+        enabled_events: WEBHOOK_EVENTS,
+      });
+      console.log(`  Updated webhook events: ${existing.id}`);
+    }
     console.log(`  Webhook already registered: ${existing.id}`);
     console.log(`  Signing secret: ${existing.secret || "(retrieve in Stripe Dashboard)"}`);
     return existing;

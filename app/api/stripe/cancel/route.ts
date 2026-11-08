@@ -51,11 +51,30 @@ export async function POST() {
     }
 
     if (sub.stripe_sub_id) {
-      // Recurring subscription — cancel at period end so user keeps access
-      // until the billing cycle finishes
-      await stripe.subscriptions.update(sub.stripe_sub_id, {
-        cancel_at_period_end: true,
-      });
+      // Recurring subscription — cancel at period end so the member keeps
+      // downloads until the billing cycle they already paid for finishes.
+      try {
+        await stripe.subscriptions.update(sub.stripe_sub_id, {
+          cancel_at_period_end: true,
+        });
+      } catch (err) {
+        // A subscription that no longer exists in Stripe cannot be scheduled.
+        // End it here so the member is not stuck with a cancel button that
+        // always fails.
+        const missing =
+          typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          (err as { code?: string }).code === "resource_missing";
+        if (!missing) throw err;
+
+        await admin
+          .from("subscriptions")
+          .update({ status: "cancelled" })
+          .eq("id", sub.id);
+
+        return NextResponse.json({ status: "cancelled", immediate: true });
+      }
 
       return NextResponse.json({
         status: "cancelled",

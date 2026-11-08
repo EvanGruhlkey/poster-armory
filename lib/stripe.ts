@@ -12,7 +12,7 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 /**
  * The single paid plan, sold on two cadences. Annual is the same membership
- * with the same 20 downloads per billing month — not a separate tier.
+ * with the same unlimited downloads — not a separate tier.
  */
 export const MEMBERSHIP_PRICE_IDS: Record<BillingInterval, string> = {
   monthly: process.env.STRIPE_PRICE_MEMBERSHIP_MONTHLY || "",

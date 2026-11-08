@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe, MEMBERSHIP_PRICE_IDS } from "@/lib/stripe";
 import { resolveQuotaPeriod } from "@/lib/subscription-period";
+import { reconcileMembershipAccess } from "@/lib/stripe-fulfill";
 import { addUtcMonths, resolveQuotaWindow } from "@/lib/billing-period";
 import { downloadsPerPeriod, getPlanTier, type PlanTier } from "@/lib/plan-config";
 import type Stripe from "stripe";
@@ -56,7 +57,7 @@ export async function getSubscriptionSummary(
 ): Promise<SubscriptionSummary> {
   const admin = createAdminClient();
 
-  const { data: sub } = await admin
+  const { data: loadedSub } = await admin
     .from("subscriptions")
     .select(
       "id, plan_slug, status, current_period_end, current_period_start, created_at, stripe_sub_id"
@@ -66,6 +67,8 @@ export async function getSubscriptionSummary(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  let sub = loadedSub;
 
   if (!sub) {
     const { data: pastSub } = await admin
@@ -82,6 +85,20 @@ export async function getSubscriptionSummary(
 
   const planTier = getPlanTier(sub.plan_slug);
 
+  // A stored period end in the past is reconciled with Stripe first. A renewal
+  // that already happened, or a Stripe outage, must not expire a paying member.
+  // Grants with no Stripe subscription expire from the stored date.
+  if (planTier === "membership") {
+    const reconciled = await reconcileMembershipAccess(sub);
+    if (reconciled.access === "ended") {
+      return { ...SIGNED_OUT_SUMMARY, expired: true };
+    }
+    if (reconciled.access === "past_due") {
+      return SIGNED_OUT_SUMMARY;
+    }
+    sub = reconciled.sub;
+  }
+
   const { data: plan } = await admin
     .from("plans")
     .select("name, monthly_download_quota")
@@ -95,6 +112,17 @@ export async function getSubscriptionSummary(
   if (withStripe && sub.stripe_sub_id) {
     try {
       stripeSubCached = await stripe.subscriptions.retrieve(sub.stripe_sub_id);
+      if (
+        stripeSubCached.status === "canceled" ||
+        stripeSubCached.status === "incomplete_expired"
+      ) {
+        await admin
+          .from("subscriptions")
+          .update({ status: "cancelled" })
+          .eq("id", sub.id)
+          .eq("status", "active");
+        return { ...SIGNED_OUT_SUMMARY, expired: true };
+      }
       cancelAtPeriodEnd = stripeSubCached.cancel_at_period_end;
       const priceId = stripeSubCached.items?.data?.[0]?.price?.id;
       if (priceId === MEMBERSHIP_PRICE_IDS.annual) interval = "annual";
@@ -122,26 +150,26 @@ export async function getSubscriptionSummary(
   }
 
   // The plans row is authoritative so the allowance can change without a
-  // redeploy; the code constant is the fallback.
+  // redeploy; the code constant is the fallback. NULL means unlimited.
   const downloadQuota =
     plan?.monthly_download_quota ?? downloadsPerPeriod(planTier);
 
-  // Window containment, matching `create_download_job`, so a boundary that
-  // shifts by a fraction of a second between two Stripe reads can't make the
-  // UI disagree with what the database will actually allow.
-  const windowStartIso = periodStart.toISOString();
   let downloadsUsed = 0;
-  try {
-    const { count } = await admin
-      .from("download_ledger")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .lte("period_start", windowStartIso)
-      .gt("period_end", windowStartIso)
-      .neq("status", "released");
-    downloadsUsed = count || 0;
-  } catch (e) {
-    console.error("download ledger count:", e);
+  if (downloadQuota !== null) {
+    // Window containment, matching `create_download_job`.
+    const windowStartIso = periodStart.toISOString();
+    try {
+      const { count } = await admin
+        .from("download_ledger")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .lte("period_start", windowStartIso)
+        .gt("period_end", windowStartIso)
+        .neq("status", "released");
+      downloadsUsed = count || 0;
+    } catch (e) {
+      console.error("download ledger count:", e);
+    }
   }
 
   return {

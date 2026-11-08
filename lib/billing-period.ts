@@ -1,15 +1,13 @@
 /**
- * Download allowance windows.
+ * Billing windows used on the download ledger.
  *
- * The membership includes 20 high-resolution downloads *per billing month*,
- * and the allowance resets on the real Stripe billing boundary rather than on
- * a calendar-month approximation.
+ * Membership downloads are unlimited. Each job is still stamped with a
+ * Stripe billing window so retries of the same job cannot be counted twice,
+ * and so usage stays auditable.
  *
- * A monthly subscription has exactly one window per billing period, so the
- * window is the Stripe period itself. An annual subscription has one Stripe
- * period of twelve months, so we roll forward in whole months from the
- * period's anchor date — the subscriber still gets 20 downloads each month
- * instead of 240 to burn on day one.
+ * A monthly subscription has exactly one window per billing period. An annual
+ * subscription has one Stripe period of twelve months, so we roll forward in
+ * whole months from the period's anchor date.
  */
 
 export type BillingPeriodRow = {

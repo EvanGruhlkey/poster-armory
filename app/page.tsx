@@ -90,7 +90,7 @@ const EARLY_FEEDBACK = [
 const FAQ_ITEMS = [
   {
     q: "What does it cost?",
-    a: "Designing is completely free — create and customize as many posters as you want without paying anything. One membership at $10/month adds 20 high-resolution downloads per month. Physical prints are sold separately and priced per order at checkout.",
+    a: "Designing is completely free — create and customize as many posters as you want without paying anything. One membership at $10/month adds unlimited high-resolution downloads. Physical prints are sold separately and priced per order at checkout.",
   },
   {
     q: "Do I need to pay to design a poster?",
@@ -98,19 +98,19 @@ const FAQ_ITEMS = [
   },
   {
     q: "What do I get with the membership?",
-    a: "20 high-resolution downloads per month for $10/month, in PNG and PDF. The allowance resets each billing month and you can cancel anytime.",
+    a: "Unlimited high-resolution downloads for $10/month, in PNG and PDF. Cancel anytime.",
   },
   {
-    q: "What happens when I use all 20 downloads?",
-    a: "You keep designing and previewing for free, and your allowance refills at the start of your next billing month. Your billing page always shows how many downloads are left and the exact reset date.",
+    q: "What happens if I cancel?",
+    a: "You keep access through the period you paid for. Your designs and past downloads stay in your library, and you can keep designing for free.",
   },
   {
     q: "Is there a yearly option?",
-    a: "Yes. The same membership is $100/year — two months free — and still includes 20 high-resolution downloads every month.",
+    a: "Yes. The same membership is $100/year — two months free — and still includes unlimited high-resolution downloads.",
   },
   {
     q: "Are physical prints included in the membership?",
-    a: "No. Printed posters are sold separately: you pay per order at checkout, including shipping, and ordering a print never uses one of your monthly downloads.",
+    a: "No. Printed posters are sold separately: you pay per order at checkout, including shipping.",
   },
   {
     q: "How long does a download take?",
@@ -289,8 +289,8 @@ export default function LandingPage() {
         <div className="mx-auto max-w-xl px-4 text-center sm:px-6">
           <h2 className="mb-3 text-2xl font-bold sm:text-3xl">Ready to create?</h2>
           <p className="mb-6 text-sm text-muted-foreground sm:text-base">
-            Design for free. $10/month for 20 high-resolution downloads. Cancel
-            anytime.
+            Design for free. $10/month for unlimited high-resolution
+            downloads. Cancel anytime.
           </p>
           <Button asChild size="lg" className="w-full sm:w-auto">
             <Link href="/app">Design for free</Link>

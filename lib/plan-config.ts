@@ -1,11 +1,11 @@
 // Pricing (see supabase/migrations/014_single_membership_plan.sql)
 //
 //   free       : full designer, unlimited live previews, 0 high-res downloads
-//   membership : $10/month or $100/year — full designer + 20 high-resolution
-//                downloads per billing month
+//   membership : $10/month or $100/year — full designer + unlimited
+//                high-resolution downloads
 //
 // There is exactly one paid plan. Physical prints are billed per order at
-// checkout and never touch the download allowance.
+// checkout and are not part of the membership.
 //
 // Migration 014 re-points every legacy slug (starter / pro / basic / pro_plus)
 // onto `membership`. `getPlanTier` still recognises them so a subscription row
@@ -19,9 +19,6 @@ export type BillingInterval = "monthly" | "annual";
 
 /** Canonical slug of the single paid plan. */
 export const MEMBERSHIP_SLUG = "membership";
-
-/** High-resolution downloads included with the membership, per billing month. */
-export const MEMBERSHIP_DOWNLOADS_PER_MONTH = 20;
 
 export const MEMBERSHIP_PRICE_MONTHLY_USD = 10;
 export const MEMBERSHIP_PRICE_ANNUAL_USD = 100;
@@ -50,7 +47,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanTier, PlanEntitlements> = {
   membership: {
     posterLibrary: true,
     designsPerMonth: null,
-    downloadsPerMonth: MEMBERSHIP_DOWNLOADS_PER_MONTH,
+    downloadsPerMonth: null,
     formats: ["png", "pdf"],
   },
 };

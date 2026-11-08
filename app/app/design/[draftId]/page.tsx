@@ -44,7 +44,6 @@ import {
 } from "@/components/live-poster-map";
 import {
   DEFAULT_SIZE,
-  MEMBERSHIP_DOWNLOADS_PER_MONTH,
   MEMBERSHIP_PRICE_MONTHLY_USD,
 } from "@/lib/plan-config";
 import { useAuth } from "@/components/auth-provider";
@@ -76,9 +75,6 @@ export default function CustomizePosterPage({
   // high-resolution download; physical prints are bought per order.
   const isGuest = !user;
   const isMember = subscription.planTier === "membership";
-  const downloadsRemaining = subscription.downloadsRemaining;
-  const outOfDownloads = isMember && downloadsRemaining === 0;
-
   const [config, setConfig] = useState<PosterConfig>({
     ...DEFAULT_CONFIG,
     city,
@@ -577,7 +573,7 @@ export default function CustomizePosterPage({
               variant="outline"
               size="lg"
               onClick={handleDownloadPoster}
-              disabled={generateLoading || outOfDownloads}
+              disabled={generateLoading}
             >
               {generateLoading ? (
                 <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
@@ -588,17 +584,14 @@ export default function CustomizePosterPage({
               )}
               {isGuest
                 ? "Sign Up to Download"
-                : outOfDownloads
-                  ? "No Downloads Left"
-                  : "Download"}
+                : "Download"}
             </Button>
           </div>
 
           {!isGuest && !isMember && (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
               Keep designing for free. ${MEMBERSHIP_PRICE_MONTHLY_USD}/month
-              adds {MEMBERSHIP_DOWNLOADS_PER_MONTH} high-resolution downloads
-              per month.{" "}
+              adds unlimited high-resolution downloads.{" "}
               <button
                 type="button"
                 className="font-medium underline"
@@ -609,28 +602,6 @@ export default function CustomizePosterPage({
             </p>
           )}
 
-          {isMember && downloadsRemaining !== null && (
-            <p
-              className={`rounded-lg border px-3 py-2 text-center text-xs ${
-                outOfDownloads
-                  ? "border-amber-200 bg-amber-50 text-amber-900"
-                  : "border-muted bg-muted/40 text-muted-foreground"
-              }`}
-            >
-              {outOfDownloads ? (
-                <>
-                  You&apos;ve used all {MEMBERSHIP_DOWNLOADS_PER_MONTH}{" "}
-                  downloads for this billing period. Designing stays free, and
-                  your allowance resets next period.
-                </>
-              ) : (
-                <>
-                  {downloadsRemaining} of {MEMBERSHIP_DOWNLOADS_PER_MONTH}{" "}
-                  high-resolution downloads left this month.
-                </>
-              )}
-            </p>
-          )}
           </>}
           </PosterEditorSidebar>
         </div>

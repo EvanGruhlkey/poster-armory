@@ -128,8 +128,6 @@ export default function TermsPage() {
                 Memberships are billed on a recurring monthly or annual basis, depending
                 on the interval you choose. Your membership will automatically renew at
                 the end of each billing period unless cancelled before the renewal date.
-                The high-resolution download allowance resets each billing month, including
-                for annual memberships.
               </p>
 
               <h3 className="mt-4">4.4 One-Time Downloads</h3>
@@ -145,16 +143,16 @@ export default function TermsPage() {
                 <Link href="/app/billing" className="underline hover:text-foreground">
                   Billing page
                 </Link>
-                . Upon cancellation, you keep your remaining downloads until the end of
-                the current billing period. Designing stays free afterwards. No prorated
-                refunds are issued for partial periods.
+                . Cancellation stops the next charge. You keep unlimited downloads until
+                the end of the period you already paid for. Designing stays free afterwards.
+                No prorated refunds are issued for partial periods.
               </p>
 
               <h3 className="mt-4">4.6 Billing Interval Changes</h3>
               <p className="mt-2">
-                You may switch between monthly and annual billing from the Billing page.
-                The new interval takes effect according to Stripe&apos;s checkout and
-                proration rules for the session you complete.
+                Monthly and annual are the same membership. To change interval, cancel
+                from Billing and subscribe again on the other interval. The current
+                period stays active until it ends.
               </p>
             </section>
 
@@ -186,13 +184,11 @@ export default function TermsPage() {
             <section>
               <h2>6. Usage Limits and Fair Use</h2>
               <p className="mt-3">
-                Anyone may design and preview posters for free. A membership includes 20
-                high-resolution downloads per billing month, as shown on the Pricing page
-                and in your Billing page. The allowance resets according to the Stripe
-                billing period, not a calendar-month approximation. Previews, failed
-                renders, and re-downloading a file that already generated do not consume
-                the allowance. Physical print orders are charged separately and never use
-                a download.
+                Anyone may design and preview posters for free. A membership includes
+                unlimited high-resolution downloads for personal use, as shown on the
+                Pricing page. We may limit or suspend accounts that abuse the service,
+                for example by automating bulk downloads or reselling access. Physical
+                print orders are charged separately and are not part of the membership.
               </p>
               <p className="mt-2">
                 Automated, scripted, abusive, or unusually high-volume generation that

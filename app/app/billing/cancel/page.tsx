@@ -20,6 +20,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useSubscription } from "@/components/subscription-provider";
 
 interface SubscriptionPayload {
   active: boolean;
@@ -32,6 +33,7 @@ interface SubscriptionPayload {
 
 export default function CancelSubscriptionPage() {
   const router = useRouter();
+  const { refresh } = useSubscription();
   const [data, setData] = useState<SubscriptionPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -82,12 +84,13 @@ export default function CancelSubscriptionPage() {
       const res = await fetch("/api/stripe/cancel", { method: "POST" });
       const result = await res.json();
       if (res.ok) {
-        const recurring = Boolean(data.subscription.stripe_sub_id);
+        const recurring = Boolean(data.subscription.stripe_sub_id) && !result.immediate;
         toast.success(
           recurring
-            ? "Membership cancelled. You keep your downloads until the end of the billing period."
+            ? "Membership cancelled. You keep downloads until the end of the period you paid for."
             : "Your membership has been cancelled."
         );
+        await refresh();
         router.push("/app/billing");
         return;
       }
@@ -161,7 +164,7 @@ export default function CancelSubscriptionPage() {
                 <li className="flex gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
                   <span>
-                    You keep your remaining downloads until{" "}
+                    You keep unlimited downloads until{" "}
                     {endDate ? (
                       <strong>{endDate}</strong>
                     ) : (
@@ -177,8 +180,9 @@ export default function CancelSubscriptionPage() {
                 <li className="flex gap-2">
                   <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <span>
-                    After that date the monthly download allowance stops
-                    refilling. Files you already downloaded stay in your library.
+                    After that date new high-resolution downloads require a
+                    membership. Files you already downloaded stay in your
+                    library.
                   </span>
                 </li>
               </>

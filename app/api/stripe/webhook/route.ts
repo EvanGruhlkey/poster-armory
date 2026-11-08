@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
-import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  ensureMembershipFromStripe,
   fulfillCheckoutSessionWebhook,
-  stripePeriodEnd,
-  stripePeriodStart,
+  syncSubscriptionFromStripe,
 } from "@/lib/stripe-fulfill";
 import type Stripe from "stripe";
 
@@ -28,59 +27,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
         await fulfillCheckoutSessionWebhook(
           event.data.object as Stripe.Checkout.Session
         );
         break;
       }
 
-      // Renewals move current_period_start forward, which starts a fresh
-      // download allowance window without any cron job.
+      // Renewals and failures both follow the live subscription. A late
+      // payment_failed must not mark a member past_due after Stripe has
+      // already collected the invoice.
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
-      case "invoice.payment_succeeded": {
-        const stripeSubId =
-          event.type === "invoice.payment_succeeded"
-            ? resolveInvoiceSubscriptionId(event.data.object as Stripe.Invoice)
-            : (event.data.object as Stripe.Subscription).id;
+      case "invoice.payment_succeeded":
+      case "invoice.payment_failed": {
+        const stripeSubId = event.type.startsWith("invoice.")
+          ? resolveInvoiceSubscriptionId(event.data.object as Stripe.Invoice)
+          : (event.data.object as Stripe.Subscription).id;
 
         if (!stripeSubId) break;
 
-        const liveSub = await stripe.subscriptions.retrieve(stripeSubId);
-        const status =
-          liveSub.status === "active"
-            ? "active"
-            : liveSub.status === "canceled"
-              ? "cancelled"
-              : liveSub.status === "past_due"
-                ? "past_due"
-                : "inactive";
-
-        await admin
-          .from("subscriptions")
-          .update({
-            status,
-            current_period_start: stripePeriodStart(liveSub),
-            current_period_end: stripePeriodEnd(liveSub),
-          })
-          .eq("stripe_sub_id", stripeSubId);
-        break;
-      }
-
-      case "invoice.payment_failed": {
-        const subId = resolveInvoiceSubscriptionId(
-          event.data.object as Stripe.Invoice
-        );
-        if (subId) {
-          await admin
-            .from("subscriptions")
-            .update({ status: "past_due" })
-            .eq("stripe_sub_id", subId);
+        const live = await syncSubscriptionFromStripe(stripeSubId);
+        if (
+          live &&
+          (event.type === "customer.subscription.updated" ||
+            event.type === "invoice.payment_succeeded")
+        ) {
+          await ensureMembershipFromStripe(live);
         }
         break;
       }
@@ -99,9 +75,29 @@ export async function POST(request: Request) {
   return NextResponse.json({ received: true });
 }
 
+function subscriptionIdOf(
+  value: string | { id: string } | null | undefined
+): string | null {
+  if (!value) return null;
+  return typeof value === "string" ? value : value.id;
+}
+
 function resolveInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
-  const sub = (invoice as unknown as { subscription?: string | { id: string } })
-    .subscription;
-  if (!sub) return null;
-  return typeof sub === "string" ? sub : sub.id;
+  // Older API versions put the id on `invoice.subscription`. The live webhook
+  // is pinned to a version that nests it under `parent.subscription_details`.
+  const raw = invoice as unknown as {
+    subscription?: string | { id: string } | null;
+    parent?: {
+      subscription_details?: {
+        subscription?: string | { id: string } | null;
+      } | null;
+    } | null;
+    lines?: { data?: Array<{ subscription?: string | { id: string } | null }> };
+  };
+
+  return (
+    subscriptionIdOf(raw.subscription) ??
+    subscriptionIdOf(raw.parent?.subscription_details?.subscription) ??
+    subscriptionIdOf(raw.lines?.data?.[0]?.subscription)
+  );
 }

@@ -3,11 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe, membershipPriceId } from "@/lib/stripe";
 import { MEMBERSHIP_SLUG } from "@/lib/plan-config";
+import { reconcileMembershipAccess } from "@/lib/stripe-fulfill";
 import { z } from "zod";
+import type Stripe from "stripe";
 import { applyRateLimit } from "@/lib/rate-limit";
 
 // One paid plan, two billing cadences. Annual is the same membership with the
-// same 20 downloads per billing month, billed yearly.
+// same unlimited downloads, billed yearly.
 const checkoutSchema = z.object({
   interval: z.enum(["monthly", "annual"]).default("monthly"),
 });
@@ -56,6 +58,28 @@ export async function POST(request: Request) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const admin = createAdminClient();
 
+    const { data: currentMembership } = await admin
+      .from("subscriptions")
+      .select(
+        "id, plan_slug, stripe_sub_id, current_period_start, current_period_end, created_at"
+      )
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .eq("plan_slug", MEMBERSHIP_SLUG)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (currentMembership) {
+      const reconciled = await reconcileMembershipAccess(currentMembership);
+      if (reconciled.access === "active" || reconciled.access === "past_due") {
+        return NextResponse.json(
+          { error: "You already have a membership. Manage it from Billing." },
+          { status: 409 }
+        );
+      }
+    }
+
     // Reuse the existing Stripe customer so billing history stays on one record.
     const { data: existingSub } = await admin
       .from("subscriptions")
@@ -89,8 +113,10 @@ export async function POST(request: Request) {
       sessionParams.customer_email = user.email || undefined;
     }
 
+    const minute = Math.floor(Date.now() / 60_000);
     const session = await stripe.checkout.sessions.create(
-      sessionParams as Parameters<typeof stripe.checkout.sessions.create>[0]
+      sessionParams as Stripe.Checkout.SessionCreateParams,
+      { idempotencyKey: `membership-checkout:${user.id}:${interval}:${minute}` }
     );
 
     return NextResponse.json({ url: session.url });

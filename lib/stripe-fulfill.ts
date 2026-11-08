@@ -52,6 +52,10 @@ export async function fulfillPhysicalOrder(
     throw new Error("Session does not match this order");
   }
 
+  if (!checkoutPaymentSettled(session)) {
+    return { status: "pending_payment" };
+  }
+
   if (order.status !== "created" && order.status !== "paid") {
     return { status: "already_processed" };
   }
@@ -78,40 +82,168 @@ export async function fulfillPhysicalOrder(
   return { status: "order_paid" };
 }
 
+export type MembershipAccess = "active" | "past_due" | "ended";
+
+export interface MembershipPeriodRow {
+  id: string;
+  plan_slug: string;
+  stripe_sub_id: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  created_at: string;
+}
+
+/** Local status written from a live Stripe subscription. */
+export function mapStripeSubscriptionStatus(status: Stripe.Subscription.Status): string {
+  switch (status) {
+    case "active":
+    case "trialing":
+      return "active";
+    case "past_due":
+    case "unpaid":
+      return "past_due";
+    case "canceled":
+    case "incomplete_expired":
+      return "cancelled";
+    default:
+      return "inactive";
+  }
+}
+
+function checkoutPaymentSettled(session: Stripe.Checkout.Session): boolean {
+  return (
+    session.payment_status === "paid" ||
+    session.payment_status === "no_payment_required"
+  );
+}
+
+function subscriptionEntitled(status: Stripe.Subscription.Status): boolean {
+  return status === "active" || status === "trialing";
+}
+
+function isStripeMissing(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "resource_missing"
+  );
+}
+
 /**
- * Activate the membership from a paid Checkout session.
- *
- * The permanent `free` subscription row is never touched — it is the fallback
- * a user drops back to when the membership ends. Any other active paid row is
- * cancelled in Stripe first so a user can never be double-billed.
+ * Write the live Stripe status and period onto the local row.
+ * A deleted subscription is marked cancelled. Network errors propagate so
+ * the caller can retry instead of guessing.
  */
-export async function fulfillMembership(
-  session: Stripe.Checkout.Session,
-  userId: string
-): Promise<{ status: string }> {
+export async function syncSubscriptionFromStripe(
+  stripeSubId: string
+): Promise<Stripe.Subscription | null> {
+  const admin = createAdminClient();
+  let live: Stripe.Subscription;
+  try {
+    live = await stripe.subscriptions.retrieve(stripeSubId);
+  } catch (err) {
+    if (isStripeMissing(err)) {
+      await admin
+        .from("subscriptions")
+        .update({ status: "cancelled" })
+        .eq("stripe_sub_id", stripeSubId);
+      return null;
+    }
+    throw err;
+  }
+
+  await admin
+    .from("subscriptions")
+    .update({
+      status: mapStripeSubscriptionStatus(live.status),
+      current_period_start: stripePeriodStart(live),
+      current_period_end: stripePeriodEnd(live),
+    })
+    .eq("stripe_sub_id", stripeSubId);
+
+  return live;
+}
+
+/**
+ * A stored period end in the past is not proof the membership ended.
+ * Stripe may already have renewed, and a missed webhook would still be billing
+ * them. Ask Stripe before taking access away. A grant with no Stripe
+ * subscription expires from the stored date. If Stripe cannot be reached,
+ * keep access.
+ */
+export async function reconcileMembershipAccess<T extends MembershipPeriodRow>(
+  sub: T
+): Promise<{ access: MembershipAccess; sub: T }> {
+  const endedLocally =
+    !!sub.current_period_end &&
+    new Date(sub.current_period_end).getTime() < Date.now();
+  if (!endedLocally) return { access: "active", sub };
+
   const admin = createAdminClient();
 
-  const { data: existingFromSession } = await admin
+  if (!sub.stripe_sub_id) {
+    await admin
+      .from("subscriptions")
+      .update({ status: "expired" })
+      .eq("id", sub.id)
+      .eq("status", "active");
+    return { access: "ended", sub };
+  }
+
+  let live: Stripe.Subscription;
+  try {
+    live = await stripe.subscriptions.retrieve(sub.stripe_sub_id);
+  } catch (err) {
+    if (isStripeMissing(err)) {
+      await admin
+        .from("subscriptions")
+        .update({ status: "cancelled" })
+        .eq("id", sub.id)
+        .eq("status", "active");
+      return { access: "ended", sub };
+    }
+    console.warn(
+      "Leaving membership active; Stripe could not be reached:",
+      sub.stripe_sub_id,
+      err
+    );
+    return { access: "active", sub };
+  }
+
+  const next: T = {
+    ...sub,
+    current_period_start: stripePeriodStart(live),
+    current_period_end: stripePeriodEnd(live),
+  };
+  const status = mapStripeSubscriptionStatus(live.status);
+  await admin
     .from("subscriptions")
-    .select("id")
-    .eq("stripe_checkout_session_id", session.id)
-    .limit(1)
-    .maybeSingle();
+    .update({
+      status,
+      current_period_start: next.current_period_start,
+      current_period_end: next.current_period_end,
+    })
+    .eq("id", sub.id);
 
-  if (existingFromSession) {
-    return { status: "already_active" };
-  }
+  if (subscriptionEntitled(live.status)) return { access: "active", sub: next };
+  if (status === "past_due") return { access: "past_due", sub: next };
+  return { access: "ended", sub: next };
+}
 
-  if (session.mode !== "subscription" || !session.subscription) {
-    throw new Error("Membership checkout must be a subscription");
-  }
-
-  const subId =
-    typeof session.subscription === "string"
-      ? session.subscription
-      : session.subscription.id;
-
-  const stripeSub = await stripe.subscriptions.retrieve(subId);
+/**
+ * Insert the membership once Stripe is actually collecting.
+ * The permanent free row is never touched. Other active paid rows are
+ * cancelled only after this subscription is active, so an unpaid checkout
+ * cannot replace a membership the user already has.
+ */
+async function activateMembership(args: {
+  userId: string;
+  stripeSub: Stripe.Subscription;
+  checkoutSessionId: string | null;
+}): Promise<{ status: string }> {
+  const { userId, stripeSub, checkoutSessionId } = args;
+  const admin = createAdminClient();
 
   const { data: oldSubs } = await admin
     .from("subscriptions")
@@ -140,10 +272,10 @@ export async function fulfillMembership(
   const { error: insertErr } = await admin.from("subscriptions").insert({
     user_id: userId,
     plan_slug: MEMBERSHIP_SLUG,
-    status: stripeSub.status === "active" ? "active" : "inactive",
+    status: "active",
     current_period_start: stripePeriodStart(stripeSub),
     current_period_end: stripePeriodEnd(stripeSub),
-    stripe_checkout_session_id: session.id,
+    stripe_checkout_session_id: checkoutSessionId,
     stripe_customer_id:
       typeof stripeSub.customer === "string"
         ? stripeSub.customer
@@ -157,6 +289,86 @@ export async function fulfillMembership(
   if (insertErr) throw insertErr;
 
   return { status: "activated" };
+}
+
+/**
+ * Create the local membership if a live, entitled Stripe subscription has
+ * no row yet. Covers a bank debit that settles on
+ * `checkout.session.async_payment_succeeded` after the first event was ignored.
+ */
+export async function ensureMembershipFromStripe(
+  live: Stripe.Subscription
+): Promise<void> {
+  if (!subscriptionEntitled(live.status)) return;
+
+  const userId = live.metadata?.user_id;
+  if (!userId) return;
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from("subscriptions")
+    .select("id")
+    .eq("stripe_sub_id", live.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) return;
+  await activateMembership({ userId, stripeSub: live, checkoutSessionId: null });
+}
+
+/**
+ * Activate the membership from a Checkout session that has settled.
+ * Unpaid or still-processing sessions return without changing any row.
+ */
+export async function fulfillMembership(
+  session: Stripe.Checkout.Session,
+  userId: string
+): Promise<{ status: string }> {
+  const admin = createAdminClient();
+
+  const { data: existingFromSession } = await admin
+    .from("subscriptions")
+    .select("id")
+    .eq("stripe_checkout_session_id", session.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingFromSession) {
+    return { status: "already_active" };
+  }
+
+  if (session.mode !== "subscription" || !session.subscription) {
+    throw new Error("Membership checkout must be a subscription");
+  }
+
+  if (!checkoutPaymentSettled(session)) {
+    return { status: "pending_payment" };
+  }
+
+  const subId =
+    typeof session.subscription === "string"
+      ? session.subscription
+      : session.subscription.id;
+
+  const stripeSub = await stripe.subscriptions.retrieve(subId);
+  if (!subscriptionEntitled(stripeSub.status)) {
+    return { status: "pending_payment" };
+  }
+
+  const { data: existingSub } = await admin
+    .from("subscriptions")
+    .select("id")
+    .eq("stripe_sub_id", stripeSub.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingSub) return { status: "already_active" };
+
+  return activateMembership({
+    userId,
+    stripeSub,
+    checkoutSessionId: session.id,
+  });
 }
 
 /** Route a paid Checkout session to the correct fulfilment handler. */
