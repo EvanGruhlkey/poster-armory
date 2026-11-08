@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeReturnPath } from "@/lib/auth-return";
 
 // `/app` and `/app/design/*` are intentionally open: guests can browse and
 // generate previews without signing up. Everything that costs money,
@@ -13,19 +14,6 @@ const REAL_AUTH_PATHS = [
   "/app/billing",
   "/app/account",
 ];
-
-function safeRedirect(value: string | null): string {
-  if (
-    !value ||
-    !value.startsWith("/") ||
-    value.startsWith("//") ||
-    value.includes("://") ||
-    value.includes("\\")
-  ) {
-    return "/app";
-  }
-  return value;
-}
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
@@ -83,8 +71,18 @@ export async function middleware(request: NextRequest) {
   }
 
   if (request.nextUrl.pathname === "/login" && isRealUser) {
-    const next = safeRedirect(request.nextUrl.searchParams.get("redirect"));
-    return NextResponse.redirect(new URL(next, request.url));
+    const next =
+      safeReturnPath(request.nextUrl.searchParams.get("redirect")) ||
+      safeReturnPath(request.cookies.get("pa_auth_return")?.value) ||
+      "/app";
+    const redirectResponse = NextResponse.redirect(new URL(next, request.url));
+    redirectResponse.cookies.set({
+      name: "pa_auth_return",
+      value: "",
+      path: "/",
+      maxAge: 0,
+    });
+    return redirectResponse;
   }
 
   return response;

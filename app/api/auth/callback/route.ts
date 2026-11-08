@@ -1,27 +1,16 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
-function sanitizeRedirect(value: string | null): string {
-  const fallback = "/app";
-  if (!value) return fallback;
-  // Block protocol-relative URLs, absolute URLs, and anything suspicious
-  if (
-    !value.startsWith("/") ||
-    value.startsWith("//") ||
-    value.includes("://")
-  ) {
-    return fallback;
-  }
-  return value;
-}
+import { safeReturnPath } from "@/lib/auth-return";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = sanitizeRedirect(searchParams.get("next"));
+  const saved =
+    safeReturnPath(searchParams.get("next")) ||
+    safeReturnPath(request.cookies.get("pa_auth_return")?.value);
 
   if (code) {
-    const response = NextResponse.redirect(`${origin}${next}`);
+    const response = NextResponse.redirect(`${origin}${saved || "/app"}`);
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,8 +30,15 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const fromAccount = safeReturnPath(
+        typeof data.user?.user_metadata?.return_to === "string"
+          ? data.user.user_metadata.return_to
+          : null
+      );
+      response.headers.set("Location", `${origin}${saved || fromAccount || "/app"}`);
+      response.cookies.set({ name: "pa_auth_return", value: "", path: "/", maxAge: 0 });
       return response;
     }
     console.error("Auth callback error:", error.message);

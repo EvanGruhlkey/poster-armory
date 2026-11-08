@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2, LogIn } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { toast } from "sonner";
+import { clearAuthReturn, rememberAuthReturn, safeReturnPath } from "@/lib/auth-return";
 
 export default function LoginPage() {
   return (
@@ -46,11 +47,7 @@ function LoginContent() {
   const [isSignUp, setIsSignUp] = useState(
     reason === "download" || reason === "order"
   );
-  const rawRedirect = searchParams.get("redirect") || "/app";
-  const redirect =
-    rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") && !rawRedirect.includes("://")
-      ? rawRedirect
-      : "/app";
+  const redirect = safeReturnPath(searchParams.get("redirect")) || "/app";
 
   const supabase = createClient();
   const errorParam = searchParams.get("error");
@@ -68,6 +65,13 @@ function LoginContent() {
     }
   }, [errorParam]);
 
+  useEffect(() => {
+    // Google leaves the site and comes back without the login query string.
+    // Save the page now, and drop a stale one when this visit has no destination.
+    if (searchParams.get("redirect")) rememberAuthReturn(redirect);
+    else if (!searchParams.get("error")) clearAuthReturn();
+  }, [redirect, searchParams]);
+
   async function handleEmailAuth(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -79,17 +83,26 @@ function LoginContent() {
         return;
       }
 
+      rememberAuthReturn(redirect);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: { return_to: redirect },
+        },
       });
       setLoading(false);
       if (error) {
         toast.error(error.message);
       } else if (data.session) {
+        clearAuthReturn();
         window.location.href = redirect;
+      } else if (data.user && data.user.identities?.length === 0) {
+        toast.error("An account with this email already exists. Sign in instead.");
+        setIsSignUp(false);
       } else {
-        toast.success("Account created! You can now sign in.");
+        toast.success("Check your email to finish signing up.");
         setIsSignUp(false);
       }
     } else {
@@ -101,16 +114,20 @@ function LoginContent() {
       if (error) {
         toast.error(error.message);
       } else {
+        clearAuthReturn();
         window.location.href = redirect;
       }
     }
   }
 
   async function handleGoogleLogin() {
+    rememberAuthReturn(redirect);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
+        // The allowed callback URL has no query string. Supabase drops `next`
+        // on the way back from Google, so the saved path above is what we use.
+        redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
           prompt: "select_account",
         },
