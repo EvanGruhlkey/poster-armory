@@ -27,8 +27,11 @@ export function zoomForExportWidth(previewZoom: number, exportWidth: number): nu
   return previewZoom + Math.log2(exportWidth / 330);
 }
 
+/** Largest map edge SwiftShader can draw without upscaling our 300 DPI prints. */
+const MAX_MAP_EDGE = 8192;
+
 export function fitMapToGpu(width: number, height: number) {
-  const scale = Math.min(1, 4000 / width, 4096 / height);
+  const scale = Math.min(1, MAX_MAP_EDGE / width, MAX_MAP_EDGE / height);
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 

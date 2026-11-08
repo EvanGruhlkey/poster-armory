@@ -127,14 +127,15 @@ export function getProductUid(
   return DEFAULT_PRODUCT_UIDS[sizeKey]?.[orientation] ?? null;
 }
 
-/** Max canvas edge the Python CLI accepts (inches). */
-const MAX_RENDER_EDGE = 20;
+/**
+ * Small prints are rendered on a 20-inch long edge so they stay above 300 DPI.
+ * Larger prints use their real size, which the worker turns into a 300 DPI file.
+ */
+const MIN_RENDER_LONG_EDGE = 20;
 
 /**
- * Compute the figure dimensions (in inches) for the CLI so the rendered image
- * matches the product aspect ratio while staying within the CLI's 20-inch cap.
- * The long edge is pinned to 20in; at 300 DPI that yields ~6000px on the long
- * edge, which keeps even a 24x36 print at or above Gelato's 150 DPI minimum.
+ * Inches passed to the print renderer. The worker multiplies these by 300,
+ * so a long edge of 24 inches becomes a 7,200 pixel, 300 DPI file.
  */
 export function getRenderDimensions(
   size: PhysicalSize,
@@ -142,10 +143,11 @@ export function getRenderDimensions(
 ): { width: number; height: number } {
   const { w, h } = size.inches; // portrait reference (w < h)
   const shortToLong = w / h; // < 1
+  const longEdge = Math.max(h, MIN_RENDER_LONG_EDGE);
   const round = (n: number) => Math.round(n * 100) / 100;
 
   if (orientation === "landscape") {
-    return { width: MAX_RENDER_EDGE, height: round(MAX_RENDER_EDGE * shortToLong) };
+    return { width: round(longEdge), height: round(longEdge * shortToLong) };
   }
-  return { width: round(MAX_RENDER_EDGE * shortToLong), height: MAX_RENDER_EDGE };
+  return { width: round(longEdge * shortToLong), height: round(longEdge) };
 }

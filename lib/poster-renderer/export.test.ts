@@ -18,6 +18,11 @@ test("preserves preview framing at print resolution", () => {
   assert.equal(zoomForExportWidth(13, 660), 14);
 });
 
-test("fits the widest print map into a safe WebGL canvas", () => {
-  assert.deepEqual(fitMapToGpu(4224, 4320), { width: 4000, height: 4091 });
+test("draws print maps at full size through an 18x24 file", () => {
+  assert.deepEqual(fitMapToGpu(4224, 4320), { width: 4224, height: 4320 });
+  assert.deepEqual(fitMapToGpu(4752, 5184), { width: 4752, height: 5184 });
+});
+
+test("scales a map that exceeds the WebGL edge", () => {
+  assert.deepEqual(fitMapToGpu(10000, 5000), { width: 8192, height: 4096 });
 });

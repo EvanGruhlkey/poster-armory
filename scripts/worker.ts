@@ -433,8 +433,8 @@ async function processJob(jobId: string): Promise<void> {
 
     if (printSizeKey) {
       // Physical-order render: a single print-ready PNG at the product's
-      // aspect ratio. config.width/height are the render dimensions chosen by
-      // the order API; 300 DPI keeps the long edge near 6000px.
+      // aspect ratio. config.width/height are inches from the order API, and
+      // 300 DPI turns an 18x24 into 5400x7200.
       const outputFile = path.join(jobDir, "print.png");
       const { width, height } = printPixelSize(config.width, config.height);
       await renderPrintPoster(config as unknown as Record<string, unknown>, outputFile, width, height);
