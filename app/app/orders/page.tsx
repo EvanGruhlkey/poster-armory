@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Package, ArrowLeft, ExternalLink } from "lucide-react";
 import type { OrderStatus } from "@/lib/types";
+import { getFrameFinish } from "@/lib/poster-products";
 
 interface OrderRow {
   id: string;
@@ -18,7 +19,7 @@ interface OrderRow {
   country: string;
   tracking_url: string | null;
   created_at: string;
-  config: { title?: string; city?: string } | null;
+  config: { title?: string; city?: string; print_finish?: string } | null;
 }
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -92,7 +93,11 @@ export default function OrdersPage() {
                     {o.config?.title || o.config?.city || "Custom poster"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {o.size_key} &middot; Qty {o.quantity} &middot;{" "}
+                    {o.size_key}
+                    {o.config?.print_finish
+                      ? ` \u00b7 ${getFrameFinish(o.config.print_finish)?.label ?? o.config.print_finish}`
+                      : ""}{" "}
+                    &middot; Qty {o.quantity} &middot;{" "}
                     {new Date(o.created_at).toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",

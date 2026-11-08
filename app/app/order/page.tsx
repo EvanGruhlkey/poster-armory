@@ -25,7 +25,13 @@ import {
   LivePosterMap,
   type MapLayerPreset,
 } from "@/components/live-poster-map";
-import { getPhysicalSize, PHYSICAL_SIZES } from "@/lib/poster-products";
+import {
+  FRAME_FINISHES,
+  getFrameFinish,
+  getPhysicalSize,
+  PHYSICAL_SIZES,
+  type FrameFinish,
+} from "@/lib/poster-products";
 import { STYLE_PRESETS, type PosterConfig } from "@/lib/types";
 
 const COUNTRIES = [
@@ -82,6 +88,7 @@ export default function OrderPage() {
   const [draftLoaded, setDraftLoaded] = useState(false);
 
   const [sizeKey, setSizeKey] = useState("18x24");
+  const [finishKey, setFinishKey] = useState<FrameFinish>("none");
   const [quantity, setQuantity] = useState(1);
   const [country, setCountry] = useState("US");
   const [shipping, setShipping] = useState(emptyShipping);
@@ -108,9 +115,9 @@ export default function OrderPage() {
     return o === "landscape" ? "landscape" : o === "square" ? "square" : "portrait";
   }, [draft]);
 
-  // Live quote, debounced, whenever size / quantity / destination change.
-  // We pass any address fields the user has already filled in so Gelato can
-  // refine taxes & shipping; missing fields are padded server-side.
+  // Live quote, debounced, whenever size / frame / quantity / destination
+  // change. We pass any address fields the user has already filled in so
+  // Gelato can refine taxes & shipping; missing fields are padded server-side.
   useEffect(() => {
     if (!draft) return;
     const seq = ++quoteSeq.current;
@@ -125,6 +132,7 @@ export default function OrderPage() {
           body: JSON.stringify({
             size_key: sizeKey,
             orientation,
+            finish: finishKey,
             quantity,
             country,
             state: shipping.state || undefined,
@@ -153,6 +161,7 @@ export default function OrderPage() {
   }, [
     draft,
     sizeKey,
+    finishKey,
     orientation,
     quantity,
     country,
@@ -197,6 +206,7 @@ export default function OrderPage() {
           config: draft.config,
           size_key: sizeKey,
           orientation,
+          finish: finishKey,
           quantity,
           shipping: { ...shipping, country },
         }),
@@ -245,6 +255,7 @@ export default function OrderPage() {
     STYLE_PRESETS[draft.config.style_id] ||
     STYLE_PRESETS.warm_beige;
   const physicalSize = getPhysicalSize(sizeKey);
+  const frame = getFrameFinish(finishKey) ?? FRAME_FINISHES[0];
   const portraitAspect = physicalSize
     ? physicalSize.inches.w / physicalSize.inches.h
     : 3 / 4;
@@ -275,7 +286,7 @@ export default function OrderPage() {
           {/* Size & quantity */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Size &amp; quantity</CardTitle>
+              <CardTitle className="text-base">Size &amp; frame</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-3 gap-2.5">
@@ -292,6 +303,40 @@ export default function OrderPage() {
                     {s.label}
                   </button>
                 ))}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">Frame</Label>
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+                  {FRAME_FINISHES.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      aria-pressed={finishKey === option.key}
+                      onClick={() => setFinishKey(option.key)}
+                      className={`rounded-md border-2 px-2 py-2.5 text-center text-sm transition-all ${
+                        finishKey === option.key
+                          ? "border-primary ring-2 ring-primary/20"
+                          : "border-transparent bg-muted/40 hover:border-muted-foreground/20"
+                      }`}
+                    >
+                      <span
+                        className="mx-auto mb-1.5 block h-5 w-10 rounded-sm border"
+                        style={{
+                          backgroundColor: option.swatch ?? "transparent",
+                          borderColor: option.swatch
+                            ? "rgba(24, 52, 75, 0.2)"
+                            : "rgba(24, 52, 75, 0.25)",
+                        }}
+                      />
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {frame.key === "none"
+                    ? "The print ships without a frame."
+                    : `${frame.detail}. A 12 mm wood frame with plexiglass, on the same 200 gsm paper.`}
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <Label htmlFor="qty" className="text-sm">
@@ -423,21 +468,32 @@ export default function OrderPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div
-                className="mx-auto w-full max-w-sm overflow-hidden rounded-md border lg:max-w-none"
+                className={`mx-auto w-full max-w-sm lg:max-w-none ${
+                  frame.swatch ? "p-3 shadow-md" : ""
+                }`}
                 style={{
-                  aspectRatio: previewAspect,
-                  backgroundColor: style.bgColor,
+                  backgroundColor: frame.swatch ?? undefined,
+                  outline:
+                    frame.key === "white" ? "1px solid rgba(24, 52, 75, 0.18)" : undefined,
                 }}
               >
-                <LivePosterMap
-                  config={draft.config}
-                  bgColor={style.bgColor}
-                  textColor={style.textColor}
-                  layerPreset={draft.layerPreset || "everything"}
-                  pitch={draft.pitch || 0}
-                  interactive={false}
-                  showControls={false}
-                />
+                <div
+                  className="overflow-hidden rounded-sm border"
+                  style={{
+                    aspectRatio: previewAspect,
+                    backgroundColor: style.bgColor,
+                  }}
+                >
+                  <LivePosterMap
+                    config={draft.config}
+                    bgColor={style.bgColor}
+                    textColor={style.textColor}
+                    layerPreset={draft.layerPreset || "everything"}
+                    pitch={draft.pitch || 0}
+                    interactive={false}
+                    showControls={false}
+                  />
+                </div>
               </div>
 
               <div className="text-sm">
@@ -446,7 +502,7 @@ export default function OrderPage() {
                 </p>
                 <p className="text-muted-foreground">
                   {PHYSICAL_SIZES.find((s) => s.key === sizeKey)?.label} &middot;{" "}
-                  Qty {quantity}
+                  {frame.label} &middot; Qty {quantity}
                 </p>
               </div>
 

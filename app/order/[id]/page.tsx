@@ -28,6 +28,7 @@ interface OrderData {
   id: string;
   status: OrderStatus;
   size_label: string;
+  finish_label?: string | null;
   quantity: number;
   currency: string;
   amount_total: number | null;
@@ -177,7 +178,9 @@ function OrderConfirmationInner() {
                     : "Order confirmed"}
               </CardTitle>
               <CardDescription>
-                {order.size_label} &middot; Qty {order.quantity}
+                {order.size_label}
+                {order.finish_label ? ` \u00b7 ${order.finish_label}` : ""} &middot; Qty{" "}
+                {order.quantity}
                 {order.amount_total != null &&
                   ` \u00b7 ${order.currency} ${order.amount_total.toFixed(2)}`}
               </CardDescription>

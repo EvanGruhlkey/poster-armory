@@ -2,14 +2,49 @@
  * Physical poster catalog: maps our print sizes to Gelato product UIDs and to
  * the render dimensions the Python CLI should use.
  *
- * IMPORTANT: the default product UIDs below are best-effort placeholders. Pull
- * the exact UIDs for the poster line you want to sell from your Gelato catalog
- * (https://dashboard.gelato.com/catalogue/categories) and override them via env
- * (e.g. GELATO_PRODUCT_UID_18X24_PORTRAIT). Resolution happens server-side, so
- * the client only ever needs the labels/keys exported here.
+ * Unframed UIDs can be overridden with GELATO_PRODUCT_UID_<SIZE>_<ORIENTATION>.
+ * Wood-frame UIDs are the activated Gelato framed-posters: 200 gsm uncoated
+ * paper, a 12 mm wood face, and plexiglass. Resolution happens server-side, so
+ * the client only ever needs the labels and keys exported here.
  */
 
 export type ProductOrientation = "portrait" | "landscape";
+
+export const FRAME_FINISH_KEYS = [
+  "none",
+  "natural-wood",
+  "dark-wood",
+  "black",
+  "white",
+] as const;
+
+export type FrameFinish = (typeof FRAME_FINISH_KEYS)[number];
+
+export interface FrameFinishOption {
+  key: FrameFinish;
+  label: string;
+  /** Short description shown with the choice. */
+  detail: string;
+  /** Wood color for the preview border. Null is an unframed print. */
+  swatch: string | null;
+}
+
+export const FRAME_FINISHES: FrameFinishOption[] = [
+  { key: "none", label: "No frame", detail: "Print only", swatch: null },
+  {
+    key: "natural-wood",
+    label: "Natural wood",
+    detail: "Light wood, like the homepage",
+    swatch: "#C4A574",
+  },
+  { key: "dark-wood", label: "Dark wood", detail: "Dark brown", swatch: "#5C3A21" },
+  { key: "black", label: "Black", detail: "Black wood", swatch: "#1A1A1A" },
+  { key: "white", label: "White", detail: "White wood", swatch: "#F4F1EA" },
+];
+
+export function getFrameFinish(key: string | null | undefined): FrameFinishOption | null {
+  return FRAME_FINISHES.find((finish) => finish.key === key) ?? null;
+}
 
 export interface PhysicalSize {
   key: string;
@@ -54,14 +89,38 @@ export function normalizeOrientation(
 }
 
 /**
- * Resolve the Gelato product UID for a size + orientation, preferring an env
- * override of the form GELATO_PRODUCT_UID_<SIZEKEY>_<ORIENTATION>
- * (e.g. GELATO_PRODUCT_UID_18X24_PORTRAIT). Server-side only.
+ * Gelato framed-posters catalog slugs for the sizes we sell.
+ * Confirmed activated products: 200 gsm uncoated, 12 mm wood face,
+ * 22 mm deep, plexiglass. Natural wood is the light frame on the homepage.
+ */
+const FRAMED_SIZE_SLUGS: Record<string, string> = {
+  "8x10": "8x10-inch-200x250-mm",
+  "12x16": "12x16-inch-300x400-mm",
+  "18x24": "18x24-inch-450x600-mm",
+};
+
+function framedProductUid(
+  sizeKey: string,
+  orientation: ProductOrientation,
+  finish: Exclude<FrameFinish, "none">
+): string | null {
+  const slug = FRAMED_SIZE_SLUGS[sizeKey];
+  if (!slug) return null;
+  const gelatoOrientation = orientation === "landscape" ? "hor" : "ver";
+  return `framed_poster_${slug}_${finish}_wood_w12xt22-mm_plexiglass_${slug}_200-gsm-80lb-uncoated_4-0_${gelatoOrientation}`;
+}
+
+/**
+ * Resolve the Gelato product UID for a size, orientation, and frame.
+ * Unframed prints still prefer GELATO_PRODUCT_UID_<SIZEKEY>_<ORIENTATION>.
+ * Framed prints use the catalog UIDs above. Server-side only.
  */
 export function getProductUid(
   sizeKey: string,
-  orientation: ProductOrientation
+  orientation: ProductOrientation,
+  finish: FrameFinish = "none"
 ): string | null {
+  if (finish !== "none") return framedProductUid(sizeKey, orientation, finish);
   const envKey = `GELATO_PRODUCT_UID_${sizeKey.toUpperCase()}_${orientation.toUpperCase()}`;
   const override = process.env[envKey];
   if (override && override.trim()) return override.trim();

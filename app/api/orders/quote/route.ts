@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     const {
       size_key,
       orientation,
+      finish,
       quantity,
       country,
       state,
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
       city,
     } = parsed.data;
     const productOrientation = normalizeOrientation(orientation);
-    const productUid = getProductUid(size_key, productOrientation);
+    const productUid = getProductUid(size_key, productOrientation, finish);
     if (!productUid) {
       return NextResponse.json(
         { error: "That size is not available." },

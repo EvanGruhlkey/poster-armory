@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FRAME_FINISH_KEYS } from "@/lib/poster-products";
 
 export const locationSchema = z.object({
   city: z.string().min(1, "City is required").max(200),
@@ -142,6 +143,7 @@ export const shippingAddressSchema = z.object({
 export const orderQuoteSchema = z.object({
   size_key: z.string().min(1).max(40),
   orientation: z.enum(["portrait", "landscape", "square"]).default("portrait"),
+  finish: z.enum(FRAME_FINISH_KEYS).default("none"),
   quantity: z.number().int().min(1).max(50).default(1),
   country: z
     .string()
@@ -159,6 +161,7 @@ export const createOrderSchema = z.object({
   config: posterConfigSchema,
   size_key: z.string().min(1).max(40),
   orientation: z.enum(["portrait", "landscape", "square"]).default("portrait"),
+  finish: z.enum(FRAME_FINISH_KEYS).default("none"),
   quantity: z.number().int().min(1).max(50).default(1),
   shipping: shippingAddressSchema,
 });

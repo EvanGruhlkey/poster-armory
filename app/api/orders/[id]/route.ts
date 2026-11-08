@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { applyRateLimit } from "@/lib/rate-limit";
-import { getPhysicalSize } from "@/lib/poster-products";
+import { getFrameFinish, getPhysicalSize } from "@/lib/poster-products";
 
 export async function GET(
   _request: Request,
@@ -57,12 +57,16 @@ export async function GET(
     }
 
     const size = getPhysicalSize(order.size_key);
+    const storedFinish = (order.config as { print_finish?: string } | null)
+      ?.print_finish;
+    const frame = storedFinish ? getFrameFinish(storedFinish) : null;
 
     return NextResponse.json({
       id: order.id,
       status: order.status,
       size_key: order.size_key,
       size_label: size?.label ?? order.size_key,
+      finish_label: frame?.label ?? null,
       quantity: order.quantity,
       currency: order.currency,
       amount_total: order.amount_total,

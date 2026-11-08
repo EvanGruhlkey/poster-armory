@@ -8,6 +8,7 @@ import { computeConfigHash } from "@/lib/config-hash";
 import { getQuote, gelatoConfigured } from "@/lib/gelato";
 import { computeAmounts, getCurrency } from "@/lib/order-pricing";
 import {
+  getFrameFinish,
   getPhysicalSize,
   getProductUid,
   getRenderDimensions,
@@ -54,11 +55,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const { config, size_key, orientation, quantity, shipping } = parsed.data;
+    const { config, size_key, orientation, finish, quantity, shipping } =
+      parsed.data;
 
     const size = getPhysicalSize(size_key);
+    const frame = getFrameFinish(finish);
     const productOrientation = normalizeOrientation(orientation);
-    const productUid = getProductUid(size_key, productOrientation);
+    const productUid = getProductUid(size_key, productOrientation, finish);
     if (!size || !productUid) {
       return NextResponse.json(
         { error: "That size is not available." },
@@ -146,7 +149,7 @@ export async function POST(request: Request) {
       .insert({
         user_id: user.id,
         job_id: jobId,
-        config: renderConfig,
+        config: { ...renderConfig, print_finish: finish },
         config_hash: configHash,
         size_key,
         product_uid: productUid,
@@ -191,7 +194,10 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle();
 
-    const productName = `Poster print — ${config.title || config.city || "Custom"} (${size.label})`;
+    const title = config.title || config.city || "Custom";
+    const frameLabel =
+      frame && frame.key !== "none" ? `, ${frame.label} frame` : "";
+    const productName = `Poster print — ${title} (${size.label}${frameLabel})`;
 
     const sessionParams: Record<string, unknown> = {
       mode: "payment",
